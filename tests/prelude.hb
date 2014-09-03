@@ -462,7 +462,14 @@ class Monad m where
 
 class Proc p | Monad p
 
-instance Proc m if Monad m  -- implementation required by specializer
+primitive type M :: * -> *
+primitive primReturnM :: a -> M a
+instance Monad M
+  where return  = primReturnM
+        c >>= f = do v <- c; f v
+
+instance Proc M
+else Proc m if Monad m  -- implementation required by specializer
 else Proc m fails
 
 instance Monad Maybe where
