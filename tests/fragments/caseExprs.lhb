@@ -1,8 +1,16 @@
 ### Some examples using case expressions:
 
-> data List a = Nil | Cons a (List a)
+> requires prelude
 
-> otherwise = otherwise
+> data List a = Nil | Cons a (List a)
+> Nil ++ ys = ys
+> Cons x xs ++ ys = Cons x (xs ++ ys)
+> instance Monad List
+>    where return x = Cons x Nil
+>          Nil >>= _ = Nil
+>          Cons x xs >>= f = f x ++ (xs >>= f)
+
+otherwise = otherwise
 
 > map f xs = case xs of
 >              Nil -> Nil
@@ -31,12 +39,11 @@
 >  of Nil -> Nil
 >     Cons x xs -> Cons x (append xs ys)
 
-> return :: a -> p a
-> return  = return
+return :: a -> p a
+return  = return
 
 > filter p xs = case xs of
 >                 Nil -> Nil
 >                 Cons y ys | p y -> Cons y rest
 >                           | otherwise -> rest
 >                             where rest = filter p ys
-

@@ -1,4 +1,4 @@
-requires miniprelude
+requires prelude
 
 bitdata Foo = Foo [ x = 0 :: Unsigned ]
             | Bar [ y :: Bit 16 | z :: Bit 16 ]
@@ -26,4 +26,3 @@ f x = case x of
 g x = case x of
         Foo r -> Foo [x = r.x + 1]
         Bar r -> Bar [y = r.y | z = r.y + r.z]
-

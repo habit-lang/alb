@@ -1,4 +1,4 @@
-requires miniprelude
+requires prelude
 requires test
 
 main = do
@@ -22,5 +22,3 @@ m5 () = 3
 main5 :: M Unsigned
 main5 = do x <- return (m5 ())
            return x
-
-

@@ -1,11 +1,6 @@
-requires miniprelude
-requires test
+requires prelude
+-- requires test
 
-instance Monad Maybe 
-   where return = Just
-         (Just i) >>= f = f i
-         Nothing >>= f = Nothing
-   
 data Ty = TyNat | TyFun Ty Ty
 
 instance Eq Ty where
@@ -25,13 +20,11 @@ env_lookup (Cons x xs) i | i == 0 = Just x
                          | True = env_lookup xs (i - 1)
 
 typecheck :: Env -> Lam -> Maybe Ty
-typecheck e (Var i) = case (env_lookup e i) of
-                       Nothing -> Nothing
-                       Just t -> Just t
+typecheck e (Var i) = env_lookup e i
 typecheck e Zero = return TyNat
 typecheck e (Suc l) = do
                   t <- typecheck e l
-                  case t of 
+                  case t of
                     TyNat -> return TyNat
                     _ -> Nothing
 typecheck e (App l l') = do
@@ -44,7 +37,9 @@ typecheck e (Abs t1 l) = do
                   t2 <- typecheck (Cons t1 e) l
                   return (TyFun t1 t2)
 
-main :: M Unsigned
-main = do
-  x <- runTests (Cons (return (Just (TyFun TyNat TyNat) == typecheck Nil (Abs TyNat (Var 0)))) Nil)
-  return x
+-- main :: M Unsigned
+-- main = do
+--   x <- runTests (Cons (return (Just (TyFun TyNat TyNat) == typecheck Nil (Abs TyNat (Var 0)))) Nil)
+--   return x
+
+main = Just (TyFun TyNat TyNat) == typecheck Nil (Abs TyNat (Var 0))

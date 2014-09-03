@@ -1,6 +1,6 @@
 -- Bug #51: Using Bounded (Ix n) causes a type error
 
-requires miniprelude
+requires prelude
 requires test
 
 main = do

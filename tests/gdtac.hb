@@ -100,5 +100,15 @@ instance Functor Product
     where fmap f (Product m n) = Product (f m) (f n)
 
 data Double e = Double e
+double_ e = In (inj (Double e))
 desugar = cases ((\(Double e) r -> sum_ (r e) (r e)) ?
                  (const `compose` In `compose` fmap desugar))
+
+type ExprFour = Expr (Const :+: (Sum :+: (Product :+: Double)))
+four :: ExprFour
+four = sum_ (const_ 1) (double_ (const_ 2))
+w    = evalTwo (desugar four)
+
+-- For specialization (probably the wrong type..)
+
+main = (x, y, z, w)

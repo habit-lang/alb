@@ -1,4 +1,8 @@
-requires miniprelude
+requires prelude
+requires list
+
+-- Perhaps these types could be updated?  I'm guessing that putchar should really return unit, and
+-- fflush doesn't need an argument?
 
 primitive getchar :: M Unsigned -- really should be Signed for -1
 primitive putchar :: Unsigned -> M Unsigned
@@ -23,7 +27,7 @@ getint = do x0 <- getchar
                             else do x3 <- getchar
                                     if x3 == (negate 1)
                                     then return (negate 1)
-                                    else return (x3 `bitShiftL` 24 + x2 `bitShiftL` 16 + x1 `bitShiftL` 8 + x0)
+                                    else return (x3 `shiftL` 24 + x2 `shiftL` 16 + x1 `shiftL` 8 + x0)
 
 putint :: Unsigned -> M ()
 putint d | d < 10 = do putchar (d + 0x30); return ()
@@ -43,7 +47,7 @@ putHexChar d | d < 0xa = putchar (d + 0x30)
 
 putHexInt :: Unsigned -> M ()
 putHexInt d | d < 16 = do putHexChar d; return ()
-            | True = do putHexInt (d `bitShiftR` 4); putHexInt (d .&. 0xF)
+            | True = do putHexInt (d `shiftR` 4); putHexInt (d .&. 0xF)
 
 putLine :: M Unsigned
 putLine = do

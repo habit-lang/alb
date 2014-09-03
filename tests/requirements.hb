@@ -1,4 +1,4 @@
-requires miniprelude
+requires prelude
 requires test
 
 -- Transitive closure of a class:
@@ -43,7 +43,7 @@ class D t
 require D t if C (Maybe t)
 
 instance C Unsigned
-   where foo = id
+   where foo x = x
 
 instance C (Maybe Bool)
     where foo _ = 1

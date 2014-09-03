@@ -1,6 +1,6 @@
 --  Hook's first Habit program, based on Okasaki Red Black Tree implementation
 
-requires miniprelude
+requires prelude
 requires list
 requires test
 
@@ -22,7 +22,7 @@ insert x s = case (ins s) of
 		ins s@(T color a y b)
 		      | x < y = balance color (ins a) y b
 		      | x > y = balance color a y (ins b)
-		      | True  = s     	
+		      | True  = s
 
 member :: Ord a => a -> RedBlackSet a -> Bool
 member x E = False

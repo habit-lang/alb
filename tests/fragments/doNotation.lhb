@@ -1,6 +1,6 @@
 ### Some examples using do notation:
 
-> requires miniprelude
+> requires prelude
 
 > test = test    -- Dummy test
 
@@ -65,7 +65,7 @@ Indentation variations:
 >               proc3
 >               proc3
 
-> (f @@ g) x = do y <- f x; g y
+> (f >=> g) x = do y <- f x; g y
 
 > proc4 = do do proc3
 >               proc3

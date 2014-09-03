@@ -1,17 +1,12 @@
 ### Flexpage data type and operations:
 
-> requires miniprelude
-> otherwise = True
-> infixl 7 # -- what precidence should this really be?
-> (#) :: Bit n -> Bit m -> Bit (n + m)
-> (#)  = (#)
+This file originally depended on implicit coercions between Unsigned and Bit 32.  I've made all the
+transitions explicit.  However, it leaves me suspicious that maybe there should be something else
+going on here.
 
+> requires prelude
 
-> type WordSize = 32
-> type ByteSize = 8
-
-
-Permissions:
+  Permissions:
 
 > bitdata Perms = Perms [ r, w, x :: Bit 1 ]
 >
@@ -45,7 +40,7 @@ Flexpages:
 > fpmask n
 >   | n==1 || n==32 = not 0
 >   | n<12 || n>32  = 0
->   | otherwise     = (1 `shiftL` n) - 1
+>   | otherwise     = (1 `shiftL` unsigned n) - 1
 
 It would be nice to have *fpmask* and *fpsize* compiled into
 lookup tables.
@@ -69,10 +64,10 @@ Nil and complete flexpages:
 Flexpage address ranges:
 
 > fpageStart        :: Fpage -> Unsigned
-> fpageStart fp      = (fp.base # 0) .&. not (fpageMask fp)
+> fpageStart fp      = (Unsigned[bits = fp.base :# 0]) .&. not (fpageMask fp)
 >
 > fpageEnd          :: Fpage -> Unsigned
-> fpageEnd fp        = (fp.base # 0) .|. fpageMask fp
+> fpageEnd fp        = (Unsigned[bits = fp.base :# 0]) .|. fpageMask fp
 
 
 > inside            :: Fpage -> Fpage -> Bool
@@ -91,10 +86,17 @@ Flexpage address ranges:
 
 Trimming flexpages:
 
-> trimFpage :: Fpage -> Unsigned -> Fpage -> Fpage
+JGM: A couple of notes:
+
+First, this code originally had base :: Unsigned instead of base :: Bit 22.  That seems doomed to
+me---at least, we should have to explicit lose the top 10 bits.
+
+Second, I had to add type annotations for bmask and smask to get them to type.  Off the top of my
+head, this should not be necessary: bmask has to be 22 bits to be .&.'d with big.base, and smask has
+to be the size of bmask (or of base).  I suspect this may have to do with let-generalization...
+
+> trimFpage :: Fpage -> Bit 22 -> Fpage -> Fpage
 > trimFpage big base small
 >   = small [ base = (big.base .&. not bmask) .|. (base .&. bmask .&. not smask) ]
->     where (bmask # _ ) = fpageMask big
->           (smask # _ ) = fpageMask small
-
-
+>     where Unsigned[bits = (bmask :: Bit 22) :# _] = fpageMask big
+>           Unsigned[bits = (smask :: Bit 22) :# _] = fpageMask small
