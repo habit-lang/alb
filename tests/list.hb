@@ -1,4 +1,4 @@
-requires miniprelude
+requires prelude
 
 data List a = Nil | Cons a (List a)
 

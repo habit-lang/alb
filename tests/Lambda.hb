@@ -1,11 +1,11 @@
-requires miniprelude
+requires prelude
 requires test
 
-instance Monad Maybe 
+instance Monad Maybe
    where return = Just
          (Just i) >>= f = f i
          Nothing >>= f = Nothing
-   
+
 data Ty = TyNat | TyFun Ty Ty
 
 instance Eq Ty where
@@ -31,7 +31,7 @@ typecheck e (Var i) = case (env_lookup e i) of
 typecheck e Zero = return TyNat
 typecheck e (Suc l) = do
                   t <- typecheck e l
-                  case t of 
+                  case t of
                     TyNat -> return TyNat
                     _ -> Nothing
 typecheck e (App l l') = do
