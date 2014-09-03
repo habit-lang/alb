@@ -1,21 +1,19 @@
-requires miniprelude
+requires prelude
 requires test
 
-data Prod a b = Pair a b
-
-data State s a = S (s -> Prod a s)
+data State s a = S (s -> (a, s))
 
 instance Monad (State s) where
-  return a = S (\ s -> Pair a s)
+  return a = S (\ s -> (a, s))
   (S m) >>= f = S (\s -> case m s of
-                           Pair a s' -> case f a of 
-                                           S f' -> f' s')
+                           (a, s') -> case f a of
+                                        S f' -> f' s')
 
 get :: Unit -> State s s
-get _ = S (\s -> Pair s s)
+get _ = S (\s -> (s, s))
 
 put :: s -> State s ()
-put s = S (\s' -> Pair () s)
+put s = S (\s' -> ((), s))
 
 type MyS s = State Unsigned s
 
@@ -26,11 +24,11 @@ incr _ = do
 
 execState :: State s a -> s -> s
 execState (S f) s = case f s of
-                      Pair _ s' -> s'
+                      (_, s') -> s'
 
 evalState :: State s a -> s -> a
 evalState (S f) s = case f s of
-                      Pair a _ -> a
+                      (a, _) -> a
 
 main :: M Unsigned
 main = do

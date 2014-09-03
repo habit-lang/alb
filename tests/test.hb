@@ -1,4 +1,4 @@
-requires miniprelude
+requires prelude
 requires list
 requires io
 
@@ -32,6 +32,7 @@ runTests xs = f 0 0 xs where
     putchar 0x73 -- s
     putchar 0x73 -- s
     putchar 0x5D -- ]
+    putchar 0x0A -- \n
     return (total - pass)
   f pass total (Cons m ms) = do
     pass' <- if<- m then do putchar passChar; return (pass+1) else do putchar failChar; return pass

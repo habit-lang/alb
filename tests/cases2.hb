@@ -1,4 +1,4 @@
-requires miniprelude
+requires prelude
 requires test
 
 class F t u | t -> u

@@ -1,5 +1,8 @@
-requires miniprelude
+requires prelude
+requires mem
 requires test
+
+
 main = do
   x <- runTests (map (equalM 3) (Cons main3 (Cons mayne (Cons mine (Cons mane (Cons maine (Cons meh (Cons ma (Cons mania (Cons manna Nil))))))))))
   return x
@@ -47,17 +50,17 @@ bthree :: Unsigned -> Unsigned -> Unsigned
 bthree x y = if x == y then
                 if not (y == x) then
                    2
-                else 
+                else
 		   3
              else 1
-               
+
 
 area ne <- (initStored 3) :: Ref(Stored Unsigned)
 ma :: M Unsigned
 
 ma = do v <- readRef ne
         case v of
-          100000000 -> return 3
+          50 -> return 3
           10 -> do writeRef ne (v + 2)
                    ma
           _ -> do writeRef ne (v + 1)
@@ -68,6 +71,8 @@ area nia <- myinit :: Ref (Array 3 (Stored Unsigned))
 
 myinit :: Init (Array 3 (Stored Unsigned))
 myinit = initArray (\x -> initStored (unsigned x))
+
+(@) = (@@)
 
 mania :: M Unsigned
 mania = do v <- readRef (nia @ 2)
@@ -101,7 +106,7 @@ sequence_ (Cons l ls) = do x <- l
 
 manna :: M Unsigned
 manna = do v <- readRef ne'
-           if v /= 60003
+           if v /= 303
            then do x <- sequence_ (map farble (Cons 1 (Cons 2 (Cons 3 Nil))))
                    manna
            else return 3

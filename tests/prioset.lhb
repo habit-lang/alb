@@ -1,6 +1,7 @@
 ### Priority set example:
 
-> requires miniprelude
+> requires prelude
+> requires mem
 > requires list
 > requires test
 
@@ -21,6 +22,7 @@ readUnsigned r = do bs <- readRef r
 writeUnsigned :: Ref (Stored (Bit 32)) -> Unsigned -> M ()
 writeUnsigned r (Unsigned [bits = bs]) = writeRef r bs
 
+> (@) = (@@)
 > prioSet       :: Ix NumPrio -> Priority -> M ()
 > prioSet i prio = do writeRef (prioset @ i) prio
 >                     writeRef (prioidx @ prio) i
@@ -36,7 +38,7 @@ Inserting priorities:
 > heapRepairUp       :: Ix NumPrio -> Priority -> M ()
 > heapRepairUp i prio = case decIx i of
 >                         Nothing -> prioSet 0 prio  -- at the root
->                         Just j  -> do let parent = (j `bitShiftR` 1) -- was shiftL !!
+>                         Just j  -> do let parent = (j `shiftR` 1) -- was shiftL !!
 >                                       pprio <- readRef (prioset @ parent)
 >                                       if pprio < prio then
 >                                         prioSet i pprio
