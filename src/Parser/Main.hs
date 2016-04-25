@@ -14,7 +14,6 @@ import Text.Parsec.Indentation
 import Syntax.Surface hiding (decls, kind)
 import qualified Syntax.Surface as AST
 import Parser.Lexer
---import Parser.Monad
 
 {- Section 3.2: Identifiers, symbols, and literals -}
 -- FIXME: the names of the functions here don't quite match the names used
@@ -138,16 +137,35 @@ atype' = choice [ reservedOp "_" >> return TyWild
                                          return (TyTuple (t:ts))
                                     , return (dislocate t) ]) ]
 
+typeNote :: ParseM TypeNote
+typeNote = try (do t <- located atype'
+                   op <- located tyconsym
+                   return (TNLeftSection t op))
+       <|> try (do op <- located tyconsym
+                   t <- located atype'
+                   return (TNRightSection op t))
+       <|> (do t <- typeApp
+               case t of
+                 TyVar v    -> return (TNVar v)
+                 TyCon v    -> return (TNCon v)
+                 TyApp t t' -> return (TNApp t t')
+                 _          -> fail "Unrecognized type note")
+
+notedType = do t <- located atype
+               notes <- option [] $ try $ braces (commaSep1 (located typeNote))
+               if null notes then return (dislocate t) else return (TyNote t notes)
+
 typeApp :: ParseM Type
-typeApp = dislocate `fmap` chainl1 (located atype) (return app)
+typeApp = dislocate `fmap` chainl1 (located notedType) (return app)
     where app t t' = at t (TyApp t t')
 
 type_ :: ParseM Type
-type_ = do t <- chain typeApp tyconsym TyInfix
+type_ = do t <- chain typeApp tyop TyInfix
            k <- optionMaybe (reservedOp "::" >> located kind)
            return $ case k of
                       Nothing -> dislocate t
                       Just k  -> TyKinded t k
+    where tyop = tyconsym +++ option [] (try $ braces (commaSep1 (located typeNote)))
 
 {- Section 3.3.3 -}
 

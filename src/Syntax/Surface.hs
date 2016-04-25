@@ -20,8 +20,16 @@ data Type = TyCon Id
           | TyKinded (Located Type) (Located Kind)
           | TyLabel Id
           | TySelect (Located Type) (Located Id)
-          | TyInfix (Located Type) [(Located Id, Located Type)]
+          | TyInfix (Located Type) [(Located (Id, [Located TypeNote]), Located Type)]
+          | TyNote (Located Type) [Located TypeNote]
             deriving (Eq, Show, Typeable, Data)
+
+data TypeNote = TNVar Id
+              | TNCon Id
+              | TNApp (Located Type) (Located Type)
+              | TNLeftSection (Located Type) (Located Id)
+              | TNRightSection (Located Id) (Located Type)
+                deriving (Eq, Show, Typeable, Data)
 
 --------------------------------------------------------------------------------
 -- Predicates and qualifiers

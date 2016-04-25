@@ -349,7 +349,7 @@ buildPipeline options =
           exported = nub (maybe id (:) (mainId options) (map fst (exports options)))
 
           toDesugar
-            = fixityProgram >=> freshenProgram >=> eliminateTuplesProgram >=>
+            = fixityProgram >=> freshenProgram >=> deNoteProgram >=> eliminateTuplesProgram >=>
               desugarProgram >=> patternTuplesProgram >=> generateTuples >=>
               rewriteFunctionalNotation
 

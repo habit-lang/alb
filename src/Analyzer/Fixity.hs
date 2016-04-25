@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances #-}
 module Analyzer.Fixity (fixityProgram) where
 
 -- This module resolves the fixities of infix forms (i.e. TyInfix, EInfix, and PInfix) and
@@ -11,8 +11,9 @@ import Data.Generics hiding (Fixity)
 import qualified Data.Map as Map
 
 import Common
-import Syntax.Common
-import Syntax.Surface
+import Syntax.Common hiding (setFixity)
+import qualified Syntax.Common (setFixity)
+import Syntax.Surface hiding (setFixity)
 
 type M a = ReaderT Fixities Base a
 
@@ -74,6 +75,23 @@ instance (WithFixity a) => WithFixity [a] where
 instance (WithFixity a) => WithFixity (Located a) where
     withFixity (At s a) = withFixity a
 
+-- THis is silly...
+
+class IdLike t
+    where idFrom :: t -> Id
+          fixity :: t -> Map.Map Id (Located Fixity) -> Fixity
+          setFixity :: Fixity -> t -> t
+
+instance IdLike Id
+    where idFrom s = s
+          fixity s m = maybe (Fixity LeftAssoc 9) dislocate (Map.lookup s m)
+          setFixity f id = Syntax.Common.setFixity f id
+
+instance IdLike (Id, [Located TypeNote])
+    where idFrom (s, _) = s
+          fixity (s, _) = fixity s
+          setFixity f (s, ns) = (setFixity f s, ns)
+
 ----------------------------------------------------------------------------------------------------
 -- Associativity resolving
 ----------------------------------------------------------------------------------------------------
@@ -86,25 +104,25 @@ instance (WithFixity a) => WithFixity (Located a) where
 -- This type is only used as the result of tighter (below)
 data Result = First | Second | Neither
 
-resolveInfix :: (Id -> Bool)                -- Predicate distinguishing constructor names
+resolveInfix :: IdLike u
+             => (u -> Bool)                 -- Predicate distinguishing constructor names
              -> Map.Map Id (Located Fixity) -- Relevant fixity map
              -> (t -> t -> t)               -- Application constructor
-             -> (Located Id -> t)           -- Constructor constructor
-             -> (Located Id -> t)           -- Variable constructor
+             -> (Located u -> t)            -- Constructor constructor
+             -> (Located u -> t)            -- Variable constructor
              -> t                           -- Left-most subexpression
-             -> [(Located Id, t)]           -- Remaining operators and subexpressions
+             -> [(Located u, t)]            -- Remaining operators and subexpressions
              -> M t
 resolveInfix _ _ _ _ _ _ [] = error "resolveInfix called with empty tail"
 resolveInfix isConId fixities app con var lhs ((op,rhs):tail) =
     case loop [(lhs,op)] rhs tail of
       Left (At loc id1, At _ id2) ->
           failWithS ("At " ++ show loc ++ ": " ++
-                     "inconsistent fixities for operators " ++ fromId id1 ++
-                     " and " ++ fromId id2)
+                     "inconsistent fixities for operators " ++ fromId (idFrom id1) ++
+                     " and " ++ fromId (idFrom id2))
       Right t                     -> return t
-    where fixity (At loc s) = maybe (Fixity LeftAssoc 9) dislocate (Map.lookup s fixities)
-          app2 lhs op rhs = app (app (if isConId (dislocate op) then con op' else var op') lhs) rhs
-              where op' = fmap (setFixity (fixity op)) op
+    where app2 lhs op rhs = app (app (if isConId (dislocate op) then con op' else var op') lhs) rhs
+              where op' = fmap (setFixity (fixity (dislocate op) fixities)) op
 
           tighter op0 op1
               | fix0 > fix1 = First
@@ -113,8 +131,8 @@ resolveInfix isConId fixities app con var lhs ((op,rhs):tail) =
                               (LeftAssoc, LeftAssoc)   -> First
                               (RightAssoc, RightAssoc) -> Second
                               _                        -> Neither
-              where Fixity assoc0 fix0 = fixity op0
-                    Fixity assoc1 fix1 = fixity op1
+              where Fixity assoc0 fix0 = fixity (dislocate op0) fixities
+                    Fixity assoc1 fix1 = fixity (dislocate op1) fixities
 
           -- The basic idea is that we maintain a stack of (expr, operator) pairs on the left, the
           -- current expression (e), and a tail of (operator, expr) pairs to the right.  At each step,
@@ -174,8 +192,10 @@ fixityProgram' = rec where
         `extM` rhs `extM` area `extM` primitive `extM` program
   typ (TyInfix head tail) = do
     fixities <- asks typeFixities
-    At _ t' <- resolveInfix isTyConId fixities (\t1 t2 -> at t1 (TyApp t1 t2)) (fmap TyCon) (fmap TyVar) head tail
+    At _ t' <- resolveInfix (isTyConId . fst) fixities (\t1 t2 -> at t1 (TyApp t1 t2)) (noted TyCon) (noted TyVar) head tail
     rec t'
+    where noted c (At l (s, [])) = At l (c s)
+          noted c (At l (s, ns)) = At l (TyNote (At l (c s)) ns)
   typ t = gmapM rec t
   expr e@(ELet decls _) = withFixity decls $ gmapM rec e
   expr e@(ELam pats _) = withFixity pats $ gmapM rec e

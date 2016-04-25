@@ -38,7 +38,17 @@ instance Printable Type
           ppr (TyKinded t k) = ppr t <+> text "::" <+> ppr k
           ppr (TyLabel s) = char '#' <> ppr s
           ppr (TySelect t (At _ l)) = withPrecedence 10 (ppr t) <> dot <> ppr l
-          ppr (TyInfix first rest) = atPrecedence 8 (withPrecedence 9 (ppr first <+> hsep [ ppr op <+> ppr t | (op, t) <- rest ]))
+          ppr (TyInfix first rest) = atPrecedence 8 (withPrecedence 9 (ppr first <+> hsep [ pprOpNotes op <+> ppr t | (op, t) <- rest ]))
+              where pprOpNotes (At _ (op, [])) = ppr op
+                    pprOpNotes (At _ (op, notes)) = ppr op <+> braces (cat (punctuate comma (map ppr notes)))
+          ppr (TyNote t notes) = ppr t <+> braces (cat (punctuate comma (map ppr notes)))
+
+instance Printable TypeNote
+    where ppr (TNVar id) = ppr id
+          ppr (TNCon id) = ppr id
+          ppr (TNApp t t') = atPrecedence 9 (ppr t <+> withPrecedence 10 (ppr t'))
+          ppr (TNLeftSection t op) = ppr t <+> ppr op
+          ppr (TNRightSection op t) = ppr op <+> ppr t
 
 instance Printable Pred
     where ppr (Pred (At _ t) mt Holds) =
