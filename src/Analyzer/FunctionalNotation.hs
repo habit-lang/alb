@@ -50,7 +50,7 @@ rewriteType t@(At loc (TyApp t0 t1)) =
           do args' <- mapM rewriteType args
              a <- arity name
              case a of
-               ClassArity n True
+               ClassArity n _
                    | n > length args' + 1 ->
                        failAt loc $ failWithS ("Insufficient number of arguments for functional notation with class " ++ fromId name)
                    | n == length args' + 1 ->
@@ -61,7 +61,7 @@ rewriteType t@(At loc (TyApp t0 t1)) =
                        do v <- lift (fresh "f")
                           tell [(At l $ Pred name (take (n - 1) args' ++ [At loc (TyVar v)]) Holds, v)]
                           return (foldl (@@) (At loc (TyVar v)) (drop (n - 1) args'))
-               ClassArity n _ -> failAt loc $ failWithS ("Invalid use of functional notation with class " ++ fromId name)
+--               ClassArity n _ -> failAt loc $ failWithS ("Invalid use of functional notation with class " ++ fromId name)
                TypeArity n ->
                    if length args' > n
                    then failAt loc $ failWithS ("Too many arguments to type constructor " ++ fromId name)
@@ -75,12 +75,12 @@ rewriteType t@(At loc (TyCon name)) =
     failAt loc $
     do a <- arity name
        case a of
-         ClassArity 1 True ->
+         ClassArity 1 _ ->
              do v <- lift (fresh "f")
                 tell [(introduced $ Pred name [At loc (TyVar v)] Holds, v)]
                 return (At loc (TyVar v))
-         ClassArity 1 False ->
-             failWithS "Invalid use of functional notation"
+--         ClassArity 1 False ->
+--             failWithS "Invalid use of functional notation"
          _ -> return t
 rewriteType t = return t
 
