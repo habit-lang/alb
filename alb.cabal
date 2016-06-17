@@ -45,16 +45,17 @@ Cabal-version:       >=1.2
 
 Library
   Build-Depends:  base >= 4 && < 5, parsec >= 3.1.1, mtl >= 2, strict >= 0.3, indentation >= 0.2.1
-  exposed-modules: Common, Delayed, Literate, Parser
+--  exposed-modules: Common, Delayed, Literate, Parser
+  exposed-modules: Common, Literate, Parser
                  , Solver, Specializer, Typechecker
                  , Analyzer.Desugaring, Analyzer.Fixity, Analyzer.Freshening
                  , Analyzer.FunctionalNotation, Analyzer.Tuples
-                 , Fidget.AST, Fidget.CollectExterns, Fidget.Env, Fidget.FidgetCleanup
+                 , Fidget.AST, Fidget.Env, Fidget.FidgetCleanup
                  , Fidget.LambdaCaseToFidget, Fidget.Mangle, Fidget.Pretty
                  , Fidget.RenameTypes, Fidget.RenameVars, Fidget.SpecialTypes
-                 , Fidget.Thunkify, Fidget.Utils
+                 , Fidget.Thunkify
                  , Normalizer.EtaInit, Normalizer.Inliner, Normalizer.PatternMatchCompiler
-                 , Parser.Lexer, Parser.Main, Parser.Monad
+                 , Parser.Lexer, Parser.Main
                  , Printer.Common, Printer.IMPEG
                  , Printer.LambdaCase, Printer.Specialized
                  , Printer.Surface, Printer.WadlerLeijen, Printer.XMPEG
@@ -69,6 +70,7 @@ Library
                  , Typechecker.LambdaCaseTyping, Typechecker.TypeInference
   other-modules:
   Hs-Source-Dirs: src
+  extensions: DoAndIfThenElse, OverloadedStrings
 
 -- Junk modules: Printer.PrettyMPEG, Solver.RunTests, Printer.LambdaCaseAbstract
 
@@ -80,7 +82,7 @@ Executable alb
   Build-depends:    base >= 4 && < 6, parsec >= 3.1.1, mtl >= 2, strict >= 0.3
                   , template-haskell >= 2.4, containers >= 0.3, filepath >= 1.1
                   , directory >= 1.0, pretty >= 1.1, process >= 1.0
-                  , syb >= 0.1, array >= 0.3, transformers >= 0.2, TYB
+                  , syb >= 0.1, array >= 0.3, transformers >= 0.2, TYB >= 0.2.3
                   , indentation >= 0.2.1
 
   -- Modules not exported by this package.
@@ -89,3 +91,4 @@ Executable alb
   -- Extra tools (e.g. alex, hsc2hs, ...) needed to build the source.
   Build-tools:
   Hs-Source-Dirs: src
+  extensions: DoAndIfThenElse, OverloadedStrings

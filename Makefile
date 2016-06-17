@@ -1,24 +1,29 @@
-GHC=ghc
+GHC=stack exec ghc --
+OPT=-XOverloadedStrings -O2 -j4 -o $@ -odir obj -hidir obj -isrc src/Driver.hs
+HIDE=-hide-package indentation-parsec-0.0 -hide-package indentation-core-0.0 -hide-package indentation-trifecta-0.0
 OBJDIR=obj
 
 .PHONY: all alb albp alb-hpc test ilab
 
 all: ilab alb
 
-alb:
-	$(GHC) --make -XOverloadedStrings -O2 -o $@ -odir obj -hidir obj -isrc src/Driver.hs -rtsopts
+stack: stack.yaml
+	stack setup && stack build --only-dependencies --ghc-options="-j4"
+
+alb: stack
+	$(GHC) $(HIDE) --make $(OPT) -rtsopts
 
 albp: alb
-	$(GHC) --make -XOverloadedStrings -O2 -o $@ -odir obj -hidir obj -isrc src/Driver.hs -rtsopts -prof -auto-all -osuf p_o -hisuf p_hi
+	$(GHC) --make $(OPT) -rtsopts -prof -auto-all -osuf p_o -hisuf p_hi
 
-alb-hpc:
-	$(GHC) -fhpc --make -fforce-recomp -XOverloadedStrings -O2 -o $@ -odir objhpc -hidir objhpc -isrc src/Driver.hs
+alb-hpc: stack
+	$(GHC) -fhpc --make -fforce-recomp $(OPT)
 
-albc:   ./src/albc/Albc.hs
+albc:   ./src/albc/Albc.hs stack
 	$(GHC) --make -O2 -o $@ -odir obj -hidir obj src/albc/Albc.hs
 
-ilab:
+ilab: stack
 	ghc --make -XOverloadedStrings -O2 -o ilab -odir obj -hidir obj -isrc -main-is Solver.REPL.main Solver.REPL
 
-test:
+test: alb
 	./alb -i tests -f main $(TEST)
