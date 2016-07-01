@@ -1,0 +1,8 @@
+[One Int (C Int Nil)]          : Yes [$a:one!0{Int, Nil}(g$j:none!0{Int}())]
+[One Int (C Int (C Bool Nil))] : Yes [$a:one!0{Int, C Bool Nil}(g$j:none!2{Int, Nil, Bool}(g$10:none!0{Int}()))]
+[One Int (C Bool (C Int Nil))] : Yes [$a:one!2{Int, C Int Nil, Bool}(g$j:one!0{Int, Nil}(g$12:none!0{Int}()))]
+[One Int (C Bool Nil)]         : No 
+[One Int (C Int (C Int Nil))]  : No 
+[One Int (C x (C Int Nil))]    : [$a:One Int (C x (C Int Nil))] remaining. []
+[One Int (C Int Int)]          : No 
+[One Int (C Bool Int)]         : No 

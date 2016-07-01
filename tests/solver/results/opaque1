@@ -1,0 +1,29 @@
+[C Int t]                  : Yes (improved to [C Int Int])
+[C Int Int]                : [C Int Int] remaining.
+[C Int Bool]               : [C Int Bool] remaining.
+[C Int t, C Float t]       : No 
+[C Int t, C Bool t]        : Yes (improved to [C Int Int, C Bool Int])
+[C Int t] if C Float t     : No 
+[C Int t] if C Bool t      : Yes (improved to [C Int Int] if C Bool Int)
+[C Int t, Eq t Bool]       : [C Int Bool] remaining. (improved to [C Int Bool, Eq Bool Bool])
+[C Int t, Eq t Int]        : [C Int Int] remaining. (improved to [C Int Int, Eq Int Int])
+[C Int t] if Eq t Bool     : [C Int Bool] remaining. (improved to [C Int Bool] if Eq Bool Bool)
+[C Int t] if Eq t Int      : [C Int Int] remaining. (improved to [C Int Int] if Eq Int Int)
+[C Int Int] if C Int Int   : Yes
+[C Int Bool] if C Int Bool : Yes
+[C Int t] if C Int Int     : Yes (improved to [C Int Int] if C Int Int)
+[C Int t] if C Int Bool    : Yes (improved to [C Int Bool] if C Int Bool)
+[C Int Int, C Int Int]     : [C Int Int] remaining.
+[D Int]                    : Yes
+[D Bool]                   : Yes
+[D Foo]                    : [D Foo] remaining.
+[E Int t]                  : [E Int t] remaining.
+[E Bool t]                 : [E Bool t] remaining.
+[E Int Int]                : [E Int Int] remaining.
+[E Bool Int]               : [E Bool Int] remaining.
+[E Int Bool]               : [E Int Bool] remaining.
+[F Int t]                  : [F Int t] remaining.
+[F Bool t]                 : [F Bool t] remaining.
+[F Int Int]                : [F Int Int] remaining.
+[F Bool Int]               : [F Bool Int] remaining.
+[F Int Bool]               : [F Int Bool] remaining.

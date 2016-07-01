@@ -1,0 +1,76 @@
+-- Various tests of opacity.
+
+C t u | t ~> u.
+C t u | opaque u.
+
+Eq t u | t ~> u, u ~> t.
+Eq t t.
+
+C Int Int.
+C Bool t if Eq t Int.
+C Float Bool.
+
+-- Simple opacity tests: predicates should only be resolved (either positively or negatively) if
+-- their opacity constraints are respected.
+
+C Int t?
+C Int Int?
+C Int Bool?
+
+-- Sharing tests: two predicates can share opaque variables, and should only be solvable if their
+-- (opaque) improvements are compatible.
+
+C Int t, C Float t?
+C Int t, C Bool t?
+C Int t if C Float t?
+C Int t if C Bool t?
+
+-- More complicated opacity tests: using additional predicates to fix type variables should not
+-- allow the violation of opacity constraints.
+
+C Int t, Eq t Bool?
+C Int t, Eq t Int?
+C Int t if Eq t Bool?
+C Int t if Eq t Int?
+
+-- Opacity and assumption: assumptions hold, even if they violate opacity constraints, but do not
+-- allow violation of other opacity constraints.  (This underlies the way that methods of classes
+-- with opacity constraints can be recursive.)
+
+C Int Int if C Int Int?
+C Int Bool if C Int Bool?
+C Int t if C Int Int?
+C Int t if C Int Bool?
+
+C Int Int, C Int Int?
+
+-- Because D does not refer to the opaque parameter of C, D should be provable for all the cases
+-- where 'C t u' is provable.
+
+D t if C t u.
+
+D Int?
+D Bool?
+D Foo?
+
+-- E, however, does refer to the opaque parameters of C.  So, E should not be provable if doing so
+-- would require violating an opacity constraint on 'C'.
+
+E t u if C t u.
+
+E Int t?
+E Bool t?
+E Int Int?
+E Bool Int?
+E Int Bool?
+
+-- Similarly, F should not give rise to improvements that violate the opacity constraint on C.
+
+F t u | t ~> u.
+F t u if C t u.
+
+F Int t?
+F Bool t?
+F Int Int?
+F Bool Int?
+F Int Bool?

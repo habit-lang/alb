@@ -1,0 +1,14 @@
+-- Generic variables and improvement: functional dependency on 'G' should not induce improvements
+-- from 'F' predicates.
+
+-- This seems like a duplication of the tests in 'generic'.
+
+G x y | x ~> y.
+G x x.
+
+F x y if G x y.
+
+H X.
+
+H y, F X y?
+H y if F X y?

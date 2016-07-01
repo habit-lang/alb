@@ -1,0 +1,177 @@
+****************************************
+* A guide on how to call Habit from C  *
+****************************************
+
+========================
+= A simple example     =
+========================
+
+The code for these examples are in habitat/compiler/tests as the
+from_c.hb, from_c_driver.c and habit_callbacks.c files. You can use
+make_from_c.sh to build that example code.
+
+Suppose we have functions with the following types defined in Habit.
+
+  inc :: Unsigned -> Unsigned -> M Unsigned
+  incPure :: Unsigned -> Unsigned -> Unsigned
+
+In order to call them from C, we need to do the following steps.
+
+--------------------------------
+- Export functions for Habit.  -
+--------------------------------
+
+To export functions from Habit pass the --export flag to alb.  This
+flag takes an argument that specifies both the Habit name of the
+function to be exported and the C name at which to export it.  These
+are separated by ",".
+
+For example to export inc under the C name inc we would pass
+'--export=inc,inc' to alb.  On the other hand to export it as inc_ we
+would pass '--export=inc,inc_'.
+
+In our example we will export "inc" as "inc" and "incPure" as "incPure" so
+our "alb" invocation looks like the following:
+
+  ../alb -f main from_c.hb -o from_c.fidget -O2 --export=inc,inc --export=incPure,incPure --print-export-signatures
+
+--------
+- Note -
+--------
+
+Currently you can only export function names. Constructors and
+operators (i.e. functions with strange symbols in their names) cannot
+be exported.
+
+--------
+- Note -
+--------
+
+Non-exported Habit functions have their names prefixed with a string
+to avoid collisions with either your C functions or your exported
+Habit functions.  At some point in the future we may make these static
+so they can't collide but for just be sure to not have any C functions
+with a name that starts with this prefix. By default this is "hb_",
+but you can set this by passing --habit-prefix to "alb".
+
+--------------------------------
+- Write prototypes for Habit   -
+--------------------------------
+
+Now we want to write the C prototypes for these exported functions.
+The easiest way to get these prototypes is to pass --print-export-signatures
+to alb and it will print the C prototypes of all exported functions.
+
+If we do that then we get the following prototypes:
+
+  extern unsigned inc(void * /*gc roots*/, unsigned /*int32*/, unsigned /*int32*/, unsigned /*unit*/);
+  extern unsigned incPure(void * /*gc roots*/, unsigned /*int32*/, unsigned /*int32*/);
+
+Both functions have been uncurryed and also have some new arguments.
+When a function is exported we generate a small bit of marshaling code on
+the Habit side that does this. In the future we may make this
+marshaling code smarter about how it does its job.
+
+The "gc roots" argument to both functions is the pointer to the stack
+of GC roots. Usually you should pass NULL for this. The "unit"
+argument is due to "inc" being monadic and is the "unit" argument that
+dethunkification generates.  You should pass "0" for this. (TODO:
+technically the value of the unit argument it may not matter.)
+
+--------
+- Note -
+--------
+
+Usually you should pass NULL for the "gc roots" parameter. An
+exception is when Habit code calls C code that then calls back into
+Habit code. In this case, you must take the "gc roots" parameter that
+was passed to "C" and pass it on to "Habit". Otherwise, the GC will
+collect things that it shouldn't and your program will crash.
+
+=========================
+= Call functions from C =
+=========================
+
+------------------
+- Initialization -
+------------------
+
+Before calling any habit functions from C you must call the 'main0'
+function. This function initializes the garbage collector.  It also
+calls any area initializers and the "main" function defined in your
+Habit file and that was specified as the argument to the -f flag.  (In
+practice, this is often a trivial that just returns zero but you can
+put any code that you want there.)
+
+The signature for main0 is:
+
+  extern int main0(void);
+
+----------------
+- Callbacks    -
+----------------
+
+Habit expects certain functions to be defined on the "C" side. They are the following:
+
+  /* The actual entry point from GCminor.  Called when the heap needs to be initialized. */
+  int init_heap();
+  
+  /* The actual entry point from GCminor.  Called  */
+  int alloc_raw_space (int root, int len);
+  
+  /* Called when the program encounters Eerror */
+  void fidget_error();
+  
+  If you chose to use the default Cheney collector (you probably will), then you will also
+  need to define the following functions on the "C" side.
+  
+  /* Called at the start of 'cheneyCollect' from inside 'cheneyAlloc'. */
+  void gc_alarm_start();
+  
+  /* Called at the end of 'cheneyCollect' from inside 'cheneyAlloc'. */
+  void gc_alarm(int live);
+
+These are generally used for status and debugging. Their bodies can be empty.
+
+That might seem like a lot, but the habit_callbacks.c file in
+habitat/compiler/tests provides good default implementations for all
+of these functions. So you can just link that file into your program
+and not have to worry about how to define these functions.
+
+------------------------
+- Calling the code     -
+------------------------
+
+Once you have done the appropriate setup, calling the code is straight forward:
+
+  printf("Monadic:%x\n", inc(NULL,0x40,0x30,0));
+  printf("Pure:%x\n", incPure(NULL,0x30,0x20));
+
+----------------
+- Linking      -
+----------------
+
+Nothing special is required to link Habit code into the C code.  Just
+be sure to remember to include all the appropriate files.  A typical
+command for doing this is:
+
+  ../../../compcert1.11-hasp/ccomp -o from_c.out from_c.fidget from_c_driver.c habit_callbacks.c ../../../compcert1.11-hasp/runtime/gc/cheney.o
+
+----------------
+- Misc Notes   -
+----------------
+
+Only monomorphic functions should be exported.
+
+Can only export functions with simple types. (Well you can export
+them, but you will get a pointer to them and who knows how they are
+layed out in memory.)
+
+In order to keep data live between calls to Habit, you can pass a
+pointer to the live object to the Habit function. However, you must
+ensure that it is live for the duration of the Habit function. Also,
+it may be nessisary to call C code form Habit in order to smuggle this
+code out.
+
+An example of doing this is in "from_c_with_live_data.c". Be warned
+that this is an advanced technique that is easy to get wrong.

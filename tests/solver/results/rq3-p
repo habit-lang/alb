@@ -1,0 +1,12 @@
+lte_m_n_lte_n_p_requires_lte_m_p:
+    (lte_s_m_s_n_if_lte_m_n!0{t$17, t$18}(g1), lte_s_m_s_n_if_lte_m_n!0{t$18, t$20}(g2)) -> lte_m_n_lte_n_p_requires_lte_m_p:lte_s_m_s_n_if_lte_m_n!0{t$17, t$20}(g$76:required(lte_m_n_lte_n_p_requires_lte_m_p, [_:assumption(g1), _:assumption(g2)]))
+    (lte_s_m_s_n_if_lte_m_n!0{t$25, t$17}(g2), lte_s_m_s_n_if_lte_m_n!0{t$17, t$18}(g1)) -> lte_m_n_lte_n_p_requires_lte_m_p:lte_s_m_s_n_if_lte_m_n!0{t$25, t$18}(g$82:required(lte_m_n_lte_n_p_requires_lte_m_p, [_:assumption(g2), _:assumption(g1)]))
+    (lte_p0_m!0{S t$17}(), lte_s_m_s_n_if_lte_m_n!0{t$17, t$18}(g1)) -> lte_m_n_lte_n_p_requires_lte_m_p:lte_p0_m!0{S t$18}()
+    (lte_p0_m!0{P0}(), lte_p0_m!0{t$51}()) -> lte_m_n_lte_n_p_requires_lte_m_p:lte_p0_m!0{t$51}()
+    (lte_p0_m!0{S t$55}(), lte_s_m_s_n_if_lte_m_n!0{t$55, t$56}(g1)) -> lte_m_n_lte_n_p_requires_lte_m_p:lte_p0_m!0{S t$56}()
+    (lte_p0_m!0{P0}(), lte_p0_m!0{t$52}()) -> lte_m_n_lte_n_p_requires_lte_m_p:lte_p0_m!0{t$52}()
+[Lte P0 P14]                          : Yes [$a:lte_p0_m!0{P14}()]
+[Lte P5 P14]                          : Yes [$a:lte_s_m_s_n_if_lte_m_n!0{P4, P13}(g$16:lte_s_m_s_n_if_lte_m_n!0{P3, P12}(g$29:lte_s_m_s_n_if_lte_m_n!0{P2, P11}(g$42:lte_s_m_s_n_if_lte_m_n!0{P1, P10}(g$55:lte_s_m_s_n_if_lte_m_n!0{P0, P9}(g$68:lte_p0_m!0{P9}())))))]
+[Lte P14 P5]                          : No 
+[Lte P5 P8, Lte P8 P16, Lte P5 P16]   : Yes [$a:lte_s_m_s_n_if_lte_m_n!0{P4, P7}(g$34:lte_s_m_s_n_if_lte_m_n!0{P3, P6}(g$60:lte_s_m_s_n_if_lte_m_n!0{P2, P5}(g$86:lte_s_m_s_n_if_lte_m_n!0{P1, P4}(g$118:lte_s_m_s_n_if_lte_m_n!0{P0, P3}(g$144:lte_p0_m!0{P3}()))))), $b:lte_s_m_s_n_if_lte_m_n!0{P7, P15}(g$47:lte_s_m_s_n_if_lte_m_n!0{P6, P14}(g$73:lte_s_m_s_n_if_lte_m_n!0{P5, P13}(g$105:lte_s_m_s_n_if_lte_m_n!0{P4, P12}(g$131:lte_s_m_s_n_if_lte_m_n!0{P3, P11}(g$157:lte_s_m_s_n_if_lte_m_n!0{P2, P10}(g$176:lte_s_m_s_n_if_lte_m_n!0{P1, P9}(g$189:lte_s_m_s_n_if_lte_m_n!0{P0, P8}(g$202:lte_p0_m!0{P8}())))))))), $c:required(lte_m_n_lte_n_p_requires_lte_m_p, [_:assumption($a), _:assumption($b)])]
+[Lte P5 P16] if Lte P5 P8, Lte P8 P16 : Yes [$c:required(lte_m_n_lte_n_p_requires_lte_m_p, [_:assumption($a), _:assumption($b)])]

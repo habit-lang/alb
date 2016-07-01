@@ -1,0 +1,34 @@
+> requires miniprelude
+
+Some simple examples:
+
+> struct Point [ x, y :: Stored Unsigned ]
+
+> area origin <- Point [ x <- 0 | y <- 0 ] :: Ref Point
+> area onetwo <- Point [ x <- 1 | y <- 2 ] :: Ref Point
+> area twoone <- myInit :: Ref Point
+>   where myInit = initPoint 2 1
+
+> initPoint    :: Unsigned -> Unsigned -> Init Point
+> initPoint u v = Point [ x <- initStored u | y <- initStored v ]
+
+> three = do p <- readRef twoone.x
+>            return (p + 1)
+
+> main  = do x <- readRef onetwo.x
+>            y <- readRef onetwo.y
+>            return (x + y)
+
+Some examples as tests of the mechanisms for computing area sizes:
+
+> {-
+> struct S0         [ x, y, z :: Stored Unsigned ]
+> struct S1/12      [ x, y, z :: Stored Unsigned ]
+> struct S2/(8+4)   [ x, y, z :: Stored Unsigned ]
+> struct S3/(3*4)   [ x, y, z :: Stored Unsigned ]
+> struct S4/((1+2)*(1+1+1+1))
+>                   [ x, y, z :: Stored Unsigned ]
+> type SLength = 6 * 2
+> struct S5/SLength
+>                   [ x, y, z :: Stored Unsigned ]
+> -}

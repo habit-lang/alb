@@ -1,0 +1,14 @@
+Lte 0 x; Lte (S x) (S y) if Lte x y; Lte x y fails.
+LteAll x Nil; LteAll x (Cons y ys) if Lte x y, LteAll x ys; LteAll x y fails.
+Sorted Nil; Sorted (Cons x xs) if LteAll x xs, Sorted xs; Sorted (Cons x xs) fails.
+
+Insert x xs ys | x xs ~> ys.
+Insert x Nil (Cons x Nil); 
+Insert x (Cons x' xs) (Cons x (Cons x' xs)) if Lte x x'; 
+Insert x (Cons x' xs) (Cons x' ys) if Insert x xs ys; 
+Insert x xs ys fails.
+
+Sort xs ys | xs ~> ys.
+Sort Nil Nil;
+Sort (Cons x xs) zs if Sort xs ys, Insert x ys zs;
+Sort xs ys fails.

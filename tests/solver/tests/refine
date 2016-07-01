@@ -1,0 +1,6 @@
+C t if D t; C Int fails.
+
+= t u | t ~> u, u ~> t.
+= t t.
+
+C t, = t Int?

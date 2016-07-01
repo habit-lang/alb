@@ -1,0 +1,47 @@
+The habitat/compiler/tests folder contains a test suite that can be
+run simply by executing the Makefile in that directory as follows:
+
+$ cd habitat/compiler/tests
+$ make
+
+Adding a test to that test suite involves, first, creating a file for
+that test, and second, adding that test to the list of tests to be
+run.
+
+--------------------
+Creating a Test File
+--------------------
+
+The test harness fundamentally expects a testing program to be one
+that returns an exit code of zero when everything is okay and returns
+an exit code with the number of tests that failed when things go
+wrong.
+
+The 'test' library for habit helps in creating creating these files.
+To use it you must:
+  - import the library with 'requires test'
+  - call 'runTests' on a list of individual tests.  Each individual
+    test should be a monadic action of type "M Bool" that returns True
+    if the test passes and False if the test fails.
+  - return the result of 'runTests' from the main function.
+
+A trivial example of using the 'test' library is included the file
+'habitat/compier/tests/example-test.hb' which is a good template to
+start from when writing your own tests.
+
+--------------------
+Adding to the list of tests
+--------------------
+
+In habitat/compiler/tests/Makefile there are two variables: 'TESTS'
+and 'BROKEN_TESTS'.  To have the Makefile actually run your test you
+need to add your test to the list of files in 'TESTS' or
+'BROKEN_TESTS'.  The tests in 'TESTS' are run by default and are
+expected to succeed.  On the other hand the tests in 'BROKEN_TESTS'
+are not run by default as they have known bugs and are expected to
+fail.
+
+Note that the filename you add to each of these variables is *not* the
+filename of the tests source code.  Rather it is the name of the
+resulting executable.  The other rules in the Makefile take care of
+turning your source file into an executable.

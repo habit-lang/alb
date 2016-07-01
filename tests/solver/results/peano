@@ -1,0 +1,56 @@
+[Add P2 P1 P3]    : Yes
+[Add P7 P14 P21]  : Yes
+[Add P1 P0 P2]    : No 
+[Add P1 P2 P4]    : No 
+[Add P1 P2 P2]    : No 
+[Add P0 P0 x]     : Yes (improved to [Add P0 P0 P0])
+[Add P0 P1 x]     : Yes (improved to [Add P0 P1 P1])
+[Add P2 P2 x]     : Yes (improved to [Add P2 P2 P4])
+[Subt P0 P0 P0]   : Yes
+[Subt P0 P1 P0]   : No 
+[Subt P1 P0 P1]   : Yes
+[Subt P3 P1 P2]   : Yes
+[Subt P21 P14 P7] : Yes
+[Subt P0 P0 P1]   : No 
+[Subt P1 P0 P0]   : No 
+[Subt P1 P0 P2]   : No 
+[Subt P21 P14 P8] : No 
+[Subt P0 P0 x]    : Yes (improved to [Subt P0 P0 P0])
+[Subt P1 P0 x]    : Yes (improved to [Subt P1 P0 P1])
+[Subt P28 P14 x]  : Yes (improved to [Subt P28 P14 P14])
+[Mult P0 P0 P0]   : Yes
+[Mult P1 P0 P0]   : Yes
+[Mult P0 P1 P0]   : Yes
+[Mult P2 P3 P6]   : Yes
+[Mult P7 P4 P28]  : Yes
+[Mult P2 P3 P5]   : No 
+[Mult P2 P3 P7]   : No 
+[Mult P2 P4 P12]  : No 
+[Mult P7 P4 P0]   : No 
+[Mult P7 P4 P21]  : No 
+[Mult P0 P1 P1]   : No 
+[Mult P2 P3 x]    : Yes (improved to [Mult P2 P3 P6])
+[Mult P0 P1 x]    : Yes (improved to [Mult P0 P1 P0])
+[Mult P7 P3 x]    : Yes (improved to [Mult P7 P3 P21])
+[Div P0 P1 P0]    : Yes
+[Div P6 P1 P6]    : Yes
+[Div P6 P2 P3]    : Yes
+[Div P21 P7 P3]   : Yes
+[Div P1 P0 P0]    : No 
+[Div P1 P0 P1]    : No 
+[Div P21 P7 P2]   : No 
+[Div P6 P1 x]     : Yes (improved to [Div P6 P1 P6])
+[Div P6 P2 x]     : Yes (improved to [Div P6 P2 P3])
+[Div P5 P2 x]     : No 
+[Div P21 P7 x]    : Yes (improved to [Div P21 P7 P3])
+[Lte P0 P0]       : Yes
+[Lte P0 P1]       : Yes
+[Lte P0 P1 fails] : No 
+[Lte P1 P0]       : No 
+[Lte P3 P4]       : Yes
+[Lte P5 P2 fails] : Yes
+[Gcd P2 P3 P1]    : Yes
+[Gcd P2 P3 x]     : Yes (improved to [Gcd P2 P3 P1])
+[Gcd P12 P9 x]    : Yes (improved to [Gcd P12 P9 P3])
+[Gcd P8 P12 x]    : Yes (improved to [Gcd P8 P12 P4])
+[Gcd P21 P36 x]   : Yes (improved to [Gcd P21 P36 P3])

@@ -1,0 +1,114 @@
+### Priority set example:
+
+> requires miniprelude
+> requires list
+> requires test
+
+> type NumPrio  = 256
+> type Priority = Ix 256
+
+> area priosetSize <- 0        :: Ref (Stored Unsigned)
+> area prioset     <- nullInit :: Ref (Array NumPrio (Stored Priority))
+> area prioidx     <- nullInit :: Ref (Array NumPrio (Stored (Ix NumPrio)))
+
+The following stuff is not actually needed:
+
+area priosetSize <- 0        :: Ref (Stored (Bit 32))
+readUnsigned  :: Ref (Stored (Bit 32)) -> M Unsigned
+readUnsigned r = do bs <- readRef r
+                    return (Unsigned [bits = bs])
+
+writeUnsigned :: Ref (Stored (Bit 32)) -> Unsigned -> M ()
+writeUnsigned r (Unsigned [bits = bs]) = writeRef r bs
+
+> prioSet       :: Ix NumPrio -> Priority -> M ()
+> prioSet i prio = do writeRef (prioset @ i) prio
+>                     writeRef (prioidx @ prio) i
+
+
+Inserting priorities:
+
+> insertPriority     :: Priority -> M ()
+> insertPriority prio = do s <- readRef priosetSize
+>                          writeRef priosetSize (s+1)
+>                          heapRepairUp (modIx s) prio
+
+> heapRepairUp       :: Ix NumPrio -> Priority -> M ()
+> heapRepairUp i prio = case decIx i of
+>                         Nothing -> prioSet 0 prio  -- at the root
+>                         Just j  -> do let parent = (j `bitShiftR` 1) -- was shiftL !!
+>                                       pprio <- readRef (prioset @ parent)
+>                                       if pprio < prio then
+>                                         prioSet i pprio
+>                                         heapRepairUp parent prio
+>                                       else
+>                                         prioSet i prio
+
+
+Removing priorities:
+
+> removePriority     :: Priority -> M ()
+> removePriority prio = do s <- readRef priosetSize
+>                          writeRef priosetSize (s-1)
+>                          rprio <- readRef (prioset @ modIx (s-1))
+>                          if prio/=rprio then
+>                            i <- readRef (prioidx @ prio)
+>                            heapRepairDown i rprio (modIx (s-2))
+>                            nprio <- readRef (prioset @ i)
+>                            heapRepairUp i nprio
+
+> heapRepairDown            :: Ix NumPrio -> Priority -> Ix NumPrio -> M ()
+> heapRepairDown i prio last = let u = unsigned i in
+>                              case (2*u+1) <=? last of         -- Look for a left child
+>                               Nothing -> prioSet i prio       --   i has no children
+>                               Just l  ->                      --   i has a left child
+>                                 do lprio <- readRef (prioset @ l)
+>                                    case (2*u+2) <=? last of   -- Look for a right child
+>                                      Nothing ->               --   i has no right child
+>                                        if lprio > prio then
+>                                          prioSet i lprio
+>                                          prioSet l prio
+>                                        else
+>                                          prioSet i prio
+>                                      Just r  ->               --   i has two children
+>                                        rprio <- readRef (prioset @ r)
+>                                        if prio > lprio && prio > rprio then
+>                                          prioSet i prio
+>                                        else if (lprio > rprio) then
+>                                          prioSet i lprio      --   left is higher
+>                                          heapRepairDown l prio last
+>                                        else                   --   right is higher
+>                                          prioSet i rprio
+>                                          heapRepairDown r prio last
+
+
+Finding the highest priority:
+
+> highestPriority :: M (Maybe Priority)
+> highestPriority  = do s <- readRef priosetSize
+>                       if s==0 then
+>                         return Nothing
+>                       else
+>                         prio <- readRef (prioset @ 0)
+>                         return (Just prio)
+
+Entry points for initial testing:
+
+> main0 :: M Bool
+> main0  = do insertPriority 1
+>             x1 <- highestPriority
+>             insertPriority 4
+>             x2 <- highestPriority
+>             insertPriority 3
+>             x3 <- highestPriority
+>             insertPriority 2
+>             x4 <- highestPriority
+>             removePriority 4
+>             x5 <- highestPriority
+>             size <- readRef priosetSize
+>             return (size == 3 && (Cons x1 (Cons x2 (Cons x3 (Cons x4 (Cons x5 Nil))))) ==
+>                                  (map Just (Cons 1 (Cons 4 (Cons 4 (Cons 4 (Cons 3 Nil)))))))
+
+> main   = do
+>  x <- runTests (Cons main0 Nil)
+>  return x

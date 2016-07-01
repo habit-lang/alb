@@ -1,0 +1,70 @@
+RowSubset Nil ys;
+RowSubset (Cons l t xs) ys if In l ys, RowSubset xs ys;
+RowSubset xs ys fails.
+
+In l Nil fails;
+In l (Cons l t ys);
+In l (Cons l' t ys) if In l ys;
+In l ys fails.
+
+--
+
+RowCoerce Nil ys;
+RowCoerce (Cons l t xs) ys if CoerceOne l t ys, RowCoerce xs ys;
+RowCoerce xs ys fails.
+
+CoerceOne l t Nil;
+CoerceOne l t (Cons l t ys);
+CoerceOne l t (Cons l t' ys) if Coerce t t';
+CoerceOne l t (Cons l' t' ys) if CoerceOne l t ys;
+CoerceOne l t ys fails.
+
+-- 
+
+RLabels r l | r ~> l.
+VLabels v l | v ~> l.
+
+Coerce rec0 rec1 if RLabels rec0 l0, RLabels rec1 l1, RowSubset l1 l0, RowCoerce l0 l1;
+Coerce var0 var1 if VLabels var0 l0, VLabels var1 l1, RowSubset l0 l1, RowCoerce l0 l1.
+
+RLabels Int l fails. VLabels Int l fails.
+RLabels Float l fails. VLabels Float l fails.
+Coerce Int Float.
+
+RLabels Point (Cons X Int (Cons Y Int Nil)). VLabels Point fails.
+RLabels FloatingPoint (Cons X Float (Cons Y Float Nil)). VLabels FloatingPoint fails.
+RLabels ColoredPoint (Cons X Int (Cons Y Int (Cons Color RGB Nil))). VLabels ColoredPoint fails.
+
+Coerce Point ColoredPoint?
+Coerce ColoredPoint Point?
+
+Coerce Point FloatingPoint?
+Coerce FloatingPoint Point?
+
+Coerce FloatingPoint ColoredPoint?
+Coerce ColoredPoint FloatingPoint?
+
+
+RLabels Square (Cons TopLeft Point (Cons BottomRight Point Nil)). VLabels Square l fails.
+RLabels SquareF (Cons TopLeft FloatingPoint (Cons BottomRight FloatingPoint Nil)). VLabels SquareF l fails.
+RLabels Circle (Cons TopLeft Point (Cons Radius Int Nil)). VLabels Circle l fails.
+
+VLabels ShapeA (Cons Sq Square Nil). RLabels ShapeA l fails.
+VLabels ShapeB (Cons Sq SquareF Nil). RLabels ShapeB l fails.
+VLabels ShapeC (Cons Sq Square (Cons Ci Circle Nil)). RLabels ShapeC l fails.
+VLabels ShapeD (Cons Sq SquareF (Cons Ci Circle Nil)). RLabels ShapeD l fails.
+
+Coerce ShapeA ShapeB?
+Coerce ShapeB ShapeA?
+
+Coerce ShapeA ShapeC?
+Coerce ShapeB ShapeC?
+Coerce ShapeC ShapeA?
+Coerce ShapeC ShapeB?
+
+Coerce ShapeA ShapeD?
+Coerce ShapeB ShapeD?
+Coerce ShapeC ShapeD?
+Coerce ShapeD ShapeA?
+Coerce ShapeD ShapeB?
+Coerce ShapeD ShapeC?

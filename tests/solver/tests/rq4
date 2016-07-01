@@ -1,0 +1,6 @@
+-- Requirement violation check: the D instance should be rejected, as there is no instance E (Pair
+-- Int Bool).
+
+C t, D t requires E t.
+C (Pair Int t).
+D (Pair t Bool).

@@ -1,0 +1,12 @@
+-- Requirements and primitive classes.  This ensures that the requirements mechanism is not
+-- flummoxed by the lack of axioms for built-in classes.
+
+Divisor t u | t ~> u.
+Divisor t u, NumLit n t, < 0 n requires NumLit n u.
+
+NumLit n Unsigned.
+
+-- This test is to make sure the program is rejected without the following instance:
+-- NumLit n NZU if < 0 n.
+
+Divisor Unsigned NZU.

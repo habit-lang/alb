@@ -1,0 +1,26 @@
+In Int Int?
+In Int (Plus Int Bool)?
+In Char (Plus Int Bool)?
+In Int (Plus Int (Plus Int Bool))?
+In Int (Plus x (Plus Int Bool))?
+In Int (Plus Int (Plus Int Int))?
+In Bool (Plus Int (Plus Int Bool))?
+In Int (Plus (Plus Int Bool) (Plus Char Expr))?
+
+UniqueIn Int Int?
+UniqueIn Int (Plus Int Bool)?
+UniqueIn Char (Plus Int Bool)?
+UniqueIn Int (Plus Int (Plus Int Bool))?
+UniqueIn Int (Plus Int (Plus Int Int))?
+UniqueIn Int (Plus x (Plus Int Bool))?
+UniqueIn Int (Plus (Plus Int Int) Int)?
+UniqueIn Int (Plus (Plus Int Int) (Plus Int Int))?
+UniqueIn Bool (Plus Int (Plus Int Bool))?
+UniqueIn Int (Plus (Plus Int Bool) (Plus Char Expr))?
+
+Without Int Int t?
+Without Int Bool t?
+Without (Plus Int Bool) Int t?
+Without (Plus Int Bool) Bool t?
+Without (Plus (Plus Int Bool) (Plus Char Float)) Int t?
+Without (Plus (Plus Int Bool) (Plus Char Float)) (Plus Int Bool) t?

@@ -1,0 +1,22 @@
+-- Equality relation powered by functional dependencies.
+Eq t u | t ~> u, u ~> t.
+Eq t t.
+
+-- Simple improvement tests.
+Eq T T?
+Eq T U?
+Eq T t?
+Eq t T?
+Eq t u?
+
+-- Equivalence relations ought to be symmetric and transitive...
+Eq t u if Eq u t?
+Eq t v if Eq t u, Eq u v?
+
+-- In this case, we can use the improvement from the assumption Eq t u to select the first clause of
+-- C, without requiring proof by cases.
+C t u v | t u ~> v.
+C t t True; C t u False.
+
+C t u v if Eq t u?
+

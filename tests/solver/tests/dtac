@@ -1,0 +1,29 @@
+-- Examples based on data types a la carte.  Explained in great, gory detail in
+-- http://cs.pdx.edu/~jgmorris/d/final.pdf, section 3.4.  Queries are in 'dtac_tests'
+
+-- Simple inclusion.
+
+In f f;
+In f (Plus g h) if In f g;
+In f (Plus g h) if In f h;
+In f g fails.
+
+-- Unique inclusion.  A query like 'In Int (Plus Int Int)' holds, but makes an arbitrary (if
+-- predictable) choice as to which 'Int' it finds.  In terms of an overloaded injection functions,
+-- this means you would never be able to generate a value (Inr x).  UniqueIn rejects these cases.
+
+UniqueIn f f;
+UniqueIn f (Plus g h) if UniqueIn f g, In f h fails;
+UniqueIn f (Plus g h) if UniqueIn f h, In f g fails;
+UniqueIn f g fails.
+
+-- Exclusion.  Roughly speaking, 'Without t u v' holds if 'v' contains all the types that 't' does
+-- except for 'u'.
+
+Without t u v | t u ~> v, t v ~> u.
+Without t t v fails;
+Without (Plus t u) t u;
+Without (Plus t u) u t;
+Without (Plus t u) v (Plus t' u) if Without t v t', In v u fails;
+Without (Plus t u) v (Plus t u') if Without u v u', In v t fails.
+--Without t u t.

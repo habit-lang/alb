@@ -1,0 +1,33 @@
+-- Peano arithmetic, defined standard (to me) fashion.  Tests are in 'peano_tests'
+
+Add x y z | x y ~> z, x z ~> y, y z ~> x.
+Add x Z x;
+Add x (S y) (S z) if Add x y z;
+Add x y z fails.
+
+Subt x y z | x y ~> z, x z ~> y, y z ~> x.
+Subt x Z x;
+Subt Z x y fails;
+Subt x (S y) z if Subt x y (S z);
+Subt x y z fails.
+
+Mult x y z | x y ~> z.
+Mult x Z Z;
+Mult x (S y) z if Mult x y z', Add x z' z;
+Mult x y z fails.
+
+Div x y z | x y ~> z.
+Div x Z y fails;
+Div Z x Z;
+Div x y (S z) if Subt x y x', Div x' y z;
+Div x y z fails.
+
+Lte P0 n;
+Lte (S m) (S n) if Lte m n;
+Lte m n fails.
+
+Gcd m n p | m n ~> p.
+Gcd m m m;
+Gcd m n p if Lte n m, Subt m n m', Gcd m' n p;
+Gcd m n p if Lte m n, Subt n m n', Gcd m n' p;
+Gcd m n p fails.

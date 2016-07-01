@@ -1,0 +1,22 @@
+-- More tests of non-normal classes and improvements.  In this case, class 'C' has two functional
+-- dependencies, each of which involves two of its arguments.
+
+C a b c d | a ~> c, b ~> d.
+
+C (Maybe Int) Float Int Bool.
+C (Maybe Int) Int Int Float.
+C (Maybe Float) Float Float Bool.
+
+-- In the first two queries, we do not have enough refinment of the types (in particular, of the
+-- first argument) to determine whether any axiom that resolves the predicate.  However, the second
+-- argument is sufficient resolved to determine the fourth, giving rise to the improvement [Bool/v]
+-- in each case.
+
+C t Float u v?
+C (Maybe t) Float u v?
+
+
+-- In this case, both the first and second argumets are sufficient resolved to determine the third
+-- and fourth arguments via the functional dependencies, and that is enough to solve the predicate.
+
+C (Maybe Int) Float u v?

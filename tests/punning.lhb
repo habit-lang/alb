@@ -1,0 +1,17 @@
+Basic tests for punning:
+
+> requires miniprelude
+
+> bitdata Byte  = B [ val :: Bit 8 ]
+
+> f val    = B [val]
+> g B[val] = val
+> h b      = case b of
+>             B[val] -> val
+
+> bitdata T     = T  [ x :: Bit 8 | yzt :: Byte3 ] 
+> bitdata Byte3 = B3 [ y, z, t :: Byte ]
+
+> p B3[y|z|t] = B3 [t|z|y]
+> q x T[yzt]  = T[x | yzt = p yzt]
+

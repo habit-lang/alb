@@ -1,0 +1,5 @@
+-- Simple instances with basic backtracking and fails clauses.  Tests are in '2'.
+
+Integral Int; Integral Integer; Integral t fails if Fractional t; Integral t if Enum t.
+Fractional Float; Fractional Double; Fractional t if RealFrac t.
+Eq Int; Eq (List a) if Eq a; Eq (Fun a b) fails.

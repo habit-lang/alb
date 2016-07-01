@@ -1,0 +1,75 @@
+### Some examples using do notation:
+
+> requires miniprelude
+
+> test = test    -- Dummy test
+
+> proc0 = do proc1
+>            proc2
+>            proc3
+
+> proc1 = do x <- proc2
+>            y <- proc3
+>            z <- proc2
+>            return (x, y, z)
+
+> proc2 = if<- test then
+>           proc3
+>           proc3
+>          else
+>           proc3
+>           proc3
+
+Variations on indentation; shouldn't be relevant here anyway because we're
+not inside an if:
+
+> proc2a = if<- test then
+>            proc3
+>            proc3
+>          else
+>            proc3
+>            proc3
+
+> proc2b = if<- test
+>          then
+>            proc3
+>            proc3
+>          else
+>            proc3
+>            proc3
+
+> proc3 = do x <- test   -- don't expect this to terminate! :-)
+>            if x then
+>              proc3
+>              proc3
+>             else
+>              proc3
+>              proc3
+
+Indentation variations:
+
+> proc3a = do x <- test   -- don't expect this to terminate! :-)
+>             if x then
+>               proc3
+>               proc3
+>             else
+>               proc3
+>               proc3
+
+> proc3b = do x <- test   -- don't expect this to terminate! :-)
+>             if x
+>             then
+>               proc3
+>               proc3
+>             else
+>               proc3
+>               proc3
+
+> (f @@ g) x = do y <- f x; g y
+
+> proc4 = do do proc3
+>               proc3
+>            proc2
+>            do proc3
+>               proc3
+>               proc4

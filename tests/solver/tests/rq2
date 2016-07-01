@@ -1,0 +1,9 @@
+-- Transitivity via requirements
+
+C t u, C u v requires C t v.
+
+C T U, C U V, C T V, C V W, C U W, C T W?
+C T V, C U W, C T W if C T U, C U V, C V W?
+
+C x y, C y z, C x z?
+C x z if C x y, C y z?

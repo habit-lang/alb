@@ -1,0 +1,13 @@
+-- Tests of the built-in arithmetic classes.  This defines several additional classes (minus, less
+-- than, and GCD) in terms of the built-in classes.  Tests are in oracles_arithmetic_tests.
+
+- a b c | a b ~> c, a c ~> b, c b ~> a.
+- a b c if + c b a; - a b c fails.
+
+<= m n if + n 1 n', < m n'; <= m n fails.
+
+Gcd m n p | m n ~> p.
+Gcd m m m;
+Gcd m n p if <= n m, - m n m', Gcd m' n p;
+Gcd m n p if <= m n, - n m n', Gcd m n' p;
+Gcd m n p fails.

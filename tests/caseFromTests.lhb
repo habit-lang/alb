@@ -1,0 +1,28 @@
+> requires minprel
+
+> f p q r = case x <- p of
+>             True -> q x
+>                     r x
+>             _    -> r x
+>                     q x
+
+> g c p = case<- c of
+>           True -> p
+
+> h c d p = case<- c of
+>             True -> case<- d of
+>                       True -> p
+
+> i x y z = case x of
+>             True  -> y
+>             False -> case y of
+>                        True  -> z
+>                        False -> y
+
+> j x p   = do case<- x of
+>                True -> p
+>              case<- x of
+>                False -> p
+>              p
+
+

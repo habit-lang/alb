@@ -1,0 +1,15 @@
+-- Simplest possible use of proof-by-cases.  Note that 'C t' holds for all 't', but has a different
+-- proof in the particular case that 't' = 'Int'.
+
+C Int; C t.
+
+-- Sanity checks: should use the second and first clauses, respectively.
+
+C (Maybe Int)?
+C Int?
+
+-- For the final query, we should generate a proof by cases: under the condition [Int/t], the proof
+-- is by the first clause of the axiom; otherwise, under the empty condition, the proof is by the
+-- second clause.
+
+C t?

@@ -1,0 +1,1 @@
+[F t u, MEq (Maybe Int) u] : Yes [$a:f_t_maybe_t{t}(), $b:meq_t_t{Maybe Int}()] (improved to [F Int (Maybe Int), MEq (Maybe Int) (Maybe Int)])

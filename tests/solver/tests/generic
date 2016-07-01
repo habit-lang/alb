@@ -1,0 +1,24 @@
+-- Tests for treatment of generic variables.  Unlike in Haskell, the hypothesis of an axiom for
+-- class 'C' having some functional dependency does not imply that class 'C' has even a partial
+-- functional dependency.
+
+-- We begin by defining two classes with functional dependencies.
+
+F t u | t ~> u.
+G t u | t ~> u.
+F Int Bool.
+G Int Float.
+
+-- We now provide axioms for class 'C'.  Note that 'C' has neither the functional dependency of 'F'
+-- nor that of 'G', as it includes tuples from both classes and they are not disjoint.
+
+C t u if F t u.
+C t u if F t u fails, G t u.
+
+-- As demonstration thereof, we show that 'C Int t', 'C Int u' does not imply that 't' = 'u', and
+-- that C predicates give rise to no improvements.
+
+C Int Bool?
+C Int Float?
+C Int t?
+C Int t, C Int u?

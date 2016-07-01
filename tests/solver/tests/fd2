@@ -1,0 +1,37 @@
+-- This tests functional dependencies with user-defined classes as hypotheses.  We begin by setting
+-- up addition and multiplication for Peano numbers.
+
+Even P0;
+Even (S (S n)) if Even n;
+Even n fails.
+
+Add m n p | m n ~> p, m p ~> n, n p ~> m.
+
+Add P0 P0 P0;
+Add P0 n n;
+Add m P0 m;
+Add (S m) (S n) (S (S p)) if Add m n p.
+
+Mult x y z | x y ~> z, x z ~> y.
+Mult x Z Z;
+Mult x (S y) z if Mult x y z', Add x z' z;
+Mult x y z fails.
+
+Double m n | m ~> n, n ~> m.
+Double m n if Mult P2 m n.
+
+-- Predicates 'J t u' hold if either (a) 't' is a multiple of 4, and 'u' is half 't', or (b) 't' is
+-- a multiple of 2, but not a multiple of 4, and 'u' is 1.  Note that the distinction is based on
+-- the determined parameter, not the determining parameter.
+
+J t u | t ~> u.
+J m n if Double n m, Even n.
+J m P1 if Double n m, Even n fails.
+
+J P4 P2?
+J P4 P1?
+J P4 t?
+
+J P6 P3?
+J P6 P1?
+J P6 t?

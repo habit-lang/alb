@@ -1,0 +1,13 @@
+-- Simplification.  With inter-axiom backtracking, simplification can only trigger in cases where
+-- other axioms are ruled out.  In this examples, there is nothing to prevent other instances 'C t',
+-- so long as they require that 'D t' be disprovable.  However, other instances of 'C' t' are ruled
+-- out by the trailing fails clause.  Thus, the C' (and E) examples can simplify, but the C example
+-- cannot.
+
+C t if D t.
+C' t if D t; C' t fails.
+E t if C t; E t fails.
+
+C t?
+C' t?
+E t?

@@ -1,0 +1,3 @@
+[F a b, F a c, C b c a]    : Yes (improved to [F True Int, F True Int, C Int Int True])
+[C b c a] if F a b, F a c  : Yes (improved to [C c c True] if F True c, F True c)
+[F a b, F a Bool, C b c a] : [F a Bool] remaining. (improved to [F a Bool, F a Bool, C Bool c a])

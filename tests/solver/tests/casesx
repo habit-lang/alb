@@ -1,0 +1,95 @@
+-- This captures a number of examples of cases functionality that would be nice, but isn't there
+-- yet.
+
+-- Currently, the cases mechanism requires on the final branch having no hypotheses.  Of course,
+-- this is unnecessary---it is enough simply that the final branch's hypotheses be provable.  For
+-- example, the following queries should be solvable:
+
+C1 Int; C1 t if D1 t.
+
+C1 t, D1 t?
+C1 t if D1 t?
+
+-- Alternatively, the same should be true of the final hypotheses are provably by axiom (e.g., for
+-- substitution instances of the query) rather than by assumption.
+
+C1' Int; C1' t if D1' t.
+D1' [t].
+
+C1' [u]?
+
+-- The same should be true for simplification: rather than relying on the trailing fails branch
+-- having no hypotheses, it should be enough that what hypotheses it has are provable.  For example,
+-- the following queries should both simplify C2 t to D2 t:
+
+C2 t if D2 t; C2 t fails if E2 t.
+
+C2 t, E2 t?
+C2 t if E2 t?
+
+-- The same should hold for assumptions: assuming C2 t is equivalent to assuming D2 t, if you've
+-- also assumed E2 t.  For example, the following queries should be solvable:
+
+D2 t if C2 t, E2 t?
+
+-- This query should simplify to 'E2 t':
+
+D2 t, E2 t if C2 t?
+
+-- Cases with trailing fails branches should also give rise to improvements, even without functional
+-- dependencies.  For example, given the axiom
+
+C3 Int; C3 t fails.
+
+-- The following query can only hold under the instantation [Int/u]:
+
+C3 u?
+
+-- Note that this logic is already provided for assumptions, but not for goals.  Of course, just as
+-- in the examples above, this should ideally take account of the provability of the final fails
+-- clause.  The following queries should both give the improvement [Int/t].
+
+D3 Int; D3 t fails if E3 t.
+
+D3 t, E3 t?
+D3 t if E3 t?
+
+-- Similarly, "compatible" improvements from all case branches can be lifted to the remainder of the
+-- proof.  In the following example, while the particular clause that proves the query cannot be
+-- selected until type variable 't' is refined, the improvement [True/u] is valid regardless.
+
+F4 t u | t ~> u.
+F4 (Maybe Int) True; F4 (Maybe t) True; F4 t False.
+
+F4 (Maybe t) u?
+
+-- However, this runs into potential complications rapidly, a la GADT type inference.  For example,
+-- there are two possible satisfying instantiations of the following query: [Int/t, Maybe Int/u] and
+-- [Bool/t, Maybe Bool/u].  I can observe that there is a common improvement in both of these:
+-- [Maybe t/u].
+
+G4 t u | t ~> u.
+G4 Int (Maybe Int); G4 Bool (Maybe Bool); G4 t u fails.
+
+G4 t u?
+
+-- Another example comes from the description of closed type families in GHC.  Given the following
+-- unexpected definition of And, we cannot resolve the query until we have the instantiation of b.
+-- However, we could observe that the improvement resulting from the first case (that is, [True/y]
+-- assuming [True/x]) and the improvement resulting from the second case ([x/y], assuming nothing
+-- about x) are actually the same, and thus make the [x/y] improvement globally.
+
+And4 t u v | t u ~> v.
+And4 True True True; And4 True b b; And4 a b False.
+
+And4 True x y?
+
+-- The current mechanisms for computing improvement from assumptions is limited to one possible
+-- improvement; however, this excludes examples of classes that are (locally) closed, but still have
+-- multiple possible branches.  A simple example is class C5 below.  Note that, despite both
+-- describing identical sets of types, the solver currently cannot prove the given query.
+
+C5 Int; C5 Bool; C5 t fails.
+D5 Bool; D5 Int; D5 t fails.
+
+D5 t if C5 t?

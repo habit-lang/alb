@@ -1,0 +1,24 @@
+[In Int Int]                                                         : Yes [$a:in_f_f!0{Int}()]
+[In Int (Plus Int Bool)]                                             : Yes [$a:in_f_f!1{Int, Int, Bool}(g$j:in_f_f!0{Int}())]
+[In Char (Plus Int Bool)]                                            : No 
+[In Int (Plus Int (Plus Int Bool))]                                  : Yes [$a:in_f_f!1{Int, Int, Plus Int Bool}(g$j:in_f_f!0{Int}())]
+[In Int (Plus x (Plus Int Bool))]                                    : [$a:In Int (Plus x (Plus Int Bool))] remaining. []
+[In Int (Plus Int (Plus Int Int))]                                   : Yes [$a:in_f_f!1{Int, Int, Plus Int Int}(g$j:in_f_f!0{Int}())]
+[In Bool (Plus Int (Plus Int Bool))]                                 : Yes [$a:in_f_f!2{Bool, Plus Int Bool, Int}[0:g$j:in_f_f!3{Bool, Int}()](g$12:in_f_f!2{Bool, Bool, Int}[0:g$1l:in_f_f!3{Bool, Int}()](g$24:in_f_f!0{Bool}()))]
+[In Int (Plus (Plus Int Bool) (Plus Char Expr))]                     : Yes [$a:in_f_f!1{Int, Plus Int Bool, Plus Char Expr}(g$j:in_f_f!1{Int, Int, Bool}(g$12:in_f_f!0{Int}()))]
+[UniqueIn Int Int]                                                   : Yes [$a:uniquein_f_f!0{Int}()]
+[UniqueIn Int (Plus Int Bool)]                                       : Yes [$a:uniquein_f_f!1{Int, Int, Bool}(g$j:uniquein_f_f!0{Int}(), g$k:in_f_f!3{Int, Bool}())]
+[UniqueIn Char (Plus Int Bool)]                                      : No 
+[UniqueIn Int (Plus Int (Plus Int Bool))]                            : No 
+[UniqueIn Int (Plus Int (Plus Int Int))]                             : No 
+[UniqueIn Int (Plus x (Plus Int Bool))]                              : [g$1w:In Int x fails] remaining. [uniquein_f_f!2{Int, Plus Int Bool, x}(g$1v:uniquein_f_f!1{Int, Int, Bool}(g$2o:uniquein_f_f!0{Int}(), g$2p:in_f_f!3{Int, Bool}()), g$1w:assumption(g$1w)), g$1v:uniquein_f_f!1{Int, Int, Bool}(g$2o:uniquein_f_f!0{Int}(), g$2p:in_f_f!3{Int, Bool}())]
+[UniqueIn Int (Plus (Plus Int Int) Int)]                             : No 
+[UniqueIn Int (Plus (Plus Int Int) (Plus Int Int))]                  : No 
+[UniqueIn Bool (Plus Int (Plus Int Bool))]                           : Yes [$a:uniquein_f_f!2{Bool, Plus Int Bool, Int}[0:g$j:uniquein_f_f!3{Bool, Int}()](g$13:uniquein_f_f!2{Bool, Bool, Int}[0:g$1w:uniquein_f_f!3{Bool, Int}()](g$2g:uniquein_f_f!0{Bool}(), g$2h:assumption(g$14)), g$14:in_f_f!3{Bool, Int}())]
+[UniqueIn Int (Plus (Plus Int Bool) (Plus Char Expr))]               : Yes [$a:uniquein_f_f!1{Int, Plus Int Bool, Plus Char Expr}(g$j:uniquein_f_f!1{Int, Int, Bool}(g$1c:uniquein_f_f!0{Int}(), g$1d:in_f_f!3{Int, Bool}()), g$k:in_f_f!3{Int, Plus Char Expr}[0:g$25:in_f_f!3{Int, Char}(), 0:g$2o:in_f_f!3{Int, Expr}()]())]
+[Without Int Int t]                                                  : No 
+[Without Int Bool t]                                                 : Yes [$a:without_t_t_v_fails!5{Int, Bool}()] (improved to [Without Int Bool Int])
+[Without (Plus Int Bool) Int t]                                      : Yes [$a:without_t_t_v_fails!1{Int, Bool}()] (improved to [Without (Plus Int Bool) Int Bool])
+[Without (Plus Int Bool) Bool t]                                     : Yes [$a:without_t_t_v_fails!2{Int, Bool}()] (improved to [Without (Plus Int Bool) Bool Int])
+[Without (Plus (Plus Int Bool) (Plus Char Float)) Int t]             : Yes [$a:without_t_t_v_fails!3{Plus Int Bool, Int, t$p, Plus Char Float}(g$x:without_t_t_v_fails!1{Int, Bool}(), g$y:in_f_f!3{Int, Plus Char Float}[0:g$24:in_f_f!3{Int, Char}(), 0:g$2n:in_f_f!3{Int, Float}()]())] (improved to [Without (Plus (Plus Int Bool) (Plus Char Float)) Int (Plus Bool (Plus Char Float))])
+[Without (Plus (Plus Int Bool) (Plus Char Float)) (Plus Int Bool) t] : Yes [$a:without_t_t_v_fails!1{Plus Int Bool, Plus Char Float}()] (improved to [Without (Plus (Plus Int Bool) (Plus Char Float)) (Plus Int Bool) (Plus Char Float)])

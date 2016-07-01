@@ -1,0 +1,4 @@
+[C Int Bool]       : Yes
+[C Int Float]      : Yes
+[C Int t]          : [C Int t] remaining.
+[C Int t, C Int u] : [C Int t, C Int u] remaining.

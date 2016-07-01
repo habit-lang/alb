@@ -1,0 +1,9 @@
+[Integral Int]               : Yes
+[Fractional Int]             : [Fractional Int] remaining.
+[Integral Float]             : No 
+[Eq Int]                     : Yes
+[Eq (List Int)]              : Yes
+[Eq (List (List Int))]       : Yes
+[Eq (Fun a b)]               : No 
+[Eq (List (List (Fun a b)))] : [Eq (List (List (Fun a b)))] remaining.
+[Eq (List (List Bool))]      : [Eq (List (List Bool))] remaining.

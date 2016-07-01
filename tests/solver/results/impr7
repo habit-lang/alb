@@ -1,0 +1,11 @@
+[F t u]              : [F t u] remaining.
+[F t u, C t]         : [C t] remaining. (improved to [F t Int, C t])
+[F t u] if C t       : Yes (improved to [F t Int] if C t)
+[G t u]              : [G t u] remaining.
+[G t u] if C t       : Yes (improved to [G t Int] if C t)
+[G t u] if C t fails : Yes (improved to [G t Bool] if C t fails)
+[G t u, C t]         : [C t] remaining. (improved to [G t Int, C t])
+[G t u, C t fails]   : [C t fails] remaining. (improved to [G t Bool, C t fails])
+[H t u v]            : [H t u v] remaining.
+[H t u v] if C u     : [H t u v] remaining.
+[H t u v, C u]       : [H t u v, C u] remaining.

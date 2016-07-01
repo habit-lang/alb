@@ -1,0 +1,10 @@
+The documentation in this folder is organized as follows:
+
+pipeline.txt: Gives a short summary of what each pass is for
+  Note: pipeline.tex is a slightly older and now out-of-date graphic of the pipeline.
+
+primitives.txt: Describes how to call C functions as primitives from Habit.
+
+calling_from_c.txt: Describes how to call Habit code from C
+
+tests.txt: Describes the testing framework and how to add new tests

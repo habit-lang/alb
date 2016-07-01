@@ -1,0 +1,18 @@
+-- Simple functional dependency tests.
+
+C Int fails.
+C Float.
+
+-- Note that the second axiom is only consistent and non-overlapping with the first because of the
+-- axiom 'C Int fails' above.
+F t u | t ~> u.
+F Int Bool.
+F t Int if C t.
+
+
+F Int Bool?
+F Int t?
+F Float Int?
+F Float t?
+F Float Bool?
+F Float Bool fails?

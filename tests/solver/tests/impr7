@@ -1,0 +1,35 @@
+-- Tests of improvement and inter-axiom backtracking.
+
+-- Note that the improvement [Int/u] for 'F t u' depends on the provability of 'C t', and there may
+-- be other axioms for cases where 'C t' is disprovable.  Thus, the should be no improvement in the
+-- first case, but can be improvement in each of the latter cases.
+
+F t u | t ~> u.
+F t Int if C t.
+
+F t u?
+F t u, C t?
+F t u if C t?
+
+-- Here is such an example with a two axioms, depending on the provability of 'C t'.  Again, there
+-- should be no improvement in the first case, but should be in the remaining cases.
+
+G t u | t ~> u.
+G t Int if C t.
+G t Bool if C t fails.
+
+G t u?
+G t u if C t?
+G t u if C t fails?
+G t u, C t?
+G t u, C t fails?
+
+-- Finally, the same reasoning applies to non-normal classes.
+
+H t u v | u ~> v.
+H Int u Int if C u.
+H Float u Int if C u.
+
+H t u v?
+H t u v if C u?
+H t u v, C u?

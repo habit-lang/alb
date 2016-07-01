@@ -1,0 +1,21 @@
+-- Improvement for non-normal axioms.  Note that variable 'v' does not participate in the functional
+-- dependency on class 'C'.
+
+C t u v | t ~> u.
+D u v | u ~> v.
+
+C Int Float Bool.
+C Int Float Char.
+D Float Bool.
+
+-- Each of the queries below includes the predicate 'C Int u v'.  Note that this predicate cannot be
+-- proven as stated (nor can the axiom used to prove it be inferred from its assumption): since 'v'
+-- does not participate in the functional dependency, it must be refined to determine which of the
+-- axioms is applicable.  However, because the determining part of the functional dependency is
+-- specified, the predicate can be used to infer the improvement [Float/u], even without being able
+-- to resolve it.  This is sufficient to prove the 'D u v' predicate in each case, allowing the
+-- entire query to be solved.
+
+C Int u v, D u v?
+D u v, C Int u v?
+D u v if C Int u v?

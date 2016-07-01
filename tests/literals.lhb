@@ -1,0 +1,56 @@
+### More literal tests:
+
+> requires miniprelude
+
+Miscellaneous bit vector literals:
+
+> a0 :: Bit 2
+> a0  = B00
+
+> a1 :: Bit 3
+> a1  = B_101
+
+> a2 :: Bit 5
+> a2  = B10101
+
+> a3 :: Bit 9
+> a3  = O377
+
+> a4 :: Bit 8
+> a4  = Xff
+
+> a5 :: Bit 4
+> a5  = B0101
+
+> a6 :: Bit 8
+> a6  = B_1111_0000
+
+> a7 :: Bit 32
+> a7  = X_FfFf_0000
+
+Miscellaneous int literals:
+
+> b0 :: Bit 0b1101
+> b0  = 0b00
+
+> b1 :: Bit 0x3
+> b1  = 0b_101
+
+> b2 :: Bit 0o10
+> b2  = 0b10101
+
+> b3 :: Bit 0x8
+> b3  = 0o377
+
+> b4 :: Bit 0b_11_0000
+> b4  = 0xff
+
+> b5 :: Bit 3
+> b5  = 0b0101
+
+> b6 :: Bit 0o10
+> b6  = 0b_1111_0000
+
+> b7 :: Bit 0x20
+> b7  = 0X_FfFf_0000
+

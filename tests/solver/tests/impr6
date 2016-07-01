@@ -1,0 +1,57 @@
+-- This example demonstrates a subtlty in the interaction of improving substitutions and instance
+-- chains.
+
+F t u | t ~> u.
+G t u | t ~> u.
+
+C Int.
+C Float fails.
+
+F t True if C t; F t False.
+G True Int.
+G False Float.
+
+-- The key point is the final query.  The first several demonstrate that there are distinct
+-- satisfiable instantations of the last, and thus that it has no improving substitution.
+
+F Int True, G True Int?
+F Float False, G False Float?
+F t u?
+F t u, G u t?
+
+-- I wrote an email explaining this example in detail, which I include (slightly edited) below.
+
+-- This mail follows up from a point about committing to improvements.  The question was whether it
+-- was reasonable to assume the improvement resulting from a particular clause in an instance chain
+-- when the clause is first considered, or whether it was necessary (as the current implementation
+-- does) to wait until the clause was proven.  The problem with early assumption of improvement
+-- appears in examples such as:
+
+-- > F t u, G u t?
+
+-- Beginning with the goal 'F t u', we have two applicable clauses.  The first clause introduces the
+-- improvement [True/u], and has the subgoal (after instantiation) C t.  At that point, we can make
+-- no further progress on goal 'F t u'.
+
+-- Suppose that we assume the improving substitution.  Then, the next goal 'G u t' is equivalent to
+-- the goal 'G True u'.  We can discharge this goal, and compute the improvement [Int/t] from the
+-- functional dependency on G.
+
+-- We can now return to the remaining subgoal of the original goal 'C t'.  This is equivalent to 'C
+-- Int', under the improvement we just computed, which matches an instance of C.  Thus, we conclude
+-- that the goal is true, and generates the improvement [True/u, Int/t].
+
+-- The awkward thing about this solution is that the following query is also provable (I'll skip the
+-- steps):
+
+-- > F Float False, G False Float?
+
+-- so the computed improvement is not, in fact, the only instantition for which the goals are true.
+-- The defect in the earlier reasoning is a circularity: the applicability of the 'F t True if C t'
+-- clause depends on the improvement [Int/t], which depends on the improvement [True/u], which in
+-- turn depends on the original assumption that the clause was applicable.  The current
+-- implementation's conservative-ness on improvement is a practical compromise to avoid this problem
+-- in practice.  There may be a more nuanced approach that allows earlier assumption of improvements
+-- but avoids the circularity, but I have not found it yet.
+
+

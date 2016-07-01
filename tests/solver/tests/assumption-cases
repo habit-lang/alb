@@ -1,0 +1,62 @@
+-- In general, given an axiom:
+--
+-- > C t if P.
+--
+-- the assumption 'C t' is not sufficient to assume 'P', as there may be other axioms 'C t if Q'
+-- such that P,Q is inconsistent.  However, given an axiom of the form:
+--
+-- > C t if P; C t fails. (*)
+--
+-- we can conclude that any other axiom 'C t if Q' would be inconsistent with the second clause of
+-- (*), and so the assumption of 'C t' is sufficient to assume 'P' This file tests that reasoning,
+-- for both user-defined and built-in classes.
+
+-- User-defined classes.  Note that the axiom for 'E' lacks the trailing fails clause.
+
+C t if D t; C t fails.
+E t if D t.
+
+-- Sanity check: 'C t' should be simplified to 'D t', because of the trailing fails.
+
+C t?
+
+-- In the next queries, observe that 'C t' can only hold if 'D t' holds, and 'D t' is sufficient to
+-- show 'E t'.  Thus, should 'C t' hold, 'E t' must also hold, so the query 'C t, E t' can be
+-- simplified to 'C t', and the query 'E t if C t' holds.
+
+C t, E t?
+E t if C t?
+
+-- Similar reasoning can be applied to functional dependencies.  In this case, class 'F' is a
+-- partial identity relation, defined only for those types in 'D'.
+
+F t u | t ~> u, u ~> t.
+F t t if D t; F t u fails.
+
+-- In the next queries, observe that the only way that 'F t u' can hold is by the first clause of
+-- the axiom; thus, if 'F t u' holds, we must have that 't' = 'u' and that 'D t.  Thus, the 'D'
+-- predicates in the first query are implied by the 'F' predicate and can be simplified away, and
+-- the second query holds.
+
+F t u, D t, D u?
+D t, D u if F t u?
+
+-- All the same reasoning holds for non-normal classes.  In this case, note that the trailing fails
+-- only rules out other cases where the final parameter of 'G' is 'True'; it is perfectly possible
+-- for there to be other axioms 'G t u v' for v =/= True.  Thus, while we see the same behavior we
+-- say for 'F' when assuming 'G t u True', the assumption 'G t u False' provides no improvement.
+
+G t u v | t ~> u.
+G t t True if D t; G t u True fails.
+
+D t, D u if G t u True?
+D t, D u if G t u False?
+
+-- Finally, we check that the built-in classes provide the same reasoning process.  In this case, we
+-- have a user defined '<=' class, defined in terms of the built-in '<' and '+' classes.  The
+-- mechanisms tested above are sufficient to determine that '<= x 32' can hold only if '+ 32 1 n'
+-- and '< x n' hold.  It is then up to the oracles to determine that the first assumption can hold
+-- only under the substitution [33/n].
+
+<= m n if + n 1 n', < m n'; <= m n fails.
++ x y 32 if <= x 32?

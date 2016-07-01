@@ -1,0 +1,102 @@
+-- Examples from Thomas Hallgren's "Fun with Functional Dependencies"
+
+--------------------------------------------------------------------------------
+-- 3.2.1
+--------------------------------------------------------------------------------
+
+Even Z; Even (S n) if Odd n; Even n fails.
+Odd (S n) if Even n; Odd n fails.
+
+Even (S (S (S Z)))?
+Odd (S (S (S Z)))?
+
+--------------------------------------------------------------------------------
+-- 3.2.3
+--------------------------------------------------------------------------------
+
+EvenF t b | t ~> b.
+OddF  t b | t ~> b.
+
+EvenF Z True; EvenF (S n) True if OddF n True; EvenF n False.
+OddF (S n) True if EvenF n True; OddF n False.
+
+EvenF (S (S (S Z))) True?
+EvenF (S (S (S Z))) False?
+OddF (S (S (S Z))) True?
+OddF (S (S (S Z))) False?
+
+--------------------------------------------------------------------------------
+
+Add a b c | a b ~> c.
+Mul a b c | a b ~> c.
+
+Add Z b b; Add (S a) b (S c) if Add a b c; Add a b c fails.
+Mul Z b Z; Mul (S a) b d if Mul a b c, Add b c d; Mul a b c fails.
+
+Add P3 P3 x?
+Mul P3 P3 x?
+
+Add P3 P3 P5?
+Mul P3 P3 P8?
+
+--------------------------------------------------------------------------------
+-- 3.3
+--------------------------------------------------------------------------------
+
+Pow a b c | a b ~> c.
+Pow a P0 P1; Pow a (S b) d if Pow a b c, Mul a c d; Pow a b c fails.
+
+Pow P2 P1 P2?
+Pow P2 P0 P1?
+Pow P2 P2 P4?
+Pow P3 P4 P81?
+
+Pow P3 P4 P27?
+Pow P3 P0 P3?
+
+Pow P2 P4 x?
+Pow P3 P3 x?
+
+--------------------------------------------------------------------------------
+-- 3.4
+--------------------------------------------------------------------------------
+
+DownFrom n xs | n ~> xs.
+DownFrom P0 Nil.
+DownFrom (S n) (Cons n xs) if DownFrom n xs.
+
+DownFrom P3 x?
+DownFrom P4 (Cons P3 (Cons P2 (Cons P1 (Cons P0 Nil))))?
+DownFrom P4 (Cons P2 (Cons P1 (Cons P0 Nil)))?
+
+Lte x y b | x y ~> b.
+Lte P0 b True.
+Lte (S n) P0 False.
+Lte (S x) (S y) b if Lte x y b.
+
+Lte P0 P1 True?
+Lte P0 P1 False?
+Lte P1 P0 False?
+Lte P1 P0 True?
+Lte P3 P24 x?
+Lte P24 P3 x?
+
+Insert x xs ys | x xs ~> ys.
+Insert x Nil (Cons x Nil).
+Insert x1 (Cons x2 xs) ys if Lte x1 x2 b, InsertCons b x1 x2 xs ys. -- Maybe
+
+InsertCons b x1 x2 xs ys | b x1 x2 xs ~> ys.
+InsertCons True x1 x2 xs (Cons x1 (Cons x2 xs)).
+InsertCons False x1 x2 xs (Cons x2 ys) if Insert x1 xs ys.
+
+Sort xs ys | xs ~> ys.
+Sort Nil Nil.
+Sort (Cons x xs) zs if Sort xs ys, Insert x ys zs.
+
+-- In Hallgren's paper, he gives these examples, but points out that "Hugs' type checker doesn't
+-- reduce the types as far as expected"---that is, doesn't compute the expected improvement in the
+-- third case.  The Habit compiler, however, computes the expected improvement.
+
+Sort (Cons P1 (Cons P3 (Cons P2 Nil))) (Cons P1 (Cons P2 (Cons P3 Nil)))?
+Sort (Cons P1 (Cons P3 (Cons P2 Nil))) (Cons P3 (Cons P2 (Cons P1 Nil)))?
+Sort (Cons P1 (Cons P3 (Cons P2 Nil))) x?

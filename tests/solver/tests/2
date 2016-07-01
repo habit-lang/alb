@@ -1,0 +1,11 @@
+-- Various queries - intended to be run with the axioms from 'tests/1'
+
+Integral Int?
+Fractional Int?
+Integral Float?
+Eq Int?
+Eq (List Int)?
+Eq (List (List Int))?
+Eq (Fun a b)?
+Eq (List (List (Fun a b)))?
+Eq (List (List Bool))?

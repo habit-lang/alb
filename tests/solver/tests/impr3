@@ -1,0 +1,35 @@
+-- Aspirational improvement tests for now.  These generally present cases where the particular
+-- clause to solve a given predicate cannot be determined, but those clauses that could solve it all
+-- give rise to the same improvement.  The proof-by-cases mechanism could hopefully be extended to
+-- observe these cases and generate the suitable improvements.
+
+-- Classes 'C' and 'D' are variations on the same theme.  In each, there are several axioms for
+-- types (M t), each with the determined parameter True, and one case for all other types with the
+-- determined parameter False.  In each case, the types are not sufficiently refined to solve the
+-- queries; however, because of the final clause, it could safely be concluded that the query
+-- predicates could only hold under the substitution [True/z].
+
+C t u v | t u ~> v.
+C (M t) t True;
+C (M t) u True;
+C t u False.
+
+C (M x) y z?
+
+D t u v | t u ~> v.
+D (M t) Int True;
+D (M t) Float True;
+D t u False.
+
+D (M x) y z?
+
+-- Finally, here is a case where such logic does not apply.  In this case, while the same pattern is
+-- present (clauses sending (M t) types to True and other types to False), there is no guarantee
+-- that other axioms will not be added in the future in which the pattern is no longer true.
+
+E t u v | t u ~> v.
+E (M t) Int True.
+E (M t) Float True.
+E (L t) Int False.
+
+E (M x) y z?

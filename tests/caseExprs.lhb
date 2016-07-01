@@ -1,0 +1,42 @@
+### Some examples using case expressions:
+
+> data List a = Nil | Cons a (List a)
+
+> otherwise = otherwise
+
+> map f xs = case xs of
+>              Nil -> Nil
+>              (Cons x xs) -> Cons (f x) (map f xs)
+
+> map1 f xs = case xs of
+>              Nil -> Nil
+>              Cons x xs -> Cons (f x) (map1 f xs)
+
+> map2 f xs = case xs of
+>              Nil         -> Nil
+>              x `Cons` xs -> f x `Cons` map2 f xs
+
+> mapM f xs = case xs of
+>              Nil -> return Nil
+>              Cons x xs -> do y  <- f x
+>                              ys <- mapM f xs
+>                              return (Cons y ys)
+
+> foo xs = case<- xs of
+>           Nil       -> Nil
+>           Cons y ys -> append y ys
+
+> append xs ys =
+>  case xs
+>  of Nil -> Nil
+>     Cons x xs -> Cons x (append xs ys)
+
+> return :: a -> p a
+> return  = return
+
+> filter p xs = case xs of
+>                 Nil -> Nil
+>                 Cons y ys | p y -> Cons y rest
+>                           | otherwise -> rest
+>                             where rest = filter p ys
+

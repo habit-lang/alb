@@ -1,0 +1,3 @@
+[F a b, F a c, C b c a]    : [F a b, C b b a] remaining. (improved to [F a b, F a b, C b b a])
+[F a b, F a Bool, C b c a] : [F a Bool, C Bool c a] remaining. (improved to [F a Bool, F a Bool, C Bool c a])
+[C b c a] if F a b, F a c  : [C c c a] remaining. (improved to [C c c a] if F a c, F a c)

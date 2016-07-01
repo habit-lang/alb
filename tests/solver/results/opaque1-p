@@ -1,0 +1,29 @@
+[C Int t]                  : Yes [$a:c_int_int{}()] (improved to [C Int Int])
+[C Int Int]                : [$a:C Int Int] remaining. []
+[C Int Bool]               : [$a:C Int Bool] remaining. []
+[C Int t, C Float t]       : No 
+[C Int t, C Bool t]        : Yes [$a:c_int_int{}(), $b:c_bool_t_if_eq_t_int{}(g$1:eq_t_t{Int}())] (improved to [C Int Int, C Bool Int])
+[C Int t] if C Float t     : No 
+[C Int t] if C Bool t      : Yes [$b:c_int_int{}()] (improved to [C Int Int] if C Bool Int)
+[C Int t, Eq t Bool]       : [$a:C Int Bool] remaining. [$b:eq_t_t{Bool}()] (improved to [C Int Bool, Eq Bool Bool])
+[C Int t, Eq t Int]        : [$a:C Int Int] remaining. [$b:eq_t_t{Int}()] (improved to [C Int Int, Eq Int Int])
+[C Int t] if Eq t Bool     : [$b:C Int Bool] remaining. [] (improved to [C Int Bool] if Eq Bool Bool)
+[C Int t] if Eq t Int      : [$b:C Int Int] remaining. [] (improved to [C Int Int] if Eq Int Int)
+[C Int Int] if C Int Int   : Yes [$b:assumption($a)]
+[C Int Bool] if C Int Bool : Yes [$b:assumption($a)]
+[C Int t] if C Int Int     : Yes [$b:assumption($a)] (improved to [C Int Int] if C Int Int)
+[C Int t] if C Int Bool    : Yes [$b:assumption($a)] (improved to [C Int Bool] if C Int Bool)
+[C Int Int, C Int Int]     : [$a:C Int Int] remaining. [$b:assumption($a)]
+[D Int]                    : Yes [$a:d_t_if_c_t_u{Int, t$4}(g$5:c_int_int{}())]
+[D Bool]                   : Yes [$a:d_t_if_c_t_u{Bool, t$4}(g$5:c_bool_t_if_eq_t_int{}(g$6:eq_t_t{Int}()))]
+[D Foo]                    : [$a:D Foo] remaining. []
+[E Int t]                  : [$a:E Int t] remaining. []
+[E Bool t]                 : [$a:E Bool t] remaining. []
+[E Int Int]                : [$a:E Int Int] remaining. []
+[E Bool Int]               : [$a:E Bool Int] remaining. []
+[E Int Bool]               : [$a:E Int Bool] remaining. []
+[F Int t]                  : [$a:F Int t] remaining. []
+[F Bool t]                 : [$a:F Bool t] remaining. []
+[F Int Int]                : [$a:F Int Int] remaining. []
+[F Bool Int]               : [$a:F Bool Int] remaining. []
+[F Int Bool]               : [$a:F Int Bool] remaining. []

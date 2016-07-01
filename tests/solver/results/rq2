@@ -1,0 +1,4 @@
+[C T U, C U V, C T V, C V W, C U W, C T W]   : [C T U, C U V, C V W] remaining.
+[C T V, C U W, C T W] if C T U, C U V, C V W : Yes
+[C x y, C y z, C x z]                        : [C x y, C y z] remaining.
+[C x z] if C x y, C y z                      : Yes

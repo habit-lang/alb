@@ -1,0 +1,7 @@
+D Int. D Bool. D Float fails. D (Maybe t) fails.
+C Int; C t if D t.
+C Float; C t if D t fails, E t.
+
+C Int?
+C Bool?
+C t?

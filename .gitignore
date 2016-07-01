@@ -1,0 +1,7 @@
+alb
+*.hi
+*.o
+*.bat
+obj/*
+*.exe
+*.out

@@ -1,0 +1,5 @@
+[Lte P0 P14]                          : Yes
+[Lte P5 P14]                          : Yes
+[Lte P14 P5]                          : No 
+[Lte P5 P8, Lte P8 P16, Lte P5 P16]   : Yes
+[Lte P5 P16] if Lte P5 P8, Lte P8 P16 : Yes

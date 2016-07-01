@@ -1,0 +1,15 @@
+-- More concrete example of transitivity, for <= on peano numbers.
+
+Lte m n, Lte n p requires Lte m p.
+
+Lte P0 m;
+Lte m P0 fails.
+
+Lte (S m) (S n) if Lte m n;
+Lte (S m) (S n) fails.
+
+Lte P0 P14?
+Lte P5 P14?
+Lte P14 P5?
+Lte P5 P8, Lte P8 P16, Lte P5 P16?
+Lte P5 P16 if Lte P5 P8, Lte P8 P16?

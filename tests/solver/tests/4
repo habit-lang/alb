@@ -1,0 +1,6 @@
+-- Before the solver caught co-inductive proofs, this test generated an infinite loop
+R Double.
+F t fails if I t; F t if R t.
+I t fails if F t.
+
+F Double?

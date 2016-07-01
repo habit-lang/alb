@@ -1,0 +1,23 @@
+-- Tests the combination of pairwise improvement and generics.  Similar to impr2, but in this
+-- version, the 'C' class does not have the functional dependency that it did in that version.
+-- Thus, while the pairwise improvements can still be done, the C predicates generate no
+-- improvements, and the queries as a whole cannot be discharged.
+
+F t u | t ~> u.
+D t u v | t u ~> v.
+
+D t t True; D t u False.
+
+-- The functional dependency on D does not cause a similar functional dependency on C.  The second
+-- 'C' axiom demonstrates this.
+
+C t u v if D t u v.
+C t t Int if D t t Int fails.
+
+F True Int.
+F False Bool.
+
+F a b, F a c, C b c a?
+F a b, F a Bool, C b c a?
+
+C b c a if F a b, F a c?

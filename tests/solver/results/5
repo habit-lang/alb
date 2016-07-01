@@ -1,0 +1,6 @@
+[F Int Bool]         : Yes
+[F Int t]            : Yes (improved to [F Int Bool])
+[F Float Int]        : Yes
+[F Float t]          : Yes (improved to [F Float Int])
+[F Float Bool]       : No 
+[F Float Bool fails] : Yes

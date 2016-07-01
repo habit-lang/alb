@@ -1,0 +1,15 @@
+-- More functional dependency tests.  This checks that the improvement from 'C' propagates to
+-- queries on 'F'
+
+C t u | t ~> u.
+F t u | t ~> u.
+C Int Bool.
+F t u if C t u.
+F Int t?
+
+-- This tests functional dependency driven exclusions.  Note that because we know 'G Int Char', we
+-- know that no predicate of the form 'G Int t' for t =/= Char can hold.
+
+G t u | t ~> u.
+G Int Bool fails; G Int Char.
+G Int Float fails?

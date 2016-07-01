@@ -1,0 +1,34 @@
+### Associated types, superclasses, functional notation (Graph library example):
+
+> requires miniprelude
+> requires list
+
+> data Int
+
+> class Edge (g :: *) (e :: *) | g -> e
+> class Vertex (g :: *) (v :: *) | g -> v
+
+> --class Graph g requires Edge g e, Vertex g v where ...
+> class Graph g
+>   where src, tgt :: Edge g -> g -> Vertex g
+
+> class IncidenceGraph g | Graph g
+>   where out_edges  :: Vertex g -> g -> List (Edge g)
+>         out_degree :: Vertex g -> g -> Int
+
+> class BidirectionalGraph g | IncidenceGraph g
+>   where in_edges  :: Vertex g -> g -> List (Edge g)
+>         in_degree :: Vertex g -> g -> Int
+>         degree    :: Vertex g -> g -> Int
+
+> class AdjacencyGraph g | Graph g
+>   where adjacent_vertices :: Vertex g -> g -> List (Vertex g)
+
+> class VertexListGraph g | Graph g
+>   where vertices     :: g -> List (Vertex g)
+>         num_vertices :: g -> Int
+
+> class EdgeListGraph g | Graph g
+>   where edges     :: g -> List (Edge g)
+>         num_edges :: g -> Int
+

@@ -1,0 +1,6 @@
+#Git ignore file for the perftest work, necessary since I generate files that are handcrafted elsewhere
+*.s
+*.out
+*.out1
+*.o
+*.fidget

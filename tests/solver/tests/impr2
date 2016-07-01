@@ -1,0 +1,21 @@
+-- Testing pairwise improvement.
+
+F t u | t ~> u.
+C t u v | t u ~> v.
+
+C t t True; C t u False.
+
+F True Int.
+F False Bool.
+
+-- Each of these demonstraints pairwise improvement---even without being able to prove the
+-- predicates 'F a b' and 'F a c', we can use them to compute the improvement [b/c].  This, in turn,
+-- allows the C predicate to be resolved.
+
+F a b, F a c, C b c a?
+C b c a if F a b, F a c?
+
+-- Sanity check: without the pairwise improvement, the predicates cannot be resolved.  Note that the
+-- C predicate can still be solved by cases; in the above examples, it was solved directly.
+
+F a b, F a Bool, C b c a?

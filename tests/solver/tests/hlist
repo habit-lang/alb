@@ -1,0 +1,14 @@
+-- Examples based on the HList paper.  This also illustrates the rarely used ilab feature of
+-- user-named axioms.
+
+one: One t (C t ts) if None t ts; One t (C t ts) fails; One t (C t' ts) if One t ts; One t u fails.
+none: None t Nil; None t (C t ts) fails; None t (C t' ts) if None t ts; None t u fails.
+
+One Int (C Int Nil)?
+One Int (C Int (C Bool Nil))?
+One Int (C Bool (C Int Nil))?
+One Int (C Bool Nil)?
+One Int (C Int (C Int Nil))?
+One Int (C x (C Int Nil))?
+One Int (C Int Int)?
+One Int (C Bool Int)?

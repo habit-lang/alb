@@ -1,0 +1,74 @@
+-- Tests of Peano arithmetic.  Definitions in 'peano'.
+
+Add P2 P1 P3?
+Add P7 P14 P21?
+
+Add P1 P0 P2?
+Add P1 P2 P4?
+Add P1 P2 P2?
+
+Add P0 P0 x?
+Add P0 P1 x?
+Add P2 P2 x?
+
+
+Subt P0 P0 P0?
+Subt P0 P1 P0?
+Subt P1 P0 P1?
+Subt P3 P1 P2?
+Subt P21 P14 P7?
+
+Subt P0 P0 P1?
+Subt P1 P0 P0?
+Subt P1 P0 P2?
+Subt P21 P14 P8?
+
+Subt P0 P0 x?
+Subt P1 P0 x?
+Subt P28 P14 x?
+
+
+Mult P0 P0 P0?
+Mult P1 P0 P0?
+Mult P0 P1 P0?
+Mult P2 P3 P6?
+Mult P7 P4 P28?
+
+Mult P2 P3 P5?
+Mult P2 P3 P7?
+Mult P2 P4 P12?
+Mult P7 P4 P0?
+Mult P7 P4 P21?
+Mult P0 P1 P1?
+
+Mult P2 P3 x?
+Mult P0 P1 x?
+Mult P7 P3 x?
+
+
+Div P0 P1 P0?
+Div P6 P1 P6?
+Div P6 P2 P3?
+Div P21 P7 P3?
+
+Div P1 P0 P0?
+Div P1 P0 P1?
+Div P21 P7 P2?
+
+Div P6 P1 x?
+Div P6 P2 x?
+Div P5 P2 x?
+Div P21 P7 x?
+
+Lte P0 P0?
+Lte P0 P1?
+Lte P0 P1 fails?
+Lte P1 P0?
+Lte P3 P4?
+Lte P5 P2 fails?
+
+Gcd P2 P3 P1?
+Gcd P2 P3 x?
+Gcd P12 P9 x?
+Gcd P8 P12 x?
+Gcd P21 P36 x?

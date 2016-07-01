@@ -1,0 +1,14 @@
+-- More tests of the treatment of generic variables.
+
+MEq t u | t ~> u.
+MEq t t.
+
+F t u | t ~> u.
+F t (Maybe t).
+
+-- In this query, the solver initially assumes that variable 't' is generic, while 'u', because it
+-- appears in the determined position of the 'MEq' predicate, is not generic.  However, in improving
+-- 'u' to 'Maybe t', variable 't' now appears in a determined position, and the solver must update
+-- its notion of which variables are generic.
+
+F t u, MEq (Maybe Int) u?

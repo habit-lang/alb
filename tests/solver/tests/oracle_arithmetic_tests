@@ -1,0 +1,61 @@
+-- Tests of the built-in arithmetic classes.  This tests both the built-in classes and user-defined
+-- classes defined in terms of them.  Definitions are in oracles_arithmetic_tests.
+
+
++ 2 1 3?
++ 7 14 21?
+
++ 1 0 2?
++ 1 2 4?
++ 1 2 2?
+
++ 0 0 x?
++ 0 1 x?
++ 2 2 x?
+
+
+- 0 0 0?
+- 0 1 0?
+- 1 0 1?
+- 3 1 2?
+- 21 14 7?
+
+- 0 0 1?
+- 1 0 0?
+- 1 0 2?
+- 21 14 8?
+
+- 0 0 x?
+- 1 0 x?
+- 28 14 x?
+
+
+* 0 0 0?
+* 1 0 0?
+* 0 1 0?
+* 2 3 6?
+* 7 4 28?
+
+* 2 3 5?
+* 2 3 7?
+* 2 4 12?
+* 7 4 0?
+* 7 4 21?
+* 0 1 1?
+
+* 2 3 x?
+* 0 1 x?
+* 7 3 x?
+
+<= 0 0?
+<= 0 1?
+<= 0 1 fails?
+<= 1 0?
+<= 3 4?
+<= 5 2 fails?
+
+Gcd 2 3 1?
+Gcd 2 3 x?
+Gcd 12 9 x?
+Gcd 8 12 x?
+Gcd 21 36 x?

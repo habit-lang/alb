@@ -1,0 +1,16 @@
+-- This test is left over from one of the unification bugs.
+F t t; F t u fails.
+F Int Int?
+F Int Bool?
+
+-- Another unification bug: This verifies that bindings from matches in a sequence cannot allow
+-- later matches to bind LHS variables.  In this case, when matching the goal against the first
+-- clause of the 'C' axiom, binding [x/t] resulting from the first parameter should not allow the
+-- binding [y/x] for the second.
+--
+-- Note that the goal ought to be solvable, requires cases.  The bug is demonstrated should the
+-- solver find the improvement [True/z]
+
+C t u v | t u ~> v.
+C t t True; C t u False.
+C x y z?

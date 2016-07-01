@@ -1,0 +1,11 @@
+-- More functional dependencies.  This checks that functional dependencies work for variables that
+-- do not appear in the initial query.
+
+C t u | t ~> u.
+C Int Bool.
+D Bool.
+E t if C t u, D u.
+F t if D u, C t u.
+
+E Int?
+F Int?

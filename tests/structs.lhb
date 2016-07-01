@@ -1,0 +1,156 @@
+> requires miniprelude
+
+### Structures and initializers:
+
+Contexts on an x86 machine:
+
+> struct Context
+>    [ regs :: Registers | segs :: Segments | iret :: Iret ]
+
+> struct Registers
+>    [ edi, esi, ebp, esp, ebc, edx, ecx, eax :: Stored Unsigned ]
+
+> struct Segments [ ds,  es,  fs,  gs  :: Stored Unsigned ]
+
+> struct Iret [ error, eip, cs, eflags, esp, ss :: Stored Unsigned ]
+
+
+Initializers:
+
+> {-
+
+> initContext :: SegDescr -> SegDescr -> Unsigned -> IA32Flags -> Init Context
+> initContext cs ds ip flags
+>   = Context [ regs <- nullInit
+>             | segs <- Segments [ ds <- ids | es <- ids | fs <- ids | gs <- initStored utcbDS ]
+>             | iret <- Iret [ eip    <- initStored ip
+>                            | cs     <- initStored cs
+>                            | eflags <- initStored flags
+>                            | ss     <- ids
+>                            ]
+>             ]
+>     where ids = initStored ds
+
+> initUserContext    :: Init Context
+> initUserContext     = initContext userCS userDS 0 userFlags
+
+> initIdleContext    :: Unsigned -> Init Context
+> initIdleContext eip = initContext kernCS kernDS eip kernFlags
+
+
+Thread Control Registers:
+
+> struct TCRs / 256
+>             [ Pad 48 (Stored Unsigned)
+>             | myGlobalId        :: Stored ThreadId  -- utcb-64
+>             | notifyMask        :: Stored Unsigned  --     -60
+>             | notifyBits        :: Stored Unsigned  --     -56
+>             | acceptor          :: Stored Fpage     -- maybe Unsigned?
+>             | processorNo       :: Stored Unsigned  --     -48
+>             | userDefinedHandle :: Stored Unsigned  --     -44
+>             | pager             :: Stored ThreadId  -- maybe Unsigned?
+>             | exceptionHandler  :: Stored ThreadId  -- maybe Unsigned?
+>             | preemptCopFlags   :: Stored Unsigned  --     -32
+>             | errorCode         :: Stored Unsigned  --     -28
+>             | intendedReceiver  :: Stored Unsigned  --     -24
+>             | virtualSender     :: Stored Unsigned  --     -20
+>             | preemptCallbackIP :: Stored Unsigned  --     -16
+>             | preemptedIP       :: Stored Unsigned  --     -12
+>             | Pad 2 Unsigned ]
+
+
+User Thread Control Blocks:
+
+> struct UTCB / 512
+>             [ tcrs :: TCRs | mrs :: Array NumMRs (Stored Unsigned) ]
+
+
+Thread Control Blocks:
+
+> struct TCB [ tid        :: Stored ThreadId     -- this thread's id and version number
+>            | status     :: Stored ThreadStatus -- thread status
+>            | prio       :: Stored Priority     -- thread priority
+>            | pad1       :: Pad 1 Byte          -- padding
+>            | count      :: Stored Byte         -- for gc of TCBs in kernel memory
+>            | utcb       :: Stored (Ptr UTCB)   -- pointer to this thread's utcb
+>            | vutcb      :: Stored Unsigned     -- virtual address of utcb
+>
+>            | sendqueue  :: Stored (Ptr TCB)    -- list of threads waiting to send
+>            | receiver   :: Stored (Ptr TCB)    -- pointer to owner of sendqueue
+>            | prev, next :: Stored (Ref TCB)
+>
+>            | space     :: Stored (Ptr Space)  -- pointer to this thread's addr space
+>            | faultCode :: Stored Unsigned     -- exception number or page fault addr
+>            | context   :: Context             -- context of user level process
+>
+>            | scheduler :: Stored ThreadId     -- scheduling parameters
+>            | timeslice :: Stored Unsigned
+>            | timeleft  :: Stored Unsigned
+>            | quantleft :: Stored Unsigned ]
+
+
+> {-
+> initTCB :: ThreadId -> Ref Space -> ThreadId -> Init TCB
+> initTCB tid space scheduler
+>   = initSelf (\self ->
+>       TCB [ tid | space | scheduler      -- assumes punning supported
+>           | status    <- initStored Halted
+>           | vutcb     <- initStored (not 0)
+>           | next      <- initStored self
+>           | prev      <- initStored self
+>           | prio      <- 128             -- default not specified
+>           | timeslice <- 10000           -- 10ms
+>           | timeleft  <- 10000           -- 10ms
+>           | quantleft <- 0               -- infinite quantum
+>           | context   <- initUserContext ]
+> -}
+
+
+Address Spaces:
+
+> struct Space
+>      [ pdir              :: Stored Unsigned      -- phys addr of page dir
+>      | mem               :: Stored (Ptr Mapping) -- memory map
+>      | kipArea, utcbArea :: Stored Fpage         -- location of kip, utcbs
+>      | count, active     :: Stored Unsigned      -- count of threads/active
+>      | loaded            :: Stored Bool          -- True => loaded in CR3
+>      ]
+
+> initSpace :: Init Space
+> initSpace  = Space [ pdir     <- 0
+>                    | mem      <- nullInit
+>                    | kipArea  <- nullInit
+>                    | utcbArea <- nullInit
+>                    | count    <- 0
+>                    | active   <- 0
+>                    | loaded   <- initStored False ]
+
+Mapping Nodes:
+
+> struct Mapping
+>      [ space       :: Stored (Ref Space)
+>      | next, prev  :: Stored (Ptr Mapping)
+>      | level       :: Stored Unsigned
+>      | vfp         :: Stored Fpage
+>      | phys        :: Stored Unsigned
+>      | left, right :: Stored (Ptr Mapping) ]
+
+> initMapping   :: Ref Space -> Init Mapping
+> initMapping sp = Mapping [ space = sp ]
+
+> {-
+> findMapping          :: Ref Space -> Fpage -> M (Ptr Mapping)
+> findMapping space vfp = get space.mem >>= search Null
+>   where search cand Null    = consider cand
+>         search cand (Ref m) = do mvfp <- m.vfp
+>                                 if fpageEnd vfp < fpageStart mvfp
+>                                   then get m.left  >>= search cand
+>                                   else get m.right >>= search (Ref m)
+>         consider Null       = return Null
+>         consider (Ref m)    = do mvfp <- m.vfp
+>                                 if fpageStart vfp < fpageEnd mvfp
+>                                   then return (Ref m)
+>                                   else return Null
+> -}
+
+> -}

@@ -1,0 +1,20 @@
+-- Demonstrates the need for dynamic backtracking.
+
+Eq t u | t ~> u, u ~> t.
+Eq t t.
+
+C t if D t.
+
+-- The queries below should be equivalent.  In previous versions of the solver, however, they were
+-- not both provable.  In the first query, when the solver initially encounters the goal 'C t', it
+-- has no information on 't', and so applies the 'C' axiom, introducing the subgoal 'D t'.  Upon
+-- encountering the goal 'Eq t u', the solver introduces the improvement [t/u].  This ought to allow
+-- the first to be solvable; however, note that it has already been reduced to a subgoal, and that
+-- backtracking to before the introduction of its subgoal would also backtrack to before the
+-- introduction of the [t/u] improvement.  Dynamic backtracking allows the solver to backtrack the
+-- application of the axiom to the goal 'C t' without eliminating the [t/u] improvement, solving the
+-- query.
+
+C t, Eq t u if C u?
+Eq t u, C t if C u?
+

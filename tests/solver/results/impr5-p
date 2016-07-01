@@ -1,0 +1,3 @@
+[C t Float u v]           : [$a:C t Float u Bool] remaining. [] (improved to [C t Float u Bool])
+[C (Maybe t) Float u v]   : [$a:C (Maybe t) Float u Bool] remaining. [] (improved to [C (Maybe t) Float u Bool])
+[C (Maybe Int) Float u v] : Yes [$a:c_maybe_int_float_int_bool{}()] (improved to [C (Maybe Int) Float Int Bool])

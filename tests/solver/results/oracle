@@ -1,0 +1,45 @@
+[+ 2 1 3]      : Yes
+[+ 7 14 21]    : Yes
+[+ 1 0 2]      : No 
+[+ 1 2 4]      : No 
+[+ 1 2 2]      : No 
+[+ 0 0 x]      : Yes (improved to [+ 0 0 0])
+[+ 0 1 x]      : Yes (improved to [+ 0 1 1])
+[+ 2 2 x]      : Yes (improved to [+ 2 2 4])
+[- 0 0 0]      : Yes
+[- 0 1 0]      : No 
+[- 1 0 1]      : Yes
+[- 3 1 2]      : Yes
+[- 21 14 7]    : Yes
+[- 0 0 1]      : No 
+[- 1 0 0]      : No 
+[- 1 0 2]      : No 
+[- 21 14 8]    : No 
+[- 0 0 x]      : Yes (improved to [- 0 0 0])
+[- 1 0 x]      : Yes (improved to [- 1 0 1])
+[- 28 14 x]    : Yes (improved to [- 28 14 14])
+[* 0 0 0]      : Yes
+[* 1 0 0]      : Yes
+[* 0 1 0]      : Yes
+[* 2 3 6]      : Yes
+[* 7 4 28]     : Yes
+[* 2 3 5]      : No 
+[* 2 3 7]      : No 
+[* 2 4 12]     : No 
+[* 7 4 0]      : No 
+[* 7 4 21]     : No 
+[* 0 1 1]      : No 
+[* 2 3 x]      : Yes (improved to [* 2 3 6])
+[* 0 1 x]      : Yes (improved to [* 0 1 0])
+[* 7 3 x]      : Yes (improved to [* 7 3 21])
+[<= 0 0]       : Yes
+[<= 0 1]       : Yes
+[<= 0 1 fails] : No 
+[<= 1 0]       : No 
+[<= 3 4]       : Yes
+[<= 5 2 fails] : Yes
+[Gcd 2 3 1]    : Yes
+[Gcd 2 3 x]    : Yes (improved to [Gcd 2 3 1])
+[Gcd 12 9 x]   : Yes (improved to [Gcd 12 9 3])
+[Gcd 8 12 x]   : Yes (improved to [Gcd 8 12 4])
+[Gcd 21 36 x]  : Yes (improved to [Gcd 21 36 3])

@@ -1,0 +1,8 @@
+-- Simplest of requirement tests.  From C X, it should be enough to establish D X, which is (in
+-- turn) enough to establish E X.
+
+C t requires D t.
+E t if C t, D t.
+
+D X if C X?
+E X if C X?

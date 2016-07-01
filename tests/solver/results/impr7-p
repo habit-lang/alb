@@ -1,0 +1,11 @@
+[F t u]              : [$a:F t u] remaining. []
+[F t u, C t]         : [$b:C t] remaining. [$a:f_t_int_if_c_t{t}(g$3:assumption($b))] (improved to [F t Int, C t])
+[F t u] if C t       : Yes [$b:f_t_int_if_c_t{t}(g$3:assumption($a))] (improved to [F t Int] if C t)
+[G t u]              : [$a:G t u] remaining. []
+[G t u] if C t       : Yes [$b:g_t_int_if_c_t{t}(g$6:assumption($a))] (improved to [G t Int] if C t)
+[G t u] if C t fails : Yes [$b:g_t_bool_if_c_t_fails{t}(g$5:assumption($a))] (improved to [G t Bool] if C t fails)
+[G t u, C t]         : [$b:C t] remaining. [$a:g_t_int_if_c_t{t}(g$6:assumption($b))] (improved to [G t Int, C t])
+[G t u, C t fails]   : [$b:C t fails] remaining. [$a:g_t_bool_if_c_t_fails{t}(g$5:assumption($b))] (improved to [G t Bool, C t fails])
+[H t u v]            : [$a:H t u v] remaining. []
+[H t u v] if C u     : [$b:H t u v] remaining. []
+[H t u v, C u]       : [$a:H t u v, $b:C u] remaining. []

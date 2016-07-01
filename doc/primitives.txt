@@ -1,0 +1,42 @@
+Habit allow the user to declare new primitive functions that are
+defined by arbitrary C functions.  These primitive functions
+effectively use a basic FFI that operates as follows.  An example of
+using such primitives is found habitat/compiler/tests/io.hb which
+declares the 'getchar', 'putchar' and 'fflush' primitives.
+
+In order to declare a primitive, one simply declares the type
+signature the Habit should see for the function and prefixes the
+signature with the keyword 'primitive'.  For example, we declare the
+'putchar' primitive with:
+
+  primitive putchar :: Unsigned -> M Unsigned
+
+Note that the name 'putchar' correspond both to the name that Habit
+sees internally and to name of the external function that it will link
+to.  (At some point in the future we may add a syntax so these can be
+different from each other.)
+
+At the Fidget level, the types of these functions are uncurried.
+Occurrences in of Fint, Fix and Fref in the type are all translated to
+CMInt (i.e., C integers), and functions return Funit are given a void
+return type.  Any other types are disallowed.
+
+At the Habit level this means that the type of a primitive function is
+translated to a C type by first uncurrying the function type.
+'Unsigned', 'Ix n', and 'Ref a' types are then translated to a C
+integer.  A function that returns 'Unit' becomes a void function.
+
+The final wrinkle in this translation is that a function may be either
+monadic or non-monadic.  For example 'putchar' returns 'M Unsigned'.
+Before translation to a C type, the 'M' will be stripped off so the C
+signature of the corresponding function is:
+
+  int putchar(int);
+
+However, the 'M' does still have significance.  If the 'M' is omitted
+then the function is treated as being pure, but if the 'M' is included
+then Habit knows that the primitive function has a side effect and
+will thus ensure that calls to the primitive are properly sequenced.
+For example, 'putchar' has an IO effect, and thus the 'M' needs to be
+included.  However this 'M' does not show up in the C signature for
+the function.

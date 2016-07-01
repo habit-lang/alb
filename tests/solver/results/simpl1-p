@@ -1,0 +1,3 @@
+[C t]  : [$a:C t] remaining. []
+[C' t] : [g$5:D t] remaining. [c__t_if_d_t!0{t}(g$5:assumption(g$5))]
+[E t]  : [g$5:C t] remaining. [e_t_if_c_t!0{t}(g$5:assumption(g$5))]

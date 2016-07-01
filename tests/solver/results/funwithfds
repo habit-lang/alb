@@ -1,0 +1,30 @@
+[Even P3]                                                                  : No 
+[Odd P3]                                                                   : Yes
+[EvenF P3 True]                                                            : No 
+[EvenF P3 False]                                                           : Yes
+[OddF P3 True]                                                             : Yes
+[OddF P3 False]                                                            : No 
+[Add P3 P3 x]                                                              : Yes (improved to [Add P3 P3 P6])
+[Mul P3 P3 x]                                                              : Yes (improved to [Mul P3 P3 P9])
+[Add P3 P3 P5]                                                             : No 
+[Mul P3 P3 P8]                                                             : No 
+[Pow P2 P1 P2]                                                             : Yes
+[Pow P2 P0 P1]                                                             : Yes
+[Pow P2 P2 P4]                                                             : Yes
+[Pow P3 P4 P81]                                                            : Yes
+[Pow P3 P4 P27]                                                            : No 
+[Pow P3 P0 P3]                                                             : No 
+[Pow P2 P4 x]                                                              : Yes (improved to [Pow P2 P4 P16])
+[Pow P3 P3 x]                                                              : Yes (improved to [Pow P3 P3 P27])
+[DownFrom P3 x]                                                            : Yes (improved to [DownFrom P3 (Cons P2 (Cons P1 (Cons P0 Nil)))])
+[DownFrom P4 (Cons P3 (Cons P2 (Cons P1 (Cons P0 Nil))))]                  : Yes
+[DownFrom P4 (Cons P2 (Cons P1 (Cons P0 Nil)))]                            : No 
+[Lte P0 P1 True]                                                           : Yes
+[Lte P0 P1 False]                                                          : No 
+[Lte P1 P0 False]                                                          : Yes
+[Lte P1 P0 True]                                                           : No 
+[Lte P3 P24 x]                                                             : Yes (improved to [Lte P3 P24 True])
+[Lte P24 P3 x]                                                             : Yes (improved to [Lte P24 P3 False])
+[Sort (Cons P1 (Cons P3 (Cons P2 Nil))) (Cons P1 (Cons P2 (Cons P3 Nil)))] : Yes
+[Sort (Cons P1 (Cons P3 (Cons P2 Nil))) (Cons P3 (Cons P2 (Cons P1 Nil)))] : No 
+[Sort (Cons P1 (Cons P3 (Cons P2 Nil))) x]                                 : Yes (improved to [Sort (Cons P1 (Cons P3 (Cons P2 Nil))) (Cons P1 (Cons P2 (Cons P3 Nil)))])

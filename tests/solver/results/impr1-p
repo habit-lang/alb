@@ -1,0 +1,3 @@
+[C Int u v, D u v]   : Yes [$a:c_int_float_bool{}(), $b:d_float_bool{}()] (improved to [C Int Float Bool, D Float Bool])
+[D u v, C Int u v]   : Yes [$a:d_float_bool{}(), $b:c_int_float_bool{}()] (improved to [D Float Bool, C Int Float Bool])
+[D u v] if C Int u v : Yes [$b:d_float_bool{}()] (improved to [D Float Bool] if C Int Float Bool)

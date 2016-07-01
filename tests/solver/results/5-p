@@ -1,0 +1,6 @@
+[F Int Bool]         : Yes [$a:f_int_bool{}()]
+[F Int t]            : Yes [$a:f_int_bool{}()] (improved to [F Int Bool])
+[F Float Int]        : Yes [$a:f_t_int_if_c_t{Float}(g$3:c_float{}())]
+[F Float t]          : Yes [$a:f_t_int_if_c_t{Float}(g$3:c_float{}())] (improved to [F Float Int])
+[F Float Bool]       : No 
+[F Float Bool fails] : Yes [$a:f_t_int_if_c_t{Float}(g$2:c_float{}())]

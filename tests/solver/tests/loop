@@ -1,0 +1,9 @@
+-- Test for the loop detection in the solver.  In this case, the important aspect is that the loop
+-- is only apparent after taking pairwise improvement into account.
+
+F t u | t ~> u.
+C t | ~> t.
+
+C t if C u, F u t.
+
+C t?

@@ -1,0 +1,18 @@
+--
+
+C t if D t; C (Maybe t) fails; C U.
+D U fails.
+
+== t u | t ~> u, u ~> t.
+== t t.
+
+C U?
+C t, == t U?
+== t U, C t?
+
+--
+
+C1 t; C1 (Maybe t) if E1 t.
+D1 (Maybe T).
+
+C1 t, == t (Maybe T)?

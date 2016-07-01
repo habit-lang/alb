@@ -1,0 +1,8 @@
+[C t]                     : [g$5:D t] remaining. [c_t_if_d_t!0{t}(g$5:assumption(g$5))]
+[C t, E t]                : [g$7:D t] remaining. [c_t_if_d_t!0{t}(g$7:assumption(g$7)), $b:e_t_if_d_t{t}(g$8:assumption(g$7))]
+[E t] if C t              : Yes [$b:e_t_if_d_t{t}((c_t_if_d_t!0{t}(x0) <- _:assumption($a)) => g$7:assumption(x0))]
+[F t u, D t, D u]         : [$b:D u] remaining. [$a:f_t_t_if_d_t!0{u}(g$7:assumption($c)), $c:assumption($b)] (improved to [F u u, D u, D u])
+[D t, D u] if F t u       : Yes [(f_t_t_if_d_t!0{t}(x0) <- _:assumption($a)) => $b:assumption(x0), (f_t_t_if_d_t!0{t}(x0) <- _:assumption($a)) => $c:assumption(x0)] (improved to [D u, D u] if F u u)
+[D t, D u] if G t u True  : Yes [(g_t_t_true_if_d_t!0{t}(x0) <- _:assumption($a)) => $b:assumption(x0), (g_t_t_true_if_d_t!0{t}(x0) <- _:assumption($a)) => $c:assumption(x0)] (improved to [D t, D t] if G t t True)
+[D t, D u] if G t u False : [$b:D t, $c:D u] remaining. []
+[+ x y 32] if <= x 32     : Yes [$b:computed{x}]

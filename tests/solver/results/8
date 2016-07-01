@@ -1,0 +1,8 @@
+[Eq T T]                   : Yes
+[Eq T U]                   : No 
+[Eq T t]                   : Yes (improved to [Eq T T])
+[Eq t T]                   : Yes (improved to [Eq T T])
+[Eq t u]                   : Yes (improved to [Eq u u])
+[Eq t u] if Eq u t         : Yes (improved to [Eq t t] if Eq t t)
+[Eq t v] if Eq t u, Eq u v : Yes (improved to [Eq v v] if Eq v v, Eq v v)
+[C t u v] if Eq t u        : Yes (improved to [C u u True] if Eq u u)

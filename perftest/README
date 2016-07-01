@@ -1,0 +1,23 @@
+These are some performance analysis code done to see if there were any obvious performance errors.
+
+The C and ML code is a baseline and in general corresponds to a Habit file of the same name (or it should
+
+BUILD
+---------
+make -j should build all the .out files, .s files and .fidget files. Fidget and .s are left for analysis
+
+make Test builds a file named TestOut from the script test.sh which just executes every program and shows it's name next to the execution time
+make TestHard does the same thing but runs every test 10 times.
+
+make clean cleans the folder of everything (including TestOut files).
+
+NOTES
+---------
+
+The Makefile, while verbose, has some documentation on what the different files do (the different files evolved fast enough to make documenting difficult. Exact details may be out of date)
+
+
+Still trying to figure out how to get symbols to resolve.
+
+ackermann is actually pretty interesting
+

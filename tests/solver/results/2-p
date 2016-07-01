@@ -1,0 +1,9 @@
+[Integral Int]               : Yes [$a:integral_int!0{}()]
+[Fractional Int]             : [$a:Fractional Int] remaining. []
+[Integral Float]             : No 
+[Eq Int]                     : Yes [$a:eq_int!0{}()]
+[Eq (List Int)]              : Yes [$a:eq_int!1{Int}(g$7:eq_int!0{}())]
+[Eq (List (List Int))]       : Yes [$a:eq_int!1{List Int}(g$7:eq_int!1{Int}(g$e:eq_int!0{}()))]
+[Eq (Fun a b)]               : No 
+[Eq (List (List (Fun a b)))] : [$a:Eq (List (List (Fun a b)))] remaining. []
+[Eq (List (List Bool))]      : [$a:Eq (List (List Bool))] remaining. []

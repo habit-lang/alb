@@ -1,0 +1,4 @@
+[C U]                  : Yes
+[C t, == t U]          : Yes (improved to [C U, == U U])
+[== t U, C t]          : Yes (improved to [== U U, C U])
+[C1 t, == t (Maybe T)] : Yes (improved to [C1 (Maybe T), == (Maybe T) (Maybe T)])

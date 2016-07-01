@@ -1,0 +1,24 @@
+[In Int Int]                                                         : Yes
+[In Int (Plus Int Bool)]                                             : Yes
+[In Char (Plus Int Bool)]                                            : No 
+[In Int (Plus Int (Plus Int Bool))]                                  : Yes
+[In Int (Plus x (Plus Int Bool))]                                    : [In Int (Plus x (Plus Int Bool))] remaining.
+[In Int (Plus Int (Plus Int Int))]                                   : Yes
+[In Bool (Plus Int (Plus Int Bool))]                                 : Yes
+[In Int (Plus (Plus Int Bool) (Plus Char Expr))]                     : Yes
+[UniqueIn Int Int]                                                   : Yes
+[UniqueIn Int (Plus Int Bool)]                                       : Yes
+[UniqueIn Char (Plus Int Bool)]                                      : No 
+[UniqueIn Int (Plus Int (Plus Int Bool))]                            : No 
+[UniqueIn Int (Plus Int (Plus Int Int))]                             : No 
+[UniqueIn Int (Plus x (Plus Int Bool))]                              : [In Int x fails] remaining.
+[UniqueIn Int (Plus (Plus Int Int) Int)]                             : No 
+[UniqueIn Int (Plus (Plus Int Int) (Plus Int Int))]                  : No 
+[UniqueIn Bool (Plus Int (Plus Int Bool))]                           : Yes
+[UniqueIn Int (Plus (Plus Int Bool) (Plus Char Expr))]               : Yes
+[Without Int Int t]                                                  : No 
+[Without Int Bool t]                                                 : Yes (improved to [Without Int Bool Int])
+[Without (Plus Int Bool) Int t]                                      : Yes (improved to [Without (Plus Int Bool) Int Bool])
+[Without (Plus Int Bool) Bool t]                                     : Yes (improved to [Without (Plus Int Bool) Bool Int])
+[Without (Plus (Plus Int Bool) (Plus Char Float)) Int t]             : Yes (improved to [Without (Plus (Plus Int Bool) (Plus Char Float)) Int (Plus Bool (Plus Char Float))])
+[Without (Plus (Plus Int Bool) (Plus Char Float)) (Plus Int Bool) t] : Yes (improved to [Without (Plus (Plus Int Bool) (Plus Char Float)) (Plus Int Bool) (Plus Char Float)])

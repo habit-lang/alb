@@ -1,0 +1,8 @@
+[Eq T T]                   : Yes [$a:eq_t_t{T}()]
+[Eq T U]                   : No 
+[Eq T t]                   : Yes [$a:eq_t_t{T}()] (improved to [Eq T T])
+[Eq t T]                   : Yes [$a:eq_t_t{T}()] (improved to [Eq T T])
+[Eq t u]                   : Yes [$a:eq_t_t{u}()] (improved to [Eq u u])
+[Eq t u] if Eq u t         : Yes [$b:assumption($a)] (improved to [Eq t t] if Eq t t)
+[Eq t v] if Eq t u, Eq u v : Yes [$c:assumption($b)] (improved to [Eq v v] if Eq v v, Eq v v)
+[C t u v] if Eq t u        : Yes [$b:c_t_t_true!0{u}()] (improved to [C u u True] if Eq u u)
