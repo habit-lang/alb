@@ -89,3 +89,24 @@ Executable alb
   -- Extra tools (e.g. alex, hsc2hs, ...) needed to build the source.
   Build-tools:
   Hs-Source-Dirs: src
+
+Executable albc
+  -- .hs or .lhs file containing the Main module.
+  Main-is:  Driver.hs
+
+  -- Packages needed in order to build this package.
+  Build-depends:    base >= 4 && < 6, parsec >= 3.1.1, mtl >= 2, strict >= 0.3
+                  , template-haskell >= 2.4, containers >= 0.3, filepath >= 1.1
+                  , directory >= 1.0, pretty >= 1.1, process >= 1.0
+                  , syb >= 0.1, array >= 0.3, transformers >= 0.2, TYB
+                  , indentation >= 0.2.1
+                  , cmdargs >= 0.10
+                  , temporary >= 1.2.0
+                  , configurator >= 0.3
+
+  -- Modules not exported by this package.
+  Other-modules:
+
+  -- Extra tools (e.g. alex, hsc2hs, ...) needed to build the source.
+  Build-tools:
+  Hs-Source-Dirs: src
