@@ -57,7 +57,7 @@ believed to be correct:
     d -- lift delays
     l -- letrec lift delays
 
-Possibly incorrecy
+Possibly incorrect
     j -- remove join points which only force their args
     s -- straighten gotos and letlabels, do dealiasing
 
