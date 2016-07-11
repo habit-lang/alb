@@ -284,7 +284,7 @@ buildMethodEnv _ = return Map.empty
 
 buildCtorEnv :: Located (TopDecl Pred KId KId) -> Base.M CtorEnv
 buildCtorEnv (At _ d@(Datatype {})) = do
-  (_, _, _, env) <- TopDecl.checkTopDecl d
+  (_, env) <- TopDecl.checkTopDecl d
   return env
 buildCtorEnv _ = return Map.empty
 

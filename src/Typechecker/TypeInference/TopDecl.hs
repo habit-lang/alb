@@ -89,7 +89,7 @@ mustBeSatisfied pred =
        trace ("Remaining predicates: " ++ show (hsep (punctuate comma (map (ppr . snd) remaining)))) $
            when (not (null remaining)) (contextTooWeak remaining)
 
-checkTopDecl :: TopDecl Pred KId KId -> M (X.TopDecl KId, [(Id, X.EvDecl)], [TypingGroup Pred KId], CtorEnv)
+checkTopDecl :: TopDecl Pred KId KId -> M (X.TopDecl KId, CtorEnv)
 
 checkTopDecl (Datatype (Kinded name k) ps ctors _) =
     -- Nothing much to do here; all the hard part of checking that datatype declarations are well
@@ -102,8 +102,6 @@ checkTopDecl (Datatype (Kinded name k) ps ctors _) =
                      | Ctor (At _ ctorName) kids qs ts <- ctors' ]
        trace (show ("Binding constructors:" <+> vcat [ ppr id <::> ppr ksc | (id, (ksc, _)) <- ctorEnv ])) $
            return ( X.Datatype name ps' xctors
-                  , []
-                  , []
                   , Map.fromList ctorEnv )
     where convertCtor (Ctor (At _ name) kids ps ts) =
               return (name, kids, map (convert . dislocate) ps, map (convert . dislocate) ts)
@@ -156,8 +154,6 @@ checkTopDecl (Bitdatatype name mtys ctors derives) =
 
        -- Return XMPEG version of this bitdatatype decl:
        return ( X.Bitdatatype name bddpat xctors
-              , []
-              , []
               , Map.fromList [(cname, (ForallK [] (Forall [] ([] :=> introduced (ctorType cname))), 0))
                              | Ctor (At _ cname) _ _ _ <- ctors'] )
 
@@ -265,8 +261,6 @@ checkTopDecl (Struct name mtys ctor derives) =
        -- Compute XMPEG version of the struct decl, including width and offset information:
        let regions' = zipWith3 (\(lab, ty, _) -> X.StructField lab (convert ty)) regionInfo sizes (scanl (+) 0 sizes)
        return ( X.Struct name (fromIntegral n) regions'
-              , []
-              , []
               , Map.empty)
     where
       tycon = TyCon (Kinded name KArea)
@@ -295,8 +289,6 @@ checkTopDecl (Area v inits tys) =
                 size  <- getNat "size" s
                 align <- getNat "alignment" l
                 return ( X.Area v inits' (convert (dislocate ty)) size align
-                       , []
-                       , []
                        , Map.fromList [(name, (tys', 0)) | (name, _) <- inits'] )
          _ ->
              failWithS ("Unsupported area declaration; declared type " ++ show (ppr tys)
@@ -525,22 +517,22 @@ checkProgram fn p =
                                            return (n, LamBound ty)) areaTypes
        let globals = Map.unions (Map.fromList areaTypes' : methodTypeEnvironments)
        binds globals $
-            do (typeDecls', evDecls', moreImpls, ctorEnvironments) <- unzip4 `fmap` mapM (mapLocated checkTopDecl) typeDecls
+            do (typeDecls', ctorEnvironments) <- unzip `fmap` mapM (mapLocated checkTopDecl) typeDecls
                let ctorEnvironment = Map.unions (primCtors ++  ctorEnvironments)
                    ctorTypes       = tyEnvFromCtorEnv ctorEnvironment
                bindCtors ctorEnvironment
                binds ctorTypes $
-                    do (decls', ps, valueTypes) <- checkDecls (concatDecls [decls p, Decls (concat defaultMethodImpls), Decls methodImpls, Decls (concat moreImpls)])
+                    do (decls', ps, valueTypes) <- checkDecls (concatDecls [decls p, Decls (concat defaultMethodImpls), Decls methodImpls])
                        (evsubst, remaining) <- traceIf (not (null ps)) (show ("Solving remaining top-level constraints:" <+> pprList (map snd ps))) $
                                                withoutConditionalBindings (solve [] [] ps)
                        when (not (null remaining)) $ contextTooWeak remaining
                        binds valueTypes $
-                            do (areaDecls', _, _, _) <- unzip4 `fmap` mapM (mapLocated checkTopDecl) areaDecls
+                            do (areaDecls', _) <- unzip `fmap` mapM (mapLocated checkTopDecl) areaDecls
                                s <- gets (convert . currentSubstitution)
                                return ( X.Program (X.consDecls (concat (selectorImpls ++ primDecls))
                                                                (s X.# addEvidence evsubst decls'))
                                                   (s X.# typeDecls' ++ s X.# areaDecls')
-                                                  (Map.fromList (evDecls ++ concat evDecls'))
+                                                  (Map.fromList (evDecls))
                                       , Map.map (\(tys, n) -> (convert tys, n)) ctorEnvironment
                                       , Map.unions [globals, ctorTypes, valueTypes] )
 
