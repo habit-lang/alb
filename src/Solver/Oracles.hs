@@ -1,11 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Solver.Oracles (assumptionImprovementByOracles, fundeps, primitiveClasses, solveByOracles)  where
+module Solver.Oracles (assumptionImprovementByOracles, determinable, fundeps, primitiveClasses, solveByOracles)  where
 
 import qualified Data.IntSet as Set
 import Solver.PP
 import Solver.Subst hiding (singleton)
 import Solver.Syntax
 import Solver.Tactics
+import Syntax.Common (Fixity(..), Assoc(..))
 import qualified Syntax.IMPEG.KSubst as K
 
 import Solver.Trace
@@ -187,18 +188,54 @@ arithmetic name goal@(Pred className ts flag loc) =
 
 ----------------------------------------------------------------------------------------------------
 
+linearity name goal@(Pred className ts flag loc) =
+    case (className, ts) of
+      ("Un", [t]) -> un t
+      ("->", [t]) -> fun t
+      _           -> noProgress
+
+    where un (TyVar v) =
+              do b <- known (funPred v)
+                 if b
+                 then return (singleton v (arrowLike "-!>"), prove "Oracles_linearity_un")
+                 else noProgress
+          un ((TyVar v :@ _) :@ _) =
+              do b <- known (funPred v)
+                 if b
+                 then return (singleton v (arrowLike "-!>"), prove "Oracles_linearity_un")
+                 else noProgress
+          un _ = noProgress
+
+          fun (TyVar v) = do b <- known unPred
+                             if b
+                             then return (singleton v (arrowLike "-!>"), prove "Oracles_linearity_fun")
+                             else noProgress
+              where unPred (Pred "Un" [TyVar w] Inc _)             = v == w
+                    unPred (Pred "Un" [(TyVar w :@ _) :@ _] Inc _) = v == w
+                    unPred _                                       = False
+          fun _ = noProgress
+
+          funPred v (Pred "->" [TyVar w] Inc _) = trace (ppx v ++ " =?= " ++ ppx w ++ " = " ++ show (v == w)) $
+                                                  v == w
+          funPred _ _                             = False
+
+          arrowLike id = TyCon (Kinded (Ident id 0 (Just (Fixity RightAssoc 5))) (KFun KStar (KFun KStar KStar)))
+
+----------------------------------------------------------------------------------------------------
+
 solveByOracles = node oracles'
-    where oracles' (Goal name p _ Nothing) = do (impr, act) <- anyOf [arithmetic name p]
+    where oracles' (Goal name p _ Nothing) = do (impr, act) <- anyOf [arithmetic name p, linearity name p]
                                                 bindGeneric impr
                                                 act
           oracles' _                       = noProgress
 
           bindGeneric (S ks ps) = Tactic (\st -> if all (\(v :-> _) -> v `notElem` gvars st) ps
                                                  then runTactic (bind (S ks ps)) st
-                                                 else (NoProgress, st))
+                                                 else trace ("Rejecting non-generic improving substitution: " ++ ppx (S ks ps)) $
+                                                      (NoProgress, st))
 
 assumptionImprovementByOracles p =
-    do (impr, _) <- anyOf [arithmetic "_" p]
+    do (impr, _) <- anyOf [arithmetic "_" p, linearity "_" p]
        trace ("From assumption " ++ ppx p ++ ", improving " ++ ppx impr) $
            bind impr
 
@@ -210,3 +247,6 @@ fundeps = [ ("+", [[0, 1] :~> [2], [0, 2] :~> [1], [1, 2] :~> [0]])
           , ("*", [[0, 1] :~> [2]])
           , ("^", [[0, 1] :~> [2]])
           , ("GCD", [[0, 1] :~> [2]]) ]
+
+determinable :: [(Id, [Integer])]
+determinable = [ ("Un", [0]) ]

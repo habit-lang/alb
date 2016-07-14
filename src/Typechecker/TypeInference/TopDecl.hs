@@ -76,7 +76,7 @@ solveForNat pcon =
        (_, remaining) <- trace ("solveForNat: Solving " ++ show (ppr (pcon (introduced ty)))) $
                          withoutConditionalBindings (solve [] [] [("e", introduced (pcon (introduced ty)))])
        trace ("Remaining predicates: " ++ show (hsep (punctuate comma (map (ppr . snd) remaining)))) $
-           when (not (null remaining)) (contextTooWeak remaining)
+           when (not (null remaining)) (contextTooWeak [] remaining)
        ty' <- substitute ty
        case ty' of
          TyNat n -> return (fromIntegral n)
@@ -87,27 +87,39 @@ mustBeSatisfied pred =
     do (_, remaining) <- trace ("isSatisfied: Solving " ++ show (ppr pred)) $
                          withoutConditionalBindings (solve [] [] [("e", introduced pred)])
        trace ("Remaining predicates: " ++ show (hsep (punctuate comma (map (ppr . snd) remaining)))) $
-           when (not (null remaining)) (contextTooWeak remaining)
+           when (not (null remaining)) (contextTooWeak [] remaining)
 
 checkTopDecl :: TopDecl Pred KId KId -> M (X.TopDecl KId, CtorEnv)
 
-checkTopDecl (Datatype (Kinded name k) ps ctors _) =
+checkTopDecl (Datatype (Kinded name k) params ctors _) =
     -- Nothing much to do here; all the hard part of checking that datatype declarations are well
     -- formed was done during kind inference.
-    do ctors' <- mapM (simplifyCtor ps') ctors
+    do ctors' <- mapM (simplifyCtor params') ctors
        xctors <- mapM convertCtor ctors'
-       let ctorEnv = [ (ctorName, (kindQuantify (Forall (kids ++ ps')
-                                                        (gen (length kids) ps' (qs :=> introduced (map dislocate ts `allTo` t)))),
-                                   length kids))
-                     | Ctor (At _ ctorName) kids qs ts <- ctors' ]
+       ctorEnv <- mapM ctorTypeBinding ctors'
        trace (show ("Binding constructors:" <+> vcat [ ppr id <::> ppr ksc | (id, (ksc, _)) <- ctorEnv ])) $
-           return ( X.Datatype name ps' xctors
+           return ( X.Datatype name params' xctors
                   , Map.fromList ctorEnv )
-    where convertCtor (Ctor (At _ name) kids ps ts) =
-              return (name, kids, map (convert . dislocate) ps, map (convert . dislocate) ts)
+    where convertCtor (Ctor (At _ name) kids params ts) =
+              return (name, kids, map (convert . dislocate) params, map (convert . dislocate) ts)
 
-          ps'       = map dislocate ps
-          t         = foldl (@@) (TyCon (Kinded name k)) (map TyVar ps')
+          params'   = map dislocate params
+          t         = foldl (@@) (TyCon (Kinded name k)) (map TyVar params')
+
+          buildArrow _ [] t =
+              return ([], [], t)
+          buildArrow ts (u:us) t =
+              do (vs, qs, t') <- buildArrow (u:ts) us t
+                 ((_, At _ funp), f@(TyVar v)) <- newArrowVar
+                 let t'' = f @@ u @@ t'
+                     qs' = map ((`moreUnrestricted` (introduced f)) . introduced) ts
+                 return (v:vs, funp : qs' ++ qs, t'')
+
+          ctorTypeBinding (Ctor (At _ ctorName) kids qs ts) =
+              do (vs, ps, t') <- buildArrow [] (map dislocate ts) t
+                 return (ctorName, (kindQuantify (Forall (kids ++ params' ++ vs)
+                                                          (gen (length kids) (params' ++ vs) ((map introduced ps ++ qs) :=> introduced t'))),
+                                    length kids))
 
 checkTopDecl (Bitdatatype name mtys ctors derives) =
     -- Checking a bitdata type has three steps: for each constructor, we generate the XMPEG
@@ -161,7 +173,7 @@ checkTopDecl (Bitdatatype name mtys ctors derives) =
           tycon           = TyCon (Kinded name KStar)
 
           ctorType       :: Id -> Ty
-          ctorType cname  = bitdataCase name cname `to` tycon
+          ctorType cname  = bitdataCase name cname `unrTo` tycon
 
           -- Construct the XMPEG representation for a bitdata constructor, including dictionaries for
           -- associated select and update instances:
@@ -281,7 +293,7 @@ checkTopDecl (Area v inits tys) =
                                   solve [] [] [("$e", introduced (areaOf ty (introduced a))),
                                                ("$f", introduced (byteSize (introduced a) (introduced s))),
                                                ("$g", introduced (alignOf ty (introduced l)))]
-                when (not (null remaining)) $ contextTooWeak remaining
+                when (not (null remaining)) $ contextTooWeak [] remaining
                 when v (do (_, remaining) <- withoutConditionalBindings (solve [] [] [("$e", introduced (noInit a))])
                            when (not (null remaining))
                                 (do a' <- substitute a
@@ -301,11 +313,11 @@ checkTopDecl (Area v inits tys) =
                    LamBound _   -> failWithS ("no let bound definition for initializer " ++ fromId name)
                    LetBound tys ->
                      do (_, kids, ps :=> At _ t) <- instantiate tys
-                        evs                   <- freshFor "e" ps
+                        evs <- freshFor "e" ps
                         let preds = zip evs ps
                         (evsubst, remaining)  <- withoutConditionalBindings (solve (tvs t) (tvs t) preds)
                         when (not (null remaining)) $
-                          contextTooWeak remaining
+                          contextTooWeak [] remaining
                         let typarams = [convert (TyVar kid)                 | kid <- kids]
                             evparams = [fromMaybe (X.EvVar ev) (lookup ev evsubst) | (ev, At _ (Pred _ _ Holds)) <- preds]
                         return (name, X.Inst init typarams evparams)
@@ -516,17 +528,20 @@ checkProgram fn p =
        areaTypes' <- mapM (\(n, tys) -> do ty <- simplifyAreaType tys
                                            return (n, LamBound ty)) areaTypes
        let globals = Map.unions (Map.fromList areaTypes' : methodTypeEnvironments)
-       binds globals $
+       declare globals $
             do (typeDecls', ctorEnvironments) <- unzip `fmap` mapM (mapLocated checkTopDecl) typeDecls
-               let ctorEnvironment = Map.unions (primCtors ++  ctorEnvironments)
+               let ctorEnvironment = Map.unions (primCtors ++ ctorEnvironments)
                    ctorTypes       = tyEnvFromCtorEnv ctorEnvironment
                bindCtors ctorEnvironment
-               binds ctorTypes $
-                    do (decls', ps, valueTypes) <- checkDecls (concatDecls [decls p, Decls (concat defaultMethodImpls), Decls methodImpls])
-                       (evsubst, remaining) <- traceIf (not (null ps)) (show ("Solving remaining top-level constraints:" <+> pprList (map snd ps))) $
-                                               withoutConditionalBindings (solve [] [] ps)
-                       when (not (null remaining)) $ contextTooWeak remaining
-                       binds valueTypes $
+               declare ctorTypes $
+                    do rDecls <- checkDecls (concatDecls [decls p, Decls (concat defaultMethodImpls), Decls methodImpls]) -- (decls', ps, valueTypes)
+                       let (decls', valueTypes) = payload rDecls
+                       (evsubst, remaining) <- traceIf (not (null (goals rDecls))) (show ("Solving remaining top-level constraints:" <+>
+                                                                                          pprList' (map snd (assumed rDecls)) <+> "=>" <+>
+                                                                                          pprList (map snd (goals rDecls)))) $
+                                               withoutConditionalBindings (entails [] [] (assumed rDecls) (goals rDecls))
+                       when (not (null remaining)) $ contextTooWeak (assumed rDecls) remaining
+                       declare valueTypes $
                             do (areaDecls', _) <- unzip `fmap` mapM (mapLocated checkTopDecl) areaDecls
                                s <- gets (convert . currentSubstitution)
                                return ( X.Program (X.consDecls (concat (selectorImpls ++ primDecls))

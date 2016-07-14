@@ -14,6 +14,7 @@ import Data.Maybe
 import Printer.Common hiding (empty)
 import Syntax.Common
 import Syntax.IMPEG
+import qualified Syntax.IMPEG.KSubst as K
 import Syntax.IMPEG.TSubst
 import qualified Syntax.XMPEG as X
 import qualified Syntax.XMPEG.TSubst as X
@@ -21,23 +22,34 @@ import Typechecker.TypeInference.Base
 
 ----------------------------------------------------------------------------------------------------
 
-checkExpr :: Located Exp -> Ty -> M (X.Expr, Preds)
+checkExpr :: Located Exp -> Ty -> TcRes X.Expr
 
 checkExpr (At loc (ELet ds body)) expected =
     failAt loc $
     trace (show ("At" <+> ppr loc <+> "expect type" <+> ppr expected)) $
-    do (ds', ps, vals) <- checkDecls ds
-       (body', qs) <- binds vals (checkExpr body expected)
-       return (X.ELet ds' body', ps ++ qs)
+    do R (ds', vals) assumed ps usedDefn <- checkDecls ds
+       R body' assumed' qs usedBody <- binds loc vals (checkExpr body expected)
+       (assumedC, goalsC, used) <- contract loc usedDefn usedBody
+       return R{ payload = X.ELet ds' body'
+               , assumed = assumed ++ assumed' ++ assumedC
+               , goals = ps ++ qs ++ goalsC
+               , used = used}
 
 checkExpr (At loc (ELam var body)) expected =
     failAt loc $
     trace (show ("At" <+> ppr loc <+> "expect type" <+> ppr expected)) $
     do argTy@(TyVar arg) <- newTyVar KStar
        resTy             <- newTyVar KStar
-       unifies expected (argTy `to` resTy)
-       (body', ps) <- bind var (LamBound argTy) (checkExpr body resTy)
-       return (X.ELam var (X.TyVar arg) body', ps)
+       (funp, t)         <- argTy `polyTo` resTy
+       unifies expected t
+       r <- bind loc var (LamBound argTy) (checkExpr body resTy)
+       (gteAssumps, gteGoals) <- unzip `fmap` mapM (buildLinPred loc (flip moreUnrestricted (At loc t)) <=< bindingOf) (used r)
+       traceIf (not (null gteGoals))
+               (show ("In function" <+> ppr (ELam var body) <+> "used" <+> pprList' (used r) <$>
+                      "giving entailment" <+> pprList' (map snd (concat gteAssumps)) <+> "=>" <+> pprList' (map snd gteGoals)))
+               (return r{ payload = X.ELam var (X.TyVar arg) (payload r)
+                        , assumed = concat gteAssumps ++ assumed r
+                        , goals = funp : gteGoals ++ goals r })
 
 checkExpr (At loc (EVar name)) expected =
     failAt loc $
@@ -46,7 +58,10 @@ checkExpr (At loc (EVar name)) expected =
        case b of
          LamBound ty ->
              do unifies expected ty
-                return (X.ELamVar name, [])
+                return R{ payload = X.ELamVar name
+                        , assumed = []
+                        , goals = []
+                        , used = [name] }
          LetBound tys ->
              do (kvars, kids, ps :=> At _ ty) <- instantiate tys
                 unifies expected ty
@@ -56,8 +71,10 @@ checkExpr (At loc (EVar name)) expected =
                                      ppr name <+> text "gets type" <+> ppr ty <$>
                                      text "and introduces" <$>
                                      vcat [ppr id <::> ppr p | (id, p) <- preds])))
-                      (return ( X.ELetVar (X.Inst name (map X.TyVar kids) (map X.EvVar evNames))
-                              , preds ))
+                      (return R{ payload = X.ELetVar (X.Inst name (map X.TyVar kids) (map X.EvVar evNames))
+                               , assumed = []
+                               , goals = preds
+                               , used = [name] })
 
 checkExpr (At loc (ECon name)) expected =
     failAt loc $
@@ -69,8 +86,10 @@ checkExpr (At loc (ECon name)) expected =
              do (kvars, kids, ps :=> At _ ty) <- instantiate tys
                 unifies expected ty
                 evNames <- freshFor "e" ps
-                return ( X.ECon (X.Inst name (map X.TyVar kids) (map X.EvVar evNames))
-                       , zip evNames [At loc p | At _ p <- ps])
+                return R{ payload = X.ECon (X.Inst name (map X.TyVar kids) (map X.EvVar evNames))
+                        , assumed = []
+                        , goals = zip evNames [At loc p | At _ p <- ps]
+                        , used = []}
 
 checkExpr (At loc (EBitCon ctor fs)) expected =
     failAt loc $
@@ -91,13 +110,18 @@ checkExpr (At loc (EBitCon ctor fs)) expected =
          failWithS ("There are no fields called " ++ commaSep notFields ++ " for constructor " ++ fromId ctor)
 
        -- Compute full list of field values using default initial values where necessary:
-       (es', pss) <- unzip `fmap` mapM fieldFor fields
+       rFields <- mapM fieldFor fields
+                  -- (es', pss) <- unzip `fmap` mapM fieldFor fields
+       (assumedC, goalsC, used) <- contractMany loc (map used rFields)
        let cty  = [ t | (_, t, _) <- fields ] `allTo` (bitdataCaseTy @@ ty @@ TyLabel ctor)
            prim = X.ELetVar (X.Inst "constructBitdata" [convert cty] [])
            cons = X.ECon (X.Inst ctor [] []) -- constructor is monomorphic
-       return (X.EApp cons (foldl X.EApp prim es'), concat pss)
+       return R{ payload = X.EApp cons (foldl X.EApp prim (map payload rFields))
+               , assumed = assumedC ++ concatMap assumed rFields
+               , goals = goalsC ++ concatMap goals rFields
+               , used = used }
 
-    where fieldFor :: (Id, Ty, Maybe Id) -> M (X.Expr, Preds)
+    where fieldFor :: (Id, Ty, Maybe Id) -> TcRes X.Expr
           fieldFor (fieldName, fieldTy, defaultId) =
               case lookup fieldName fs of
                 Just e ->
@@ -108,25 +132,36 @@ checkExpr (At loc (EBitCon ctor fs)) expected =
                 Nothing ->
                     case defaultId of
                       Nothing -> failWithS ("Uninitialized field " ++ fromId fieldName)
-                      Just id -> return (X.ELetVar (X.Inst id [] []), [])
+                      Just id -> return R{ payload = X.ELetVar (X.Inst id [] [])
+                                         , assumed = []
+                                         , goals = []
+                                         , used = [id] }
 
 checkExpr (At loc (EBits value size)) expected =
     do unifies expected (bitTy @@ TyNat (fromIntegral size))
-       return (X.EBits value size, [])
+       return R{ payload = X.EBits value size
+               , assumed = []
+               , goals = []
+               , used = [] }
 
 checkExpr (At loc (EMatch m)) expected =
     failAt loc $
     trace (show ("At" <+> ppr loc <+> "expect type" <+> ppr expected)) $
-    do (m', ps) <- checkMatch m expected
-       return (X.EMatch m', ps)
+    do r <- checkMatch m expected
+       return r{ payload = X.EMatch (payload r) }
 
 checkExpr (At loc (EApp f a)) expected =
     failAt loc $
     trace (show ("At" <+> ppr loc <+> "expect type" <+> ppr expected)) $
     do t <- newTyVar KStar
-       (f', ps) <- checkExpr f (t `to` expected)
-       (a', qs) <- checkExpr a t
-       return (X.EApp f' a', ps ++ qs)
+       (funp, fty) <- t `polyTo` expected
+       rF <- checkExpr f fty
+       rA <- checkExpr a t
+       (assumedC, goalsC, used) <- contract loc (used rF) (used rA)
+       return R{ payload = X.EApp (payload rF) (payload rA)
+               , assumed = assumedC ++ assumed rF ++ assumed rA
+               , goals = funp : goalsC ++ goals rF ++ goals rA
+               , used = used }
 
 checkExpr (At loc (EBind v e rest)) expected =
     failAt loc $
@@ -136,11 +171,14 @@ checkExpr (At loc (EBind v e rest)) expected =
        tyb <- newTyVar KStar
        tym <- newTyVar (KStar `KFun` KStar)
        unifies expected (tym @@ tyb)
-       (e', ps) <- checkExpr e (tym @@ tya)
-       (rest', qs) <- bind v (LamBound tya) (checkExpr rest expected)
+       rE <- checkExpr e (tym @@ tya)   -- (e', ps)
+       rRest <- bind loc v (LamBound tya) (checkExpr rest expected) -- (rest', qs)
+       (assumedC, goalsC, used) <- contract loc (used rE) (used rRest)
        evar <- fresh "e"
-       return ( X.EBind (convert tya) (convert tyb) (convert tym) (X.EvVar evar) v e' rest'
-              , (evar, At loc (procPred (At loc tym))) : ps ++ qs )
+       return R{ payload = X.EBind (convert tya) (convert tyb) (convert tym) (X.EvVar evar) v (payload rE) (payload rRest)
+               , assumed = assumedC ++ assumed rE ++ assumed rRest
+               , goals = (evar, At loc (procPred (At loc tym))) : goalsC ++ goals rE ++ goals rRest
+               , used = used }
 
 checkExpr (At loc (EStructInit name inits)) expected =
     failAt loc $
@@ -161,10 +199,15 @@ checkExpr (At loc (EStructInit name inits)) expected =
          failWithS ("There are no fields called " ++ commaSep notFields ++ " for structure " ++ fromId name)
 
        -- Compute a full list of initializers for this structure:
-       (es, pss, ts) <- unzip3 `fmap` mapM initFor regions
-       return ( structInit ty ts es, concat pss )
+       rRegionInits <- mapM initFor regions
+       let (es, ts) = unzip (map payload rRegionInits)
+       (assumedC, goalsC, used) <- contractMany loc (map used rRegionInits)
+       return R{ payload = structInit ty ts es
+               , assumed = assumedC ++ concat (map assumed rRegionInits)
+               , goals = goalsC ++ concat (map goals rRegionInits)
+               , used = used}
 
-    where initFor :: (Maybe Id, Ty, Maybe Id) -> M (X.Expr, Preds, Ty)
+    where initFor :: (Maybe Id, Ty, Maybe Id) -> TcRes (X.Expr, Ty)
           initFor (mregName, regTy, mregInit)
             = case mregName of
                 Nothing      ->  -- unnamed region, use default initializer
@@ -172,48 +215,71 @@ checkExpr (At loc (EStructInit name inits)) expected =
                 Just regName ->  -- named field
                   case [ e | (At _ n, e) <- inits, n==regName ] of  -- look for used specified initializer
                     (e : _) ->
-                      do (e', ps) <- checkExpr e initType -- confirm that initializer has correct type
-                                                          -- TODO: is this correct?
-                         return (e', ps, initType)
+                      do rE <- checkExpr e initType -- confirm that initializer has correct type
+                         return rE{ payload = (payload rE, initType) }
                     [] ->
                       case mregInit of -- look for an initializer in the structure definition
-                        Just defInit -> return (X.ELetVar (X.Inst defInit [] []), [], initType)
+                        Just defInit -> return R{ payload = (X.ELetVar (X.Inst defInit [] []), initType)
+                                                , assumed = []
+                                                , goals = []
+                                                , used = [] }
                         Nothing      -> defaultInitializer
               where
                 initType = TyApp (At loc initTy) (At loc regTy)
-                defaultInitializer :: M (X.Expr, Preds, Ty)
+                defaultInitializer :: TcRes (X.Expr, Ty)
                 defaultInitializer  = do evar <- fresh "e"      -- evidence for Init ty
-                                         return (X.EMethod (X.EvVar evar) 0 [] [],
-                                                 [(evar, At loc (initablePred (At loc regTy)))],
-                                                 initType)
+                                         return R{ payload = (X.EMethod (X.EvVar evar) 0 [] [], initType)
+                                                 , assumed = []
+                                                 , goals = [(evar, At loc (initablePred (At loc regTy)))]
+                                                 , used = []}
 
 ----------------------------------------------------------------------------------------------------
 
-checkMatch :: Match Pred KId -> Ty -> M (X.Match, Preds)
+checkMatch :: Match Pred KId -> Ty -> TcRes X.Match
 checkMatch MFail expected =
-    return (X.MFail, [])
+    return R{ payload = X.MFail
+            , assumed = []
+            , goals = []
+            , used = [] }
 checkMatch (MCommit e) expected =
-    do (e', ps) <- checkExpr e expected
-       return (X.MCommit e', ps)
+    do r <- checkExpr e expected
+       return r{ payload = X.MCommit (payload r) }
 checkMatch (MElse m n) expected =
-    do (m', ps) <- checkMatch m expected
-       (n', qs) <- checkMatch n expected
-       return (X.MElse m' n', ps ++ qs)
+    do rM <- checkMatch m expected
+       rN <- checkMatch n expected
+       (assumedC, goalsC, used) <- weakenBranching introducedLocation (used rM) (used rN)
+       return R{ payload = X.MElse (payload rM) (payload rN)
+               , assumed = assumedC ++ assumed rM ++ assumed rN
+               , goals = goalsC ++ goals rM ++ goals rN
+               , used = used }
 checkMatch (MGuarded (GLet decls) m) expected =
-    do (decls', ps, vals) <- checkDecls decls
-       (m', qs) <- binds vals (checkMatch m expected)
-       return (X.MGuarded (X.GLet decls') m', (ps ++ qs))
+    do rDecls <- checkDecls decls
+       let (decls', vals) = payload rDecls
+       rBody <- binds introducedLocation vals (checkMatch m expected)
+       (assumedC, goalsC, used) <- contract introducedLocation (used rDecls) (used rBody)
+       return R{ payload = X.MGuarded (X.GLet decls') (payload rBody)
+               , assumed = assumedC ++ assumed rDecls ++ assumed rBody
+               , goals = goalsC ++ goals rDecls ++ goals rBody
+               , used = used }
 checkMatch (MGuarded (GFrom (At l p) e) m) expected =
     do t <- newTyVar KStar
        case p of
          PWild ->
-             do (e', ps) <- checkExpr e t
-                (m', qs) <- checkMatch m expected
-                return (X.MGuarded (X.GFrom X.PWild e') m', ps ++ qs)
+             do rExpr <- checkExpr e t -- (e', ps)
+                rBody <- checkMatch m expected -- (m', qs)
+                (assumedC, goalsC, used) <- contract introducedLocation (used rExpr) (used rBody)
+                return R{ payload = X.MGuarded (X.GFrom X.PWild (payload rExpr)) (payload rBody)
+                        , assumed = assumedC ++ assumed rExpr ++ assumed rBody
+                        , goals = goalsC ++ goals rExpr ++ goals rBody
+                        , used = used }
          PVar id ->
-             do (e', ps) <- checkExpr e t
-                (m', qs) <- bind id (LamBound t) (checkMatch m expected)
-                return (X.MGuarded (X.GFrom (X.PVar id (convert t)) e') m', ps ++ qs)
+             do rExpr <- checkExpr e t
+                rBody <- bind introducedLocation id (LamBound t) (checkMatch m expected)
+                (assumedC, goalsC, used) <- contract introducedLocation (used rExpr) (used rBody)
+                return R{ payload = X.MGuarded (X.GFrom (X.PVar id (convert t)) (payload rExpr)) (payload rBody)
+                        , assumed = assumedC ++ assumed rExpr ++ assumed rBody
+                        , goals = goalsC ++ goals rExpr ++ goals rBody
+                        , used = used }
          PCon ctor vs ->
              do (tys, n) <- ctorBinding ctor
                 (kvars, tyvars, ps :=> At _ t) <- instantiate tys
@@ -223,7 +289,7 @@ checkMatch (MGuarded (GFrom (At l p) e) m) expected =
                 when (length vs /= arity) $
                   failWithS (fromId ctor ++ " requires " ++ multiple arity "argument" "arguments")
 
-                (e', qs) <- checkExpr e result
+                rExpr <- checkExpr e result
 
                 evs <- freshFor "e" ps
                 envvars <- freeEnvironmentVariables
@@ -232,34 +298,39 @@ checkMatch (MGuarded (GFrom (At l p) e) m) expected =
                     ps''         = [(id, convert (dislocate p)) | (id, p) <- ps']
                     extVars      = take n tyvars
 
-                (m', rs) <- binds valEnv (checkMatch m expected)
-                (evsubst, rs', cbindss) <-
-                    traceIf (not (null rs))
-                            (show ("Simplifying predicates from guarded match:" <+> pprList (map snd rs)))
-                            (entails transparents (tvs expected ++ tvs valEnv) ps' rs)
-                extPreds <- existentialPredicates (take n tyvars) ps' (qs ++ rs') expected
-                return (X.MGuarded (X.GFrom (X.PCon ctor (map X.TyVar tyvars) ps'' vs) e')
-                         (foldr (\cbinds m -> case cbinds of
-                                                Left cs | all null (map snd cs) -> m
-                                                        | otherwise             -> X.MGuarded (X.GLetTypes (Left cs)) m
-                                                Right (args, results, f)        -> X.MGuarded (X.GLetTypes (Right (args, results, f))) m)
-                                (X.MGuarded (X.GSubst evsubst) m')
-                                cbindss),
-                        extPreds ++ qs ++ rs')
+                rBody <- binds introducedLocation valEnv (checkMatch m expected)
+                (evsubst, rs, cbindss) <-
+                    traceIf (not (null (goals rBody)))
+                            (show ("Simplifying predicates from guarded match:" <+> pprList' (map snd (goals rBody))))
+                            (entails transparents (tvs expected ++ tvs valEnv) ps' (goals rBody))
+--                extPreds <- existentialPredicates (take n tyvars) ps' (goals rExpr ++ rs) expected
 
-             where flattenArrows (TyApp (At _ (TyApp (At _ arr) at)) (At _ rt))
-                       | arr == arrTy = let (args', result) = flattenArrows rt
+                (assumedC, goalsC, used) <- contract introducedLocation (used rExpr) (used rBody)
+
+                return R{ payload = X.MGuarded (X.GFrom (X.PCon ctor (map X.TyVar tyvars) ps'' vs) (payload rExpr))
+                                               (foldr (\cbinds m -> case cbinds of
+                                                                      Left cs | all null (map snd cs) -> m
+                                                                              | otherwise             -> X.MGuarded (X.GLetTypes (Left cs)) m
+                                                                      Right (args, results, f)        -> X.MGuarded (X.GLetTypes (Right (args, results, f))) m)
+                                                      (X.MGuarded (X.GSubst evsubst) (payload rBody))
+                                                      cbindss)
+                        , assumed = assumedC ++ assumed rExpr ++ assumed rBody
+                        , goals = goalsC ++ goals rExpr ++ rs
+                        , used = used }
+
+             where flattenArrows (TyApp (At _ (TyApp (At _ (TyVar _)) at)) (At _ rt))
+                                      = let (args', result) = flattenArrows rt
                                         in (at : args', result)
                    flattenArrows t    = ([], t)
 
-                   existentialPredicates extVars determining deferred expected =
-                       do extVars <- concatMap tvs `fmap` mapM (substitute . TyVar) extVars
-                          expected' <- substitute expected
-                          determining' <- mapSndM substitute determining
-                          deferred' <- mapM (substitute . snd) deferred
-                          let vs              = tvs expected' ++ concatMap tvs deferred'
-                              escapingExtVars = filter (`elem` vs) extVars
-                          return (filter (\(id, p) -> any (`elem` escapingExtVars) (tvs p)) determining')
+--                   existentialPredicates extVars determining deferred expected =
+--                       do extVars <- concatMap tvs `fmap` mapM (substitute . TyVar) extVars
+--                          expected' <- substitute expected
+--                          determining' <- mapSndM substitute determining
+--                          deferred' <- mapM (substitute . snd) deferred
+--                          let vs              = tvs expected' ++ concatMap tvs deferred'
+--                              escapingExtVars = filter (`elem` vs) extVars
+--                          return (filter (\(id, p) -> any (`elem` escapingExtVars) (tvs p)) determining')
 
          PTyped p tys ->
              do v <- fresh "x"
@@ -273,12 +344,69 @@ checkMatch (MGuarded (GFrom (At l p) e) m) expected =
 ----------------------------------------------------------------------------------------------------
 --
 
-checkFunction :: [Id] -> Match Pred KId -> Ty -> M (X.Expr, Preds)
+checkFunction :: [Id] -> Match Pred KId -> Ty -> TcRes X.Expr
 checkFunction params body expected =
     checkExpr (foldr elam (introduced (EMatch body)) params) expected
     where elam v e = introduced (ELam v e)
 
-checkTypingGroup :: TypingGroup Pred KId -> M (X.Defns, Preds, TyEnv)
+-- The Quill paper describes an improvement regime for Fun (->) predicates, as follows.  If a type
+-- variable 'f' is constrained only by predicates of the form 'Fun f', then it's safe to improve it
+-- to either the linear (-:>) or unrestricted (-!>) function types.  If it's also constrained by 'Un
+-- f', then it's safe to improve it to the unrestricted (-!>) function type.
+--
+-- This is based on three things: the knowledge that there are only two possible ways to satisfy the
+-- (->) constraint, that the linearity of both is defined, and that there is no other way to
+-- distinguish the two types.  Some of the reasoning here should make its way into the Solver: for
+-- example, that the constraints Un f, (->) f have only one possible solution.  However, the
+-- knowledge that (->) f (without other constraints) can be improved is probably still not
+-- generalizable.
+--
+-- This function implements that improvement.  The remaining complexity is to do with >:=
+-- constraints.  If we hope to default a variable 'f', then constraints of the form 'T >:= f' pose
+-- no difficulty.  On the other hand, constraints of the form 'f >:= T' do pose a problem: our
+-- defaults are only valid if 'T' is linear.  For the moment, we address the case in which the 'T's
+-- are other function types: as long as all the '>:=' constraints relate variables up for
+-- defaulting, we're happy to default them all.
+
+improveFunPredicates :: Preds -> Preds -> M Preds
+improveFunPredicates assumed goals =
+    traceIf (not (null goals)) (show ("Predicates for defaulting:" <+> pprList' ps)) $
+    traceIf (not (null defaulted)) (show ("Defaulting:" <+> pprList defaulted)) $
+    do modify (\st -> st{ currentSubstitution = defaults `composeU` currentSubstitution st })
+       let goals' = filter (all (`notElem` defaulted) . tvs . snd) goals
+       trace (show ("Remaining goals:" <+> pprList' (map snd goals')))
+             (return goals')
+
+    where ps = map snd (assumed ++ goals)
+
+          funVar (At _ (Pred "->" [At _ (TyVar v)] Holds)) = Just v
+          funVar _ = Nothing
+          funVars = filter defaultable $ catMaybes (map funVar ps)
+
+          defaultable v = all (funPred .||. gtePred) qs
+              where funPred p = isJust (funVar p)
+                    gtePred (At _ (Pred ">:=" _ Holds)) = True
+                    gtePred _    = False
+                    qs = filter ((v `elem`) . tvs) ps
+                    (f .||. g) x = f x || g x
+
+          orderings = [ends | p <- filter (any (`elem` funVars) . tvs) ps, ends <- endpoints p]
+              where endpoints (At _ (Pred ">:=" [At _ t, At _ u] Holds)) = [ends t u]
+                        where ends (TyApp (At _ (TyApp (At _ (TyVar v)) _)) _) (TyApp (At _ (TyApp (At _ (TyVar w)) _)) _) = (v, w)
+                              ends (TyVar v) (TyApp (At _ (TyApp (At _ (TyVar w)) _)) _) = (v, w)
+                              ends (TyApp (At _ (TyApp (At _ (TyVar v)) _)) _) (TyVar w) = (v, w)
+                              ends (TyVar v) (TyVar w) = (v, w)
+                    endpoints _ = []
+
+          loop vs | vs == ws = vs
+                  | otherwise = trace (show (pprList vs <+> "-->" <+> pprList ws)) $ loop ws
+              where ws = filter (\v -> and [(v == w) ==> (w' `elem` vs) | (w, w') <- orderings]) vs
+                    a ==> b = if a then b else True
+
+          defaulted = loop funVars
+          defaults = (K.empty, new [(v, linArrTy) | v <- defaulted])
+
+checkTypingGroup :: TypingGroup Pred KId -> TcRes (X.Defns, TyEnv)
 
 checkTypingGroup (Explicit (name, params, body) expectedTyS) =
     trace ("Inferring type for " ++ show (ppr name <::> ppr expectedTyS)) $
@@ -293,38 +421,45 @@ checkTypingGroup (Explicit (name, params, body) expectedTyS) =
        -- type variables in the error will line up with the way we report the expected type.
        transformFailures (addErrorContext declaredKVars declaredTyVars declaredPredicates declaredType) $
            do trace (show ("Simplifying declared type" <+> ppr (declaredPredicates :=> introduced declaredType)))
-                    (solve transparents (tvs declaredType) declaredPreds)
+                    (solve transparents (tvs declaredType) declaredPreds)   -- This is done for its side effect: computing improvement from the declared predicates.
               expected <- substitute declaredType
 
-              (body', evsubst, ps') <-
+              (body', evsubst, assumed, goals, used) <-
                   withGeneric (declaredTyVars, declaredKVars) $
                       do -- Check that body has declared type
-                         (body', ps) <- checkFunction params body expected
-                         -- Ensure that the expected type's predicates are sufficient to prove the inferred predicates
-                         (evsubst, ps', cbindss) <-
-                             traceIf (not (null ps)) "Discharging inferred from expected predicates" $
-                                 entails transparents (tvs declaredType) declaredPreds ps
+                         rBody <- contractRecursive introducedLocation name $ checkFunction params body expected -- (body', ps)
+                         -- Simplify the inferred goals with respect to the assumptions
+                         (evsubst, goals', cbindss) <-
+                             traceIf (not (null (goals rBody))) "Discharging inferred from expected predicates" $
+                                 entails transparents (tvs declaredType) (assumed rBody ++ declaredPreds) (goals rBody)
                          return (foldr (\cbinds e ->
                                             case cbinds of
                                               Left cs | all null (map snd cs) -> e
                                                       | otherwise             -> X.ELetTypes (Left cs) e
                                               Right (args, results, f)        -> X.ELetTypes (Right (args, results, f)) e)
-                                       body'
+                                       (payload rBody)
                                        cbindss,
-                                 evsubst, ps')
+                                 evsubst, assumed rBody, goals', used rBody)
 
-              (retained, deferred) <- splitPredicates ps'
-              when (not (null retained)) $
-                   do fds <- inducedDependencies (map snd (declaredPreds ++ ps'))
-                      transformFailures (addAmbiguousVariables (tvs (map snd retained) \\ close (tvs expected) fds) (map snd retained)) $
-                          contextTooWeak retained
+              (retainedGoals, deferredGoals) <- splitPredicates goals
+              retainedGoals' <- improveFunPredicates assumed retainedGoals
+              (_, deferredAssumptions) <- splitPredicates assumed
 
-              return ( [X.Defn name (convert expectedTyS)
-                                    (Right (X.Gen declaredTyVars
-                                             evvars
-                                             (X.ESubst [] evsubst body')))]
-                     , deferred
-                     , Map.singleton name (LetBound expectedTyS))
+              -- Check whether the specified assumptions were enough to prove the non-deferred
+              -- goals.
+              when (not (null retainedGoals')) $
+                   do fds <- inducedDependencies (map snd (declaredPreds ++ goals))
+                      transformFailures (addAmbiguousVariables (tvs (map snd retainedGoals') \\ close (tvs expected) fds) (map snd retainedGoals')) $
+                          contextTooWeak assumed retainedGoals'
+
+              return R{ payload = ([X.Defn name (convert expectedTyS)
+                                                (Right (X.Gen declaredTyVars
+                                                         evvars
+                                                         (X.ESubst [] evsubst body')))],
+                                   Map.singleton name (LetBound expectedTyS))
+                      , assumed = deferredAssumptions
+                      , goals = deferredGoals
+                      , used = used }
 
     where addErrorContext kvs tvs ps t msg = iter tvs
               where iter (v:vs) = bindingTyVar v (const (iter vs))
@@ -342,15 +477,19 @@ checkTypingGroup (Explicit (name, params, body) expectedTyS) =
                 [v] -> msg <$> shorten ps (hang 4 ("Note: the type variable" <+> tyvarName v <+> "is ambiguous."))
                 vs  -> msg <$> shorten ps (hang 4 ("Note: the type variables" <+> shorten ps (hsep (punctuate comma (map tyvarName vs))) <+> "are ambiguous."))
 
-
 checkTypingGroup (Implicit fs) =
-    appendFailureContext ("In the implicit bindings for" <+> hsep (punctuate comma [ppr name | (name, _, _) <- fs])) $
+    appendFailureContext ("In the implicitly typed bindings for" <+> hsep (punctuate comma [ppr name | (name, _, _) <- fs])) $
     do -- Generate new type variables for functions
        ts <- replicateM (length fs) (newTyVar KStar)
        -- Check function bodies in environment with aforementioned type variables
-       (fs', pss) <- unzip `fmap`
-                     binds (Map.fromList (zip ids (map LamBound ts)))
-                           (sequence [checkFunction ps body t | ((ps, body), t) <- zip alts ts])
+       let env = Map.fromList (zip ids (map LamBound ts))
+       eqnRs <- sequence [declare env (contractRecursive introducedLocation name (checkFunction ps body t)) | ((name, ps, body), t) <- zip fs ts]
+
+       (assumedC, goalsC, used) <- contractMany introducedLocation (map used eqnRs)
+
+       let fs'        = map payload eqnRs
+           theGoals   = goalsC ++ concatMap goals eqnRs
+           theAssumed = assumedC ++ concatMap assumed eqnRs
 
        -- Solve any solvable predicates; determine which of the remaining predicates can be deferred
        -- to the surrounding expression.
@@ -358,12 +497,13 @@ checkTypingGroup (Implicit fs) =
        envvars <- freeEnvironmentVariables
        let transparents = tvs ts ++ envvars
 
-       (evsubst, ps, cbindss) <-
-           traceIf (not (null (concat pss)))
-                   (show ("Simplifying inferred predicates" <+> pprList (map snd (concat pss))))
-                   (solve transparents (tvs ts) (concat pss))
-       (retained, deferred) <- splitPredicates ps
-       let (retainedVs, retainedPs) = unzip retained
+       (evsubst, theGoals', cbindss) <-
+           traceIf (not (null theGoals))
+                   (show ("Simplifying inferred predicates" <+> pprList' (map snd theGoals)))
+                   (entails transparents (tvs ts) theAssumed theGoals)
+
+       (_, deferredAssumptions) <- splitPredicates theAssumed
+       (retained, deferred) <- splitPredicates theGoals'
 
        -- Compute type signatures for the implicit declarations, and check whether or not they're
        -- ambiguous.  For the ambiguity check, we'll need to know the functional dependencies for
@@ -371,19 +511,28 @@ checkTypingGroup (Implicit fs) =
 
        -- The ambiguity check is different than that in Haskell: our ambiguity check extends to
        -- quantification in addition to qualification.  The following example is legal in Haskell:
-
+       --
        --   f xs = null xs || g True
        --   g y  = y || f []
-
+       --
        -- However, it is not legal in Habit, as there is no way to determine the type argument to f
        -- from the call in g.  This could be resolved with a suitable clever defaulting mechanism:
-       -- for example, GHC inserts a dummy "Any" type when compiling these functions.
+       -- for example, GHC inserts a dummy "Any" type when compiling these functions.  It is not
+       -- clear that such a defaulting mechanism would be appropriate in Habit; in particular, we
+       -- imagine that there might be choices of representation that would be effected by the choice
+       -- of default type.
 
        ts' <- mapM substitute ts
-       qs <- mapM (substitute . snd) ps
+       let ts = foldr1 intersect (map tvs ts')
+           (ambiguous, unambiguous) = partition (any (`notElem` ts) . tvs . snd) retained
+
+       ambiguous' <- improveFunPredicates theAssumed ambiguous
+       let (retainedVs, retainedPs) = unzip (ambiguous' ++ unambiguous)
+       qs <- mapM (substitute . snd) theGoals'
+       ts'' <- mapM substitute ts'
        fds <- inducedDependencies qs
        let rvs = nub (tvs retainedPs)
-           quantifyingVs = nub (rvs ++ tvs ts') \\ envvars -- hyper-efficient
+           quantifyingVs = nub (rvs ++ tvs ts'') \\ envvars -- hyper-efficient
            -- 'qualify t' begins by computing the determined variables given the type t and the
            -- functional dependencies from retained.  If all the variables in retained are
            -- determined, it generates a type scheme by quantifying over all the variables in
@@ -399,7 +548,7 @@ checkTypingGroup (Implicit fs) =
 
        tyss <- trace (show (hang 4 ("From predicates" <+> cat (punctuate ", " (map ppr qs)) <$>
                                    "induced dependencies" <+> cat (punctuate ", " (map ppr fds))))) $
-               mapM qualify ts'
+               mapM qualify ts''
 
        let functions    = [X.Defn id (convert tys)
                                      (Right (X.Gen quantifyingVs
@@ -418,15 +567,42 @@ checkTypingGroup (Implicit fs) =
        trace (show (hang 4 ("Inferred types" <$>
                             vcat [ppr id <::> ppr tys <+> "(generalized from" <+> ppr t <> ")" | (id, tys, t) <- zip3 ids tyss ts']) <$>
                     "With free environment variables" <+> cat (punctuate (comma <> space) (map ppr envvars))))
-             (return ( functions
-                     , deferred
-                     , Map.fromList (zip ids (map LetBound tyss)) ))
+             (return R{ payload = (functions, Map.fromList (zip ids (map LetBound tyss)))
+                      , assumed = deferredAssumptions
+                      , goals = deferred
+                      , used = used })
 
-    where (ids, alts) = unzip [(name, (params, match)) | (name, params, match) <- fs]
+    where ids = [name | (name, _, _) <- fs]
           ambiguousTypeError avs qty = shorten qty message
               where message
-                        | length avs == 1 = "Ambiguous type variable" <+> ppr (head avs) <+> "in type" <+> ppr qty
-                        | otherwise       = "Ambiguous type variables" <+> hsep (punctuate comma (map ppr avs)) <+> "in type" <+> ppr qty
+                        | length avs == 1 = "Ambiguous type variable" <+> ppr (head avs) </> "in type" <+> ppr qty
+                        | otherwise       = "Ambiguous type variables" <+> hsep (punctuate comma (map ppr avs)) <$> "in type" <+> ppr qty
+
+-- Suppose we have a (Surface) typing group of the form
+--
+--   x1 :: T1
+--   x3 :: T3
+--   K x1 _ x3 = m
+--
+-- To check this group, we rewrite it to the following (MPEG) group of bindings:
+--
+--   v = let rhs = m => p[yi/xi] <- rhs => (x1, x3)
+--   x1 :: T1
+--   x1 = p2_0 v
+--   x2 :: T2
+--   x2 = p2_1 v
+--
+-- This causes problems from a linearity perspective: in the original definition, the components of
+-- 'm' are used linearly, while in the rewritten version they are not.  I see two possible
+-- resolutions.  The first is to introduce some form of primitive pattern matching---say, for
+-- tuples.  Then, instead of the rewriting above, we would rewrite to
+--
+--   (x1, x2) = let rhs = m => p[yi/xi] <- lhs => let xi :: Ti; xi = yi => (x1, x2)
+--
+-- which preserves the linearity.  I think this might actually be the preferable option---I can
+-- imagine advantages to preserving tuples through the back-end.  However, it also requires more
+-- extensive changes.  So, for the time being, I'm cheating, by avoiding the contraction check on
+-- the xi bindings.
 
 checkTypingGroup (Pattern (At l p) m signatures) =
     appendFailureContext ("In the pattern bindings for" <+> hsep (punctuate comma (map ppr (bound p)))) $
@@ -437,9 +613,14 @@ checkTypingGroup (Pattern (At l p) m signatures) =
                                  (MGuarded (GFrom (At l (rename (zip vs vs') p)) (At l (EVar rhsVar)))
                                            (MCommit (introduced (foldl eapp (ECon (fromString ("$Tuple" ++ show (length vs)))) (map EVar vs')))))
            components = [makeTypingGroup (v, [], MCommit (At l (eapp (EVar (fromString ("$t" ++ show n ++ '_' : show m))) (EVar tupleVar)))) | (v,m) <- zip vs [0..]]
-       (tupleGroup, ps, tupleEnv) <- checkTypingGroup (Implicit [(tupleVar, [], body)])
-       (componentGroups, pss, componentEnvs) <- unzip3 `fmap` binds tupleEnv (mapM checkTypingGroup components)
-       return (concat (tupleGroup : componentGroups), ps ++ concat pss, Map.unions (tupleEnv : componentEnvs))
+       rBody <- checkTypingGroup (Implicit [(tupleVar, [], body)])
+       let (tupleGroup, tupleEnv) = payload rBody
+       componentRs <- mapM (binds l tupleEnv . checkTypingGroup) components
+       let (componentGroups, componentEnvs) = unzip (map payload componentRs)
+       return R{ payload = (concat (tupleGroup : componentGroups), Map.unions (tupleEnv : componentEnvs))
+               , assumed = assumed rBody ++ concatMap assumed componentRs
+               , goals = goals rBody ++ concatMap goals componentRs
+               , used = used rBody } -- Cheat: I'm not checking the 'used' bits of the component results.
     where vs        = bound p
           n         = length vs
           eapp e e' = EApp (introduced e) (introduced e')
@@ -455,21 +636,33 @@ checkTypingGroup (Pattern (At l p) m signatures) =
                 Just tys -> Explicit f tys
 
 checkTypingGroup (PrimValue (Signature name expectedTyS) str) =
-    do return ( [X.Defn name (convert expectedTyS) (Left (str, []))]
-              , []
-              , Map.singleton name (LetBound expectedTyS))
+    return R{ payload = ([X.Defn name (convert expectedTyS) (Left (str, []))],
+                         Map.singleton name (LetBound expectedTyS))
+            , assumed = []
+            , goals = []
+            , used = [] }
 
 ----------------------------------------------------------------------------------------------------
 
-checkDecls :: Decls Pred KId -> M (X.Decls, Preds, TyEnv)
+checkDecls :: Decls Pred KId -> TcRes (X.Decls, TyEnv)
 checkDecls (Decls groups) =
-    do (groups', preds, vals) <- binds (Map.fromList (signatures groups)) (checkGroups groups)
-       return (X.Decls (concat groups'), preds, vals)
-    where checkGroups [] = return ([], [], Map.empty)
+    do rg <- declare (Map.fromList (signatures groups)) (checkGroups groups)
+       let (groups', vals) = payload rg
+       return rg{ payload = (X.Decls (concat groups'), vals) }
+    where checkGroups [] = return R{ payload = ([], Map.empty)
+                                   , assumed = []
+                                   , goals = []
+                                   , used = [] }
           checkGroups (g:gs) =
-              do (g', ps, vals) <- checkTypingGroup g
-                 (gs', qs, vals') <- binds vals (checkGroups gs)
-                 return (g':gs', ps ++ qs, Map.union vals' vals)
+              do rg <- checkTypingGroup g
+                 let (g', vals) = payload rg
+                 rgs <- declare vals (checkGroups gs)
+                 let (gs', vals') = payload rgs
+                 (assumedC, goalsC, used) <- contract introducedLocation (used rg) (used rgs)
+                 return R{ payload = (g' : gs', Map.union vals' vals)
+                         , assumed = assumedC ++ assumed rg ++ assumed rgs
+                         , goals = goalsC ++ goals rg ++ goals rgs
+                         , used = used }
 
           -- flatten typing groups
 

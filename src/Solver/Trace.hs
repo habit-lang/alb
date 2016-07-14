@@ -29,6 +29,10 @@ traceIf          :: Bool -> String -> a -> a
 traceIf True s x  = trace s x
 traceIf False _ x = x
 
+traceInputIf :: Bool -> String -> a -> a
+traceInputIf True s x = traceInput s x
+traceInputIf False _ x = x
+
 {-# NOINLINE check #-}
 {-# NOINLINE doCheck #-}
 {-# NOINLINE checkSolverTreeDepth #-}

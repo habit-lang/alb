@@ -124,11 +124,12 @@ at (At p _) u = At p u
 dislocate :: Located t -> t
 dislocate (At _ t) = t
 
-introducedPosition :: SourcePos
-introducedPosition = newPos "<introduced>" 0 0
+introducedLocation :: Location
+introducedLocation = Location introducedPosition introducedPosition
+    where introducedPosition = newPos "<introduced>" 0 0
 
 introduced :: t -> Located t
-introduced = At (Location introducedPosition introducedPosition)
+introduced = At introducedLocation
 
 -- We use pairs of a possible source position and string as errors
 

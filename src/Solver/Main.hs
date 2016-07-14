@@ -9,7 +9,7 @@ import qualified Data.IntSet as Set
 import Data.List
 import Data.Maybe
 import Data.Monoid(Monoid(..))
-import Solver.Oracles
+import Solver.Oracles as Oracles
 import Solver.PP
 import Solver.Subst
 import Solver.Syntax
@@ -893,9 +893,10 @@ data Answer = AnsProved { evidence :: [(PId, Proof)]
 solve :: Query (PId, Pred) -> Int -> (Answer, Int)
 solve (Q axioms fds rqs ops (gvs0, gkvs0) tvs0 uniformVariables hypotheses conclusions) z =
     trace "BEGIN" $
-    traceInput (intercalate ", " tracedConclusions ++
-                (if null hypotheses then "" else " if " ++ intercalate ", " tracedHypotheses) ++
-                "?") $
+    traceInputIf (not (null hypotheses) || not (null tracedConclusions))
+                 (intercalate ", " tracedConclusions ++
+                  (if null hypotheses then "" else " if " ++ intercalate ", " tracedHypotheses) ++
+                  "?") $
     trace ("Uniform variables: " ++ intercalate ", " [ppx v | Kinded v _ <- uniformVariables]) $
     answerFrom (runTactic (init >> go) s0)
 
@@ -905,10 +906,14 @@ solve (Q axioms fds rqs ops (gvs0, gkvs0) tvs0 uniformVariables hypotheses concl
           -- ensures that the solver is able to improve variables determined in the initial query,
           -- but not otherwise (even if they could be determined by possible solutions of the
           -- initial query).
-          genericVariables required = vars conclusions \\ determined
-              where determined = concatMap determinedFrom (required ++ map snd (hypotheses ++ conclusions))
+          genericVariables required = vars conclusions \\ (determined ++ determinable)
+              where ps = required ++ map snd (hypotheses ++ conclusions)
+                    determined = concatMap determinedFrom ps
                     determinedFrom p@(Pred cl _ _ _) = concat [vars (p `atDetermined` fd) | fd <- classFDs]
                         where classFDs = fromMaybe [] (lookup cl fds)
+                    determinable = concatMap determinableFrom ps
+                    determinableFrom p@(Pred cl ts _ _) = concatMap vars (keepIdxs classDeterminable ts)
+                        where classDeterminable = fromMaybe [] (lookup cl Oracles.determinable)
 
           tracedVariablesSubst = S ks ([v :-> TyVar (Kinded (Ident ("u_" ++ s) n f) k) | v@(Kinded (Ident s n f) k) <- uniformVariables] ++
                                        [v :-> TyVar (Kinded (Ident ("g_" ++ s) n f) k) | v@(Kinded (Ident s n f) k) <- gvs0])

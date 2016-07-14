@@ -115,8 +115,28 @@ data TcState     = TcState { typeEnvironment     :: TyEnv
 
 type Exp         = Expr Pred KId
 
+-- In addition to a t, a TcRes t includes:
+--   - New assumed predicates
+--   - New required predicates
+--   - Used names
+-- At various points (currently all linearity-related) we have mini-simplification problems.  Rather
+-- than invoke the solver for each of these, we return both the assumed and requried predicates from
+-- each, and call the solver only at generalization.
+--
+-- TODO: perhaps this suggests incorporating assumed, goals, and used as writer-y bits of the
+-- TcState rather than explicitly in each return type?
+
+data TcResult t = R { payload :: t
+                    , assumed :: Preds
+                    , goals :: Preds
+                    , used :: [Id] }
+type TcRes t = M (TcResult t)
+
 ----------------------------------------------------------------------------------------------------
 -- Solver interface
+
+-- TOOD: rename 'solve' to 'simplify'?  Seems to me to more accurate characterize what it does.
+-- Problem: how to similarly rename 'entails'.
 
 solve :: [KId] -> [KId] -> Preds -> M (EvSubst, Preds, [ConditionalBindings])
 solve tvs0 outputVariables ps = entails tvs0 outputVariables [] ps
@@ -230,7 +250,73 @@ assert c =
          Right (v, senv') -> do put st { classEnvironment = cenv { solverEnvironment = senv' } }
                                 return v
 
+-- Linearity
 
+-- TODO: the manipulation of locations is entirely suspect; many (if not all) of the linearity
+-- predicates end up with "introduced" locations, which are of no benefit to the programmer at all.
+
+buildLinPred :: Location -> (Located Ty -> Pred (Located Ty)) -> Binding -> M (Preds, (Id, Located (Pred (Located Ty))))
+buildLinPred loc f (LetBound tys) =
+    do (_, tyids, ps :=> t) <- instantiate tys
+       let ps' = map (At loc . unrestricted . At loc . TyVar) tyids ++ ps
+           p   = At loc (f t)
+       evs <- freshFor "e" (p : ps')
+       return (zip (tail evs) ps', (head evs, p))
+buildLinPred loc f (LamBound t) =
+    do ev <- fresh "e"
+       return ([], (ev, At loc (f (At loc t))))
+
+weaken :: Location -> [Id] -> [Id] -> M (Preds, Preds)
+weaken loc introduced used =
+    traceIf (not (null dropped)) (show ("Weakened:" <+> pprList' dropped)) $
+    do (assumpss, goals) <- unzip `fmap` mapM weakenVar dropped
+       return (concat assumpss, goals)
+    where dropped = filter (`notElem` used) introduced
+          weakenVar tyid = buildLinPred loc unrestricted =<< bindingOf tyid
+
+weakenBranching :: Location -> [Id] -> [Id] -> M (Preds, Preds, [Id])
+weakenBranching loc left right =
+    do (assumpss, goals) <- unzip `fmap` mapM weakenVar justOne
+       return (concat assumpss, goals, nub (left ++ right))
+    where justOne = filter (`notElem` left) right ++ filter (`notElem` right) left
+          weakenVar tyid = buildLinPred loc unrestricted =<< bindingOf tyid
+
+-- We need to handle recursion differently from other bindings.  We introduce the recursive binding
+-- regardless of whether or not it's needed.  However, if it was unneeded, we want to simply ignore
+-- it, rather than introducing an unrestricted constraints.  (This corresponds to 'knowing' not to
+-- wrap function definitions in a call to 'fix'.)  On the other hand, if it was used (even once),
+-- then we do insist on introducing an unrestrictedness constraint.  This arises from the following
+-- observation.
+--
+--  - First, the fixed point for unrestricted functions ((t -!> u) -!> (t -!> u)) -> (t -!> u) is
+--    obviously unproblematic.
+--
+--  - Second, the fixed point for linear functions ((t -:> u) -!> (t -:> u)) -> (t -:> u) is
+--    unproblematic only if the closure doesn't capture any linear values.  But in that case, it's
+--    exactly equivalent to being unrestricted.
+contractRecursive :: Location -> Id -> TcRes t -> TcRes t
+contractRecursive loc id c =
+    do r <- c
+       if id `elem` used r
+       then do (assumpsC, goalC) <- buildLinPred loc unrestricted =<< bindingOf id
+               return r{ assumed = assumpsC ++ assumed r
+                       , goals = goalC : goals r
+                       , used = filter (id /=) (used r) }
+       else return r
+
+contract :: Location -> [Id] -> [Id] -> M (Preds, Preds, [Id])
+contract loc left right =
+    traceIf (not (null both)) (show ("Contracted:" <+> pprList' both)) $
+    do (assumpss, goals) <- unzip `fmap` mapM contractVar both
+       return (concat assumpss, goals, nub (left ++ right))
+    where both = filter (`elem` left) right
+          contractVar tyid = buildLinPred loc unrestricted =<< bindingOf tyid
+
+contractMany :: Location -> [[Id]] -> M (Preds, Preds, [Id])
+contractMany loc = foldM contract' ([], [], [])
+    where contract' (assumps, goals, left) right =
+              do (assumps', goals', left') <- contract loc left right
+                 return (assumps' ++ assumps, goals' ++ goals, left')
 
 -- Operations on the value environment:
 
@@ -241,17 +327,35 @@ bindingOf id = do s <- gets currentSubstitution
                     Nothing -> failWithS ("Unbound identifier: " ++ fromId id)
                     Just t  -> return (s ## t)
 
--- TODO: I thought the great awk was extinct
-binds :: MonadState TcState m => TyEnv -> m t -> m t
-binds bs c = do s <- gets currentSubstitution
-                modify (\st -> st { typeEnvironment = Map.union (typeEnvironment st) bs })
-                v <- c
-                modify (\st -> st { typeEnvironment = Map.filterWithKey (\v _ -> v `notElem` vs) (typeEnvironment st) })
-                return v
+-- We encapsulate the checks for weakening in the general binding operations.  That is, when binding
+-- a set of 'x's, if the 'x's are not used in the contained operation, then the corresponding types
+-- need to support weakening.  This check is implemented in 'binds'.  However, there are cases in
+-- which we need to introduce typing assumptions that don't correspond to binding constucts,
+-- particularly when checking (potentially) mutually recursive declaration blocks.  In these cases,
+-- while multiple uses of variables should still introduce contraction (handled elsewhere),
+-- variables that are unused should not introduced weakening (as they will be visible outside of the
+-- current construct).  This case is handled by 'declare'.
+
+-- TODO: this manipulation of state is awkward.  Should we actually prefer a stack-based
+-- representation of the variable environment?
+binds :: Location -> TyEnv -> TcRes t -> TcRes t
+binds loc bs c = do modify (\st -> st { typeEnvironment = Map.union (typeEnvironment st) bs })
+                    r <- c
+                    (assumpsC, goalsC) <- weaken loc vs (used r)
+                    modify (\st -> st { typeEnvironment = Map.filterWithKey (\v _ -> v `notElem` vs) (typeEnvironment st) })
+                    return r{ assumed = assumpsC ++ assumed r, goals = goalsC ++ goals r, used = filter (`notElem` vs) (used r) }
     where vs = Map.keys bs
 
-bind :: MonadState TcState m => Id -> Binding -> m t -> m t
-bind x t = binds (Map.singleton x t)
+bind :: Location -> Id -> Binding -> TcRes t -> TcRes t
+bind loc x t = binds loc (Map.singleton x t)
+
+declare :: TyEnv -> M t -> M t
+declare bs c =
+    do modify (\st -> st { typeEnvironment = Map.union (typeEnvironment st) bs })
+       r <- c
+       modify (\st -> st { typeEnvironment = Map.filterWithKey (\v _ -> v `notElem` vs) (typeEnvironment st) })
+       return r
+    where vs = Map.keys bs
 
 -- Operations on the constructor environment
 
@@ -267,8 +371,11 @@ ctorBinding id = do mt <- gets (Map.lookup id . ctorEnvironment)
 ----------------------------------------------------------------------------------------------------
 -- Type constants
 
+arrowLike :: [Char] -> Ty
+arrowLike id = TyCon (Kinded (Ident id 0 (Just (Fixity RightAssoc 5))) (KFun KStar (KFun KStar KStar)))
+
 arrTy, bitTy, arefTy, labTy, initTy, bitdataCaseTy :: Ty
-arrTy           = TyCon (Kinded (Ident "->" 0 (Just (Fixity RightAssoc 5))) (KFun KStar (KFun KStar KStar)))
+arrTy           = arrowLike "->"
 bitTy           = TyCon (Kinded "Bit" (KFun KNat KStar))
 arefTy          = TyCon (Kinded "ARef" (KFun KNat (KFun KArea KStar)))
 labTy           = TyCon (Kinded "Proxy" (KFun KLabel KStar))
@@ -286,6 +393,36 @@ infixr 5 `to`
 
 allTo :: [Ty] -> Ty -> Ty
 allTo = flip (foldr to)
+
+-- Quill type constants
+
+-- TODO: I don't know how many of these will actually turn out to be useful.
+-- TODO: Above constants for arrow should not be used in Quill typechecking.
+
+linArrTy, unrArrTy :: Ty
+linArrTy = arrowLike "-:>"
+unrArrTy = arrowLike "-!>"
+
+newArrowVar :: M ((Id, Located (Pred (Located Ty))), Ty)
+newArrowVar = do fv <-fresh "f"
+                 let f = TyVar (Kinded fv (KFun KStar (KFun KStar KStar)))
+                 e <- fresh "e"
+                 return ((e, introduced (fun (introduced f))), f)
+
+linTo, unrTo :: Ty -> Ty -> Ty
+t `linTo` u = linArrTy @@ t @@ u
+t `unrTo` u = unrArrTy @@ t @@ u
+
+polyTo :: Ty -> Ty -> M ((Id, Located (Pred (Located Ty))), Ty)
+t `polyTo` u = do (p, f) <- newArrowVar
+                  return (p, f @@ t @@ u)
+
+allUnrTo :: [Ty] -> Ty -> Ty
+allUnrTo = flip (foldr unrTo)
+
+allPolyTo :: [Ty] -> Ty -> M (Preds, Ty)
+allPolyTo ts t = do (ps, fs) <- unzip `fmap` replicateM (length ts) newArrowVar
+                    return (ps, foldr (\(f, t) u -> f @@ t @@ u) t (zip fs ts))
 
 -- Convenience functions for building predicates:
 
@@ -312,6 +449,12 @@ selectFails r f t                    = predf "Select" (map introduced [r, f, t])
 update r lab                         = predh "Update" (map introduced [r, TyLabel lab])
 updateBranch datatype branch field   = update (bitdataCase datatype branch) field
 updateFails r f                      = predf "Update" (map introduced [r, f])
+
+-- Quill predicates
+
+unrestricted t                       = predh "Un" [t]
+moreUnrestricted t u                 = predh ">:=" [t, u]
+fun t                                = predh "->" [t]
 
 xforall = X.Forall [] []
 xgen   = X.Gen [] []
@@ -347,10 +490,11 @@ splitPredicates preds =
              (return (retained, deferred))
     where (vs, ps) = unzip preds
 
-contextTooWeak :: Preds -> M ()
-contextTooWeak ps = failWith (shorten (map snd ps) $
-                              hang 4 (text "Context too weak to prove:" <$>
-                                      vcat [ppr p <+> text "arising at" <+> ppr loc | At loc p <- map snd ps]))
+contextTooWeak :: Preds -> Preds -> M ()
+contextTooWeak assumed goals =
+    failWith (shorten (map snd (assumed ++ goals)) $
+              hang 4 ("Cannot prove" <+> pprList' (map snd assumed) <+> "=>" </> pprList' (map snd goals) <$$>
+                      text "arising at" <+> pprList [loc | At loc _ <- map snd goals]))
 
 ----------------------------------------------------------------------------------------------------
 -- Utility functions: functional dependencies

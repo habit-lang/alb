@@ -139,7 +139,9 @@ generateTuple n = (introduced $ I.Datatype (tupleName n)
                                   [introduced (Left (Kinded (fromString ("t" ++ show x)) KStar)) | x <- is]
                                   [I.Ctor (introduced (tupleName n)) [] []
                                         [introduced (I.TyVar (fromString ("t" ++ show x))) | x <- is]]
-                                  ["Eq", "Ord", "Bounded"],
+                                  [],
+                                  -- Deriving and linearity are currently not playing well together
+                                  -- ["Eq", "Ord", "Bounded"],
                    [buildTupleSelector m | m <- [0..n-1]])
     where is = [0..n - 1]
           buildTupleSelector m = I.Explicit (selectorName, ["$x"], body) tys
@@ -150,8 +152,10 @@ generateTuple n = (introduced $ I.Datatype (tupleName n)
                            (I.MCommit (introduced (I.EVar (fromString ("$x" ++ show m)))))
                     tys = I.ForallK []
                             (I.Forall [fromString ('t' : show i) | i <- [0..n-1]]
-                              ([] I.:=> introduced (foldl tyapp
+                              ([un (I.TyGen n) | n <- is, n /= m]
+                                  I.:=> introduced (foldl tyapp
                                                           (I.TyCon (tupleName n))
                                                           [I.TyGen m | m <- is] `to` I.TyGen m)))
                     tyapp t t' = I.TyApp (introduced t) (introduced t')
-                    t `to` t'  = tyapp (tyapp (I.TyCon "->") t) t'
+                    t `to` t'  = tyapp (tyapp (I.TyCon "-!>") t) t'
+                    un t       = introduced (I.PredFN "Un" [introduced t] Nothing Holds)

@@ -115,7 +115,7 @@ instance Convertable S.Type X.Type
           convert (S.TyLit i)           = X.TyNat i
 
 instance Convertable (X.Pred X.Type) S.Pred
-    where convert (X.Pred name ts f) = S.Pred name (map convert ts) (convert f) (Location introducedPosition introducedPosition)
+    where convert (X.Pred name ts f) = S.Pred name (map convert ts) (convert f) introducedLocation
 
 instance Convertable S.Pred (X.Pred X.Type)
     where convert (S.Pred name ts f _) = X.Pred name (map convert ts) (convert f)

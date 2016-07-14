@@ -36,7 +36,7 @@ instance Printable (Pred Type)
     where ppr (Pred cl args f) = ppr cl <+> cat (punctuate space (map (withPrecedence 10 . ppr) args)) <> ppr f
 
 instance Printable t => Printable (Scheme t)
-    where ppr (Forall ks es t) = align (group (vsep [ group ( vcat [ braces (align (fillSep (punctuate comma [text "_" <> int i <::> ppr k | (i,k) <- zip [0..] ks ])))
+    where ppr (Forall ks es t) = align (group (vsep [ group ( vcat [ braces (align (fillSep (punctuate comma [text "_" <> int i <::> ppr k | (i, (Kinded _ k)) <- zip [0..] ks ])))
                                                                    , braces (cat (punctuate (comma <> space) (map ppr es))) ])
                                                     , align (ppr t) ]))
 
