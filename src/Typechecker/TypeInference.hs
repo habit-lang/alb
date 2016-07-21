@@ -32,10 +32,8 @@ emptyTypeInferenceState = ( ClassEnv ([], [], [], Map.empty, []) Map.empty Map.e
 
 inferTypes :: Has s TcPassState => String -> Pass s (Program Pred KId KId) (X.Program KId, (Map Id (X.Scheme X.Type, Int), SolverEnv))
 inferTypes fn = up (\p -> PassM (StateT (\globals@(classEnv, tyEnv, ctorEnv, bitdataCtors, bitdataBDDs, structRegions, requirementTemplates) ->
-                                             do ((p', xctors, tyEnv'), TcState _ ctorEnv' classEnv' _ _ bitdataCtors' bitdataBDDs' structRegions' requirementTemplates') <-
+                                             do ((p', xctors, tyEnv'), TcState _ ctorEnv' classEnv' _ _ _ bitdataCtors' bitdataBDDs' structRegions' requirementTemplates') <-
                                                     runStateT (runM (checkProgram fn p))
-                                                                  (TcState tyEnv ctorEnv classEnv ([], []) emptyUnifier bitdataCtors bitdataBDDs structRegions requirementTemplates)
+                                                                  (TcState tyEnv ctorEnv classEnv ([], []) emptyUnifier [] bitdataCtors bitdataBDDs structRegions requirementTemplates)
                                                 return ((p', (xctors, solverEnvironment classEnv')),
                                                         (classEnv', Map.union tyEnv tyEnv', ctorEnv', bitdataCtors', bitdataBDDs', structRegions', requirementTemplates')))))
-
-
