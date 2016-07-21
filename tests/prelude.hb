@@ -1,6 +1,8 @@
 
 -- Basic Types (4.1) --------------------------------------------
 
+data Zero
+
 primitive type (->) :: * -> * -> *
 infixr type 5 ->
 
