@@ -111,7 +111,7 @@ instance Printable ([EvPat], Ev)
 
 instance Printable Inst
     where ppr (Inst id [] []) = varName id -- special case to reduce noise :-)
-          ppr (Inst id ts es) = varName id <> group (pprTypeArgs ts es)
+          ppr (Inst id ts es) = varName id <> unInfix (group (pprTypeArgs ts es))
 
 pprTypeArgs      :: [Type] -> [Ev] -> Doc
 pprTypeArgs ts es = align (group (vcat [withPrecedence 0 (braceList ts), group (withPrecedence 0 (braceList es))]))
