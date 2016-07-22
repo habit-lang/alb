@@ -640,7 +640,8 @@ the fields:
 > enter :: Decls -> c -> Scope c
 > enter (Decls decls) c = Scope { defns, specd=[], reqd=[], numReqd=0, enc=c }
 >  where defns = foldr insertDefn Map.empty decls
->        insertDefn (X.Defn id scheme rhs) = Map.insert id (scheme, rhs)
+>        insertDefn (X.PrimDefn id scheme rhs) = Map.insert id (scheme, Left rhs)
+>        insertDefn (X.Defn id scheme rhs) = Map.insert id (scheme, Right rhs)
 
 Conversely, when there are no remaining specializations requests, we can use
 the exit function to turn the list of specializations that have been computed
@@ -649,7 +650,9 @@ context.
 
 > exit  :: Scope c -> (Decls, c)
 > exit c = (Decls ds, enc c)
->  where ds = [ X.Defn i scheme body | (_, i, (scheme, body)) <- specd c ]
+>  where ds = [ case body of
+>                 Left rhs -> X.PrimDefn i scheme rhs
+>                 Right rhs -> X.Defn i scheme rhs | (_, i, (scheme, body)) <- specd c ]
 
 Specialization in a Scope context begins by testing to see if the variable
 that is mentioned in the given Inst is actually defined in this scope; if not,

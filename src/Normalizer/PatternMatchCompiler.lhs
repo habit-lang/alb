@@ -85,12 +85,12 @@ We also provide some helper functions for manipulating pieces of abstract syntax
 > -- Create a binding for (i :: t; i=e)
 > simpleLet       :: Id -> X.Type -> X.Expr -> X.Guard
 > simpleLet i t e  = X.GLet (X.Decls [val])
->  where val = X.Defn i (X.Forall [] [] t) (Right (X.Gen [] [] e))
+>  where val = X.Defn i (X.Forall [] [] t) (X.Gen [] [] e)
 
 > -- Create a variable from an identifier, type unknown
 > evar            :: Id -> LC.Expr
 > evar w           = (LC.EVar w typeNotKnown)
->
+
 > typeNotKnown :: LC.Type
 > typeNotKnown  = LC.TyLabel "not known"
 
@@ -109,9 +109,9 @@ structure.
 > pmcDecls s (X.Decls defns) = do defns' <- mapM toDefn defns
 >                                 return (LC.Decls [Mutual defns'])
 >  where toDefn                 :: X.Defn -> PMC LC.Defn
->        toDefn (X.Defn i (X.Forall [] [] t) (Left (id, ts)))
+>        toDefn (X.PrimDefn i (X.Forall [] [] t) (id, ts))
 >                                = LC.Defn i (convert t) `fmap` return (Left (id, convert ts))
->        toDefn (X.Defn i (X.Forall [] [] t) (Right (X.Gen [] [] e)))
+>        toDefn (X.Defn i (X.Forall [] [] t) (X.Gen [] [] e))
 >                                = (LC.Defn i (convert t) . Right) `fmap` pmcExpr s e
 
 Pattern match compilation of an XMPEG expression produces a LambdaCase
@@ -278,7 +278,7 @@ data structure that can be translated into a LambdaCase case expression.
 > insert             :: Subst -> CFun -> [Id] -> X.Match -> CaseTable -> CaseTable
 > insert s c vs m tab = ins tab
 >  where alt                  = [(vs, s, m)]
->
+
 >        ins                 :: CaseTable -> CaseTable
 >        ins []               = [(c, alt)]
 >        ins ((d,alts):tab)

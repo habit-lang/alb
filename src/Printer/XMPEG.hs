@@ -29,6 +29,7 @@ instance Printable Type
                     getFixity' (TyVar (Kinded id _)) = getFixity id
                     getFixity' (TyCon (Kinded id _)) = getFixity id
                     getFixity' _                     = Nothing
+          ppr (TyTuple ts) = brackets (pprList ts)
           ppr (TyNat i)    = integer i
           ppr (TyLabel l)  = dquotes (ppr l)
 
@@ -47,6 +48,7 @@ instance Printable Expr
           ppr (ELetVar inst)    = ppr inst
           ppr (EBits value size) = pprBits value size
           ppr (ECon inst)       = ppr inst
+          ppr (ETuple es)       = brackets (align (fillCat (punctuate (comma <> space) (map ppr es))))
           ppr e@(ELam _ _ _)    = iter paramNames []
               where (params, body) = flattenLambda e
                     (paramNames, paramTypes) = unzip params
@@ -170,11 +172,11 @@ printAbstraction name (Gen typarams evparams body) =
           eviter (ep : eps) d = bindingEvVar ep (const (eviter eps d))
 
 instance Printable Defn
-    where ppr (Defn name scheme (Right abs)) =
-               align (varName name <::> ppr scheme <$> printAbstraction name abs)
-          ppr (Defn name scheme (Left (impl, types))) =
+    where ppr (PrimDefn name scheme (impl, types)) =
                "primitive" <+> ppr name <+> (align ((":: " <> ppr scheme) <$> equals <+> text impl <> params types))
             where params ps = braces (cat (punctuate (comma <> space) (map ppr ps)))
+          ppr (Defn name scheme abs) =
+               align (varName name <::> ppr scheme <$> printAbstraction name abs)
 
 ----------------------------------------------------------------------------------------------------
 

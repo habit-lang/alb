@@ -16,6 +16,7 @@ data Type = TyCon (Kinded Id)
           | TyVar (Kinded Id)
           | TyGen Int
           | TyApp Type Type
+          | TyTuple [Type]
           | TyNat Integer
           | TyLabel Id
             deriving Eq
@@ -33,6 +34,7 @@ kindOf (TyApp t _) =
     case kindOf t of
       KFun _ result -> result
       _             -> error "Syntax.XMPEG:34"
+kindOf (TyTuple _)           = KStar
 kindOf (TyNat _)             = KNat
 kindOf (TyLabel _)           = KLabel
 
@@ -68,6 +70,7 @@ data Expr      = ELamVar Id
                | ELetVar Inst
                | EBits Integer Int
                | ECon Inst
+               | ETuple [Expr]
                | ELam Id Type Expr
                | EMethod Ev Int [Type] [Ev]  -- dictionary method typarams evparams
                | ELet Decls Expr
@@ -86,6 +89,7 @@ instance HasVariables Expr
           freeVariables (ELetVar (Inst id _ _)) = [id]
           freeVariables (EBits {})              = []
           freeVariables (ECon {})               = []
+          freeVariables (ETuple es)             = concatMap freeVariables es
           freeVariables (ELam id _ body)        = filter (id /=) (freeVariables body)
           freeVariables (ELet ds body)          = freeVariables ds ++ withoutBound ds (freeVariables body)
           freeVariables (ESubst ps _ body  )    = concatMap freeVariables exprs ++ filter (`notElem` ids) (freeVariables body)
@@ -204,16 +208,18 @@ instance HasVariables Guard
 -- Equivalent to:
 --   name :: scheme
 --   name{typarams}{evparams} = e
-data Defn = Defn Id (Scheme Type) (Either (String, [Type]) (Gen Expr)) -- Left => primitive
+data Defn = PrimDefn Id (Scheme Type) (String, [Type])
+          | Defn Id (Scheme Type) (Gen Expr)
 type Defns = [Defn]
 
 instance HasVariables Defn
-    where freeVariables (Defn name _ (Right (Gen _ _ body))) =
+    where freeVariables (PrimDefn{}) = []
+          freeVariables (Defn name _ (Gen _ _ body)) =
             filter (name /=) (freeVariables body)
-          freeVariables (Defn name _ (Left _)) = []
 
 instance Binder Defn
-    where bound (Defn name _ _) = [name]
+    where bound (PrimDefn name _ _) = [name]
+          bound (Defn name _ _) = [name]
 
 data Decls = Decls [Defn]
 

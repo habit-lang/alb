@@ -153,10 +153,10 @@ instance Cleanup Guard
 --------------------------------------------------------------------------------
 
 instance Cleanup Defn
-  where cleanup vs exs evs (Defn i s (Left (name, ts)))
-          = Defn i (cleanType vs s) (Left (name, map (cleanType vs) ts))
-        cleanup vs exs evs (Defn i s (Right body))
-          = Defn i (cleanType vs s) (Right (cleanup vs exs evs body))
+  where cleanup vs exs evs (PrimDefn name tys (primName, tyArgs))
+          = PrimDefn name (cleanType vs tys) (primName, map (cleanType vs) tyArgs)
+        cleanup vs exs evs (Defn i s body)
+          = Defn i (cleanType vs s) (cleanup vs exs evs body)
 
 instance Cleanup Decls
   where cleanup vs exs evs (Decls defns) = Decls (cleanup vs exs evs defns)

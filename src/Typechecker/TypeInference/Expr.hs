@@ -320,9 +320,9 @@ checkTypingGroup (Explicit (name, params, body) expectedTyS) =
                           contextTooWeak retained
 
               return ( [X.Defn name (convert expectedTyS)
-                                    (Right (X.Gen declaredTyVars
-                                             evvars
-                                             (X.ESubst [] evsubst body')))]
+                                    (X.Gen declaredTyVars
+                                           evvars
+                                           (X.ESubst [] evsubst body'))]
                      , deferred
                      , Map.singleton name (LetBound expectedTyS))
 
@@ -402,15 +402,15 @@ checkTypingGroup (Implicit fs) =
                mapM qualify ts'
 
        let functions    = [X.Defn id (convert tys)
-                                     (Right (X.Gen quantifyingVs
-                                                   retainedVs
-                                                   (foldr (\cbinds e ->
-                                                               case cbinds of
-                                                                 Left cs | all null (map snd cs) -> e
-                                                                         | otherwise             -> X.ELetTypes (Left cs) e
-                                                                 Right (args, results, f)        -> X.ELetTypes (Right (args, results, f)) e)
-                                                          (X.ESubst replacements evsubst f)
-                                                          cbindss)))
+                                     (X.Gen quantifyingVs
+                                            retainedVs
+                                            (foldr (\cbinds e ->
+                                                        case cbinds of
+                                                          Left cs | all null (map snd cs) -> e
+                                                                  | otherwise             -> X.ELetTypes (Left cs) e
+                                                          Right (args, results, f)        -> X.ELetTypes (Right (args, results, f)) e)
+                                                   (X.ESubst replacements evsubst f)
+                                                   cbindss))
                           | (id, tys, f) <- zip3 ids tyss fs']
            replacements = [(id, X.ELetVar (X.Inst id (map X.TyVar quantifyingVs) (map X.EvVar retainedVs)))
                           | id <- ids]
@@ -427,6 +427,31 @@ checkTypingGroup (Implicit fs) =
               where message
                         | length avs == 1 = "Ambiguous type variable" <+> ppr (head avs) <+> "in type" <+> ppr qty
                         | otherwise       = "Ambiguous type variables" <+> hsep (punctuate comma (map ppr avs)) <+> "in type" <+> ppr qty
+
+-- Polymorphism and pattern bindings:
+--
+-- Current theory is the following.  First, we still translate all (potentially nested) pattern
+-- bindings to tuple bindings.  So, for example, if the pattern binding is
+--
+--    x :: S; z :: T
+--    (MkK (MkJ x y) (MkL z (Just w))) = M
+--
+-- Then we would translate to
+--
+--    (x, y, z, w) = {rhs <- m =>
+--                    (MkK (MkJ x' y) (MkL z' (Just w))) <- rhs =>
+--                    let x :: S; x = x'; z :: T; z = z' =>
+--                    ^(x, y, z, w)}
+--
+-- We then infer the type of the (new) RHS.  This should have a type something like
+--
+--     forall vs. P => (T1, T2, T3, T4)
+--
+-- Finally, we attempt to construct a new typing environment as follows.  For each bound variable
+-- x_i, we either give it its assigned type (if it has one), or the type S_i = forall ws. P_i =>
+-- T_i, where the ws and P_i are the closure of the variables appearing in T_i and their
+-- constraining predicates.  We check that this "partition" of the original type signature gives
+-- unambiguous types, and that each predicate in 'P' appears in at least one of the S_i.
 
 checkTypingGroup (Pattern (At l p) m signatures) =
     appendFailureContext ("In the pattern bindings for" <+> hsep (punctuate comma (map ppr (bound p)))) $
@@ -455,7 +480,7 @@ checkTypingGroup (Pattern (At l p) m signatures) =
                 Just tys -> Explicit f tys
 
 checkTypingGroup (PrimValue (Signature name expectedTyS) str) =
-    do return ( [X.Defn name (convert expectedTyS) (Left (str, []))]
+    do return ( [X.PrimDefn name (convert expectedTyS) (str, [])]
               , []
               , Map.singleton name (LetBound expectedTyS))
 

@@ -40,8 +40,8 @@ parameterNames ps = [id | Kinded id _ <- ps]
 addEvidence :: EvSubst -> X.Decls -> X.Decls
 addEvidence [] ds = ds
 addEvidence evsubst (X.Decls groups) = X.Decls (map addEvidence' groups)
-    where addEvidence' (X.Defn name tys (Right (X.Gen typarams evparams body))) =
-              X.Defn name tys (Right (X.Gen typarams evparams (buildSubst body)))
+    where addEvidence' (X.Defn name tys (X.Gen typarams evparams body)) =
+              X.Defn name tys (X.Gen typarams evparams (buildSubst body))
           addEvidence' other = other -- TODO: check that this is correct; seems to be used for
                                      -- functions introduced in primitive declarations
 
@@ -375,7 +375,7 @@ assertClass (Class name params constraints methods defaults) =
                                        n                                     -- dictionary slot
                                        (map X.TyVar kids)                    -- extra type parameters
                                        (map X.EvVar (tail ds'))              -- extra dict parameters
-                return ((name, scheme), X.Defn name (convert scheme) (Right (X.Gen kids' ds' body)))
+                return ((name, scheme), X.Defn name (convert scheme) (X.Gen kids' ds' body))
 
 assertClass _ = error "TypeChecking.TypeInference:823"
 
@@ -489,7 +489,7 @@ assertRequirement (Require ps qs) =
 assertPrimitive :: Primitive Pred KId -> M (X.Defns, CtorEnv)
 assertPrimitive (PrimCon (Signature name tys) impl) =
     do tys' <- simplifyScheme tys
-       return ([X.Defn name (X.convert tys') (Left (impl, []))],
+       return ([X.PrimDefn name (X.convert tys') (impl, [])],
                Map.singleton name (tys, 0))
 assertPrimitive (PrimClass name _ fundeps _) =
     do mapM_ (assert . Solver.newFunDep name) fundeps'
