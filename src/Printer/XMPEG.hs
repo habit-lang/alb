@@ -58,7 +58,7 @@ instance Printable Expr
                     iter (v:vs) d = bindingVar v (const (iter vs d))
           ppr (ELetTypes (Left cs) body) = align (atPrecedence 0 ("let types" <+> align pprCases </> text "in" <+> ppr body))
               where pprCases = cat (punctuate (semi <> softline) [pprPairs cond <+> "->" <+> pprPairs impr | (cond, impr) <- cs])
-                    pprPairs ps = brackets (cat (punctuate (comma <> space) [ppr t <> slash <> ppr v | (v, t) <- ps]))
+                    pprPairs ps = brackets (cat (punctuate (comma <> space) [ppr t <> slash <> tyvarName v | (v, t) <- ps]))
           ppr (ELetTypes (Right (args, results, _)) body) =
               iter results $
               atPrecedence 0 (group (align ("let types" <+> braces (hsep (punctuate comma (map tyvarName results))) <+> equals <+> "computed" <> braces (hsep (punctuate comma (map tyvarName args))) <$>
@@ -149,7 +149,7 @@ instance Printable Guard
           ppr (GSubst evs) = pprSubst evs
           ppr (GLetTypes (Left cs)) = hang 4 ("let types" <+> align pprCases)
               where pprCases = cat (punctuate (semi <> softline) [pprPairs cond <+> "->" <+> pprPairs impr | (cond, impr) <- cs])
-                    pprPairs ps = brackets (cat (punctuate (comma <> space) [ppr t <> slash <> ppr v | (v, t) <- ps]))
+                    pprPairs ps = brackets (cat (punctuate (comma <> space) [ppr t <> slash <> tyvarName v | (v, t) <- ps]))
           ppr (GLetTypes (Right (args, results, _))) =
               atPrecedence 0 ("let types" <+> braces (hsep (punctuate comma (map ppr results))) <+> equals <+> "computed" <> braces (hsep (punctuate comma (map ppr args))))
 
