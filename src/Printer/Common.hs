@@ -338,7 +338,6 @@ pprFundep ([] :~> ys) vs = "->" <+> hsep (map (vs !!) ys)
 pprFundep (xs :~> ys) vs = hsep (map (vs !!) xs) <+> "->" <+> hsep (map (vs !!) ys)
 
 pprList ts = cat (punctuate (comma <> space) (map ppr ts))
-pprList' ts = fillCat (punctuate (comma <> space) (map ppr ts))
 
 instance Printable Flag
     where ppr Holds = empty

@@ -126,12 +126,6 @@ checkExpr (At loc (EApp f a)) expected =
     do t <- newTyVar KStar
        (f', ps) <- checkExpr f (t `to` expected)
        (a', qs) <- checkExpr a t
-
-       -- There has to be a better way...
-       expected' <- substitute expected
-       t' <- substitute t
-       modify (\st -> st{ droppedTyVars = (tvs t' \\ tvs expected') ++ droppedTyVars st })
-
        return (X.EApp f' a', ps ++ qs)
 
 checkExpr (At loc (EBind v e rest)) expected =
@@ -325,15 +319,6 @@ checkTypingGroup (Explicit (name, params, body) expectedTyS) =
                       transformFailures (addAmbiguousVariables (tvs (map snd retained) \\ close (tvs expected) fds) (map snd retained)) $
                           contextTooWeak retained
 
-              maybeDropped <- gets droppedTyVars
-              when (not (null maybeDropped)) $
-                   do envvars <- freeEnvironmentVariables
-                      let dropped = nub maybeDropped \\ (declaredTyVars ++ envvars)
-                      traceIf (not (null dropped))
-                              (show ("Dropped type variables:" <+> pprList' dropped))
-                              (mapM_ (flip bindType zeroTy) dropped)
-                      modify (\st -> st{ droppedTyVars = [] })
-
               return ( [X.Defn name (convert expectedTyS)
                                     (Right (X.Gen declaredTyVars
                                              evvars
@@ -355,7 +340,7 @@ checkTypingGroup (Explicit (name, params, body) expectedTyS) =
               case nub avars of
                 [] -> msg
                 [v] -> msg <$> shorten ps (hang 4 ("Note: the type variable" <+> tyvarName v <+> "is ambiguous."))
-7                vs  -> msg <$> shorten ps (hang 4 ("Note: the type variables" <+> shorten ps (hsep (punctuate comma (map tyvarName vs))) <+> "are ambiguous."))
+                vs  -> msg <$> shorten ps (hang 4 ("Note: the type variables" <+> shorten ps (hsep (punctuate comma (map tyvarName vs))) <+> "are ambiguous."))
 
 
 checkTypingGroup (Implicit fs) =
@@ -380,13 +365,25 @@ checkTypingGroup (Implicit fs) =
        (retained, deferred) <- splitPredicates ps
        let (retainedVs, retainedPs) = unzip retained
 
+       -- Compute type signatures for the implicit declarations, and check whether or not they're
+       -- ambiguous.  For the ambiguity check, we'll need to know the functional dependencies for
+       -- the retained predicates.
+
+       -- The ambiguity check is different than that in Haskell: our ambiguity check extends to
+       -- quantification in addition to qualification.  The following example is legal in Haskell:
+
+       --   f xs = null xs || g True
+       --   g y  = y || f []
+
+       -- However, it is not legal in Habit, as there is no way to determine the type argument to f
+       -- from the call in g.  This could be resolved with a suitable clever defaulting mechanism:
+       -- for example, GHC inserts a dummy "Any" type when compiling these functions.
+
        ts' <- mapM substitute ts
        qs <- mapM (substitute . snd) ps
        fds <- inducedDependencies qs
-       maybeDropped <- gets droppedTyVars
        let rvs = nub (tvs retainedPs)
            quantifyingVs = nub (rvs ++ tvs ts') \\ envvars -- hyper-efficient
-           dropped = nub maybeDropped \\ (quantifyingVs ++ envvars)
            -- 'qualify t' begins by computing the determined variables given the type t and the
            -- functional dependencies from retained.  If all the variables in retained are
            -- determined, it generates a type scheme by quantifying over all the variables in
@@ -403,11 +400,6 @@ checkTypingGroup (Implicit fs) =
        tyss <- trace (show (hang 4 ("From predicates" <+> cat (punctuate ", " (map ppr qs)) <$>
                                    "induced dependencies" <+> cat (punctuate ", " (map ppr fds))))) $
                mapM qualify ts'
-
-       traceIf (not (null dropped))
-               (show ("Dropped type variables:" <+> pprList' dropped))
-               (mapM_ (flip bindType zeroTy) dropped)
-       modify (\st -> st{ droppedTyVars = [] })
 
        let functions    = [X.Defn id (convert tys)
                                      (Right (X.Gen quantifyingVs

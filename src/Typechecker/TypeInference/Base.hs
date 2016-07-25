@@ -108,7 +108,6 @@ data TcState     = TcState { typeEnvironment     :: TyEnv
                            , classEnvironment    :: ClassEnv
                            , genericVars         :: ([KId], [Id])
                            , currentSubstitution :: Unifier
-                           , droppedTyVars       :: [KId]
                            , bitdataCtors        :: BitdataCtorEnv
                            , bitdataBDDs         :: BitdataBDDEnv
                            , structRegions       :: StructRegionEnv
@@ -220,9 +219,6 @@ substitute :: (K.HasKinds t, HasTypeVariables t KId, MonadState TcState m) => t 
 substitute t = do s <- gets currentSubstitution
                   return (s ## t)
 
-bindType :: KId -> Ty -> M ()
-bindType kid t = modify (\st -> st{ currentSubstitution = (K.empty, singleton kid t) `composeU` currentSubstitution st })
-
 -- Operations on the class environment:
 
 assert :: (Solver.SolverEnv -> Either String (t, Solver.SolverEnv)) -> M t
@@ -233,6 +229,8 @@ assert c =
          Left err -> failWithS err
          Right (v, senv') -> do put st { classEnvironment = cenv { solverEnvironment = senv' } }
                                 return v
+
+
 
 -- Operations on the value environment:
 
@@ -269,7 +267,7 @@ ctorBinding id = do mt <- gets (Map.lookup id . ctorEnvironment)
 ----------------------------------------------------------------------------------------------------
 -- Type constants
 
-arrTy, bitTy, arefTy, labTy, initTy, bitdataCaseTy, zeroTy :: Ty
+arrTy, bitTy, arefTy, labTy, initTy, bitdataCaseTy :: Ty
 arrTy           = TyCon (Kinded (Ident "->" 0 (Just (Fixity RightAssoc 5))) (KFun KStar (KFun KStar KStar)))
 bitTy           = TyCon (Kinded "Bit" (KFun KNat KStar))
 arefTy          = TyCon (Kinded "ARef" (KFun KNat (KFun KArea KStar)))
@@ -277,7 +275,6 @@ labTy           = TyCon (Kinded "Proxy" (KFun KLabel KStar))
 initTy          = TyCon (Kinded "Init" (KFun KArea KStar))
 bitdataCaseTy   = TyCon (Kinded "BitdataCase" (KFun KStar (KFun KLabel KStar)))
 bitdataCase t f = bitdataCaseTy @@ TyCon (Kinded t KStar) @@ TyLabel f
-zeroTy          = TyCon (Kinded "Zero" KStar)
 
 (@@) :: Ty -> Ty -> Ty
 t @@ t' = TyApp (introduced t) (introduced t')

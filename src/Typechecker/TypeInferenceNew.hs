@@ -89,7 +89,7 @@ inferTypes fn p = PassM (StateT (\globals@(classEnv, tyEnv, ctorEnv, bitdataCtor
        ctorEnv <- liftM Map.unions $ mapM buildCtorEnv (topDecls p)
        methodEnv <- liftM Map.unions $ mapM buildMethodEnv (topDecls p)
        return (ctorEnv, methodEnv)))
-    (Base.TcState tyEnv ctorEnv classEnv ([], []) emptyUnifier [] bitdataCtors bitdataBDDs structRegions rqts)
+    (Base.TcState tyEnv ctorEnv classEnv ([], []) emptyUnifier bitdataCtors bitdataBDDs structRegions rqts)
 
   b00 <- liftM BubbleId $ fresh (fromString "b00")
   let env0 = methodEnv
