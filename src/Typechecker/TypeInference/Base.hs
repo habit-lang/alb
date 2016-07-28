@@ -475,14 +475,15 @@ freeEnvironmentVariables =
        ts <- gets (Map.elems . typeEnvironment)
        return (nub (tvs (s ## ts)))
 
--- splitPredicates: free environment variables -> predicates -> (retained, deferred)
+-- splitPredicates: predicates -> (retained, deferred)
 splitPredicates :: Preds -> M (Preds, Preds)
 splitPredicates [] = return ([], [])
 splitPredicates preds =
     do envvars <- freeEnvironmentVariables
        ps' <- substitute ps
        fds <- inducedDependencies ps
-       let mustRetain (_, p) = any (`notElem` envvars) (tvs p)
+       let envvars' = close envvars fds
+           mustRetain (_, p) = any (`notElem` envvars') (tvs p)
            (retained, deferred) = partition mustRetain (zip vs ps')
        trace ("With free environment variables " ++ intercalate ", " (map (show . ppr) envvars) ++
               "\n  retained predicates\n" ++ unlines ["    " ++ show (ppr id <::> ppr p) | (id, p) <- retained] ++

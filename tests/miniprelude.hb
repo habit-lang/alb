@@ -1,4 +1,7 @@
 -- Basic types: -------------------------------------------------
+
+data Zero
+
 primitive type (->) :: * -> * -> *
 infixr type 5 ->
 

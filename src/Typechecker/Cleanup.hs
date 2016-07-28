@@ -25,72 +25,109 @@ module Typechecker.Cleanup (cleanupProgram) where
 import Common
 import Data.Maybe
 import Syntax.XMPEG
+import Syntax.XMPEG.TSubst
 
 cleanupProgram :: Pass st (Program KId) (Program KId)
-cleanupProgram = return . cleanup [] []
+cleanupProgram = return . cleanup [] [] []
+
+--------------------------------------------------------------------------------
+-- Types
+--------------------------------------------------------------------------------
+
+class CleanType t
+  where cleanType :: [KId] -> t -> t
+
+instance CleanType Type
+  where cleanType vs vt@(TyVar v@(Kinded _ k))
+            | v `elem` vs = vt
+            | otherwise = TyCon (Kinded "Zero" k)
+        cleanType vs (TyApp t t') = TyApp (cleanType vs t) (cleanType vs t')
+        cleanType _ t = t
+
+instance CleanType (Pred Type)
+  where cleanType vs (Pred cl ts f) = Pred cl (map (cleanType vs) ts) f
+
+instance CleanType t => CleanType (Scheme t)
+  where cleanType vs (Forall ws ps t) = Forall ws (map (cleanType vs) ps) (cleanType vs t)
+
+cleanTypeBinding :: [KId] -> TypeBinding -> ([KId], TypeBinding)
+cleanTypeBinding vs (Left bs) = (vs ++ concat wss, Left bs')
+    where (wss, bs') = unzip (map cleanCase bs)
+          cleanCase (cond, impr) = (map fst impr, (clean cond, clean impr))
+              where clean bs = [(kid, cleanType vs ty) | (kid, ty) <- bs]
+cleanTypeBinding vs (Right (ws, ws', f)) = (vs ++ ws', Right (ws, ws', map (cleanType vs) . f))
+
 
 --------------------------------------------------------------------------------
 -- Expressions
 --------------------------------------------------------------------------------
 
 class Cleanup e
-  where cleanup :: ExprSubst -> EvSubst -> e -> e
+  where cleanup :: [KId] -> ExprSubst -> EvSubst -> e -> e
 
 instance Cleanup t => Cleanup [t]
-  where cleanup exs evs = map (cleanup exs evs)
+  where cleanup vs exs evs = map (cleanup vs exs evs)
 
 instance Cleanup t => Cleanup (Id, t)
-  where cleanup exs evs (i, t) = (i, cleanup exs evs t)
+  where cleanup vs exs evs (i, t) = (i, cleanup vs exs evs t)
 
 instance Cleanup Expr
-  where cleanup exs evs = c
+  where cleanup vs exs evs = c
           where
-           c (ELamVar i)                = fromMaybe (ELamVar i) (lookup i exs)
-           c (ELetVar t)                = ELetVar (cleanup exs evs t)
+           c (ELamVar i)                = fromMaybe (ELamVar i) (cleanup vs exs evs `fmap` lookup i exs)
+           c (ELetVar t)                = ELetVar (cleanup vs exs evs t)
            c (EBits val size)           = EBits val size
-           c (ECon t)                   = ECon (cleanup exs evs t)
-           c (ELam i t e)               = ELam i t (c e)
-           c (EMethod d n ts ds)        = EMethod (cleanup exs evs d)
+           c (ECon t)                   = ECon (cleanup vs exs evs t)
+           c (ELam i t e)               = ELam i (cleanType vs t) (c e)
+           c (EMethod d n ts ds)        = EMethod (cleanup vs exs evs d)
                                                   n
-                                                  ts
-                                                  (cleanup exs evs ds)
-           c (ELet ds e)                = ELet (cleanup exs evs ds) (c e)
-           c (ELetTypes cs e)           = ELetTypes cs (c e)
-           c (ESubst exs' evs' e)       = cleanup (cleanup exs evs exs'++exs)
-                                                  (cleanup exs evs evs'++evs)
+                                                  (map (cleanType vs) ts)
+                                                  (cleanup vs exs evs ds)
+           c (ELet ds e)                = ELet (cleanup vs exs evs ds) (c e)
+           c (ELetTypes cs e)           = ELetTypes cs' (cleanup ws exs evs e)
+               where (ws, cs') = cleanTypeBinding vs cs
+           c (ESubst exs' evs' e)       = cleanup vs (exs'++exs)
+                                                  (evs'++evs)
                                                   e
-           c (EMatch m)                 = EMatch (cleanup exs evs m)
+           c (EMatch m)                 = EMatch (cleanup vs exs evs m)
            c (EApp f x)                 = EApp (c f) (c x)
-           c (EBind ta tb tm me v e e') = EBind ta tb tm (cleanup exs evs me) v (c e) (c e')
+           c (EBind ta tb tm me v e e') = EBind (cleanType vs ta) (cleanType vs tb) (cleanType vs tm)
+                                                (cleanup vs exs evs me) v (c e) (c e')
 
 instance Cleanup Ev
-  where cleanup exs evs (EvVar i)         = fromMaybe (EvVar i) (lookup i evs)
-        cleanup exs evs (EvCons t)        = EvCons (cleanup exs evs t)
-        cleanup exs evs (EvRequired n es) = EvRequired n (map (cleanup exs evs) es)
-        cleanup exs evs (EvCases cs)      = EvCases [(cond, cleanup exs evs ev) | (cond, ev) <- cs]
-        cleanup _   _   e@(EvComputed {}) = e
-        cleanup exs evs (EvFrom p e e')   = EvFrom p (cleanup exs evs e) (cleanup exs evs e')
+  where cleanup vs exs evs (EvVar i)         = fromMaybe (EvVar i) (cleanup vs exs evs `fmap` lookup i evs)
+        cleanup vs exs evs (EvCons t)        = EvCons (cleanup vs exs evs t)
+        cleanup vs exs evs (EvRequired n es) = EvRequired n (map (cleanup vs exs evs) es)
+        cleanup vs exs evs (EvCases cs)      = EvCases [(map cleanCond cond, cleanup vs exs evs ev) | (cond, ev) <- cs]
+            where cleanCond (kid, t) = (kid, cleanType (kid:vs) t)
+        cleanup vs _   _   e@(EvComputed {}) = e
+        cleanup vs exs evs (EvFrom EvWild e e') = EvFrom EvWild (cleanup vs exs evs e) (cleanup vs exs evs e')
+        cleanup vs exs evs (EvFrom p@(EvPat _ ts _) e e') = EvFrom p (cleanup vs exs evs e) (cleanup vs' exs evs e')
+            where vs' = tvs ts ++ vs
 
 instance Cleanup t => Cleanup (Gen t)
-  where cleanup exs evs (Gen ts es t) = Gen ts es (cleanup exs evs t)
+  where cleanup vs exs evs (Gen ts' es t) = Gen ts' es (cleanup (ts' ++ vs) exs evs t)
 
 instance Cleanup Inst
-  where cleanup exs evs (Inst i ts es)
-          = Inst i ts (cleanup exs evs es)
+  where cleanup vs exs evs (Inst i ts es)
+          = Inst i (map (cleanType vs) ts) (cleanup vs exs evs es)
 
 --------------------------------------------------------------------------------
 -- Matches
 --------------------------------------------------------------------------------
 
 instance Cleanup Match
-  where cleanup exs evs MFail          = MFail
-        cleanup exs evs (MCommit e)    = MCommit (cleanup exs evs e)
-        cleanup exs evs (MElse m1 m2)  = MElse (cleanup exs evs m1)
-                                                   (cleanup exs evs m2)
-        cleanup exs evs (MGuarded (GSubst evs') m)
-                                       = cleanup exs (cleanup exs evs evs' ++ evs) m
-        cleanup exs evs (MGuarded g m) = MGuarded (cleanup exs evs g)
-                                                      (cleanup exs evs m)
+  where cleanup vs exs evs MFail          = MFail
+        cleanup vs exs evs (MCommit e)    = MCommit (cleanup vs exs evs e)
+        cleanup vs exs evs (MElse m1 m2)  = MElse (cleanup vs exs evs m1)
+                                                   (cleanup vs exs evs m2)
+        cleanup vs exs evs (MGuarded (GSubst evs') m)
+                                       = cleanup vs exs (evs' ++ evs) m
+        cleanup vs exs evs (MGuarded (GLetTypes cs) m)
+                                       = MGuarded (GLetTypes cs') (cleanup ws exs evs m)
+            where (ws, cs') = cleanTypeBinding vs cs
+        cleanup vs exs evs (MGuarded g m) = MGuarded (cleanup vs exs evs g)
+                                                      (cleanup vs exs evs m)
 
 
 --------------------------------------------------------------------------------
@@ -98,35 +135,35 @@ instance Cleanup Match
 --------------------------------------------------------------------------------
 
 instance Cleanup Pattern
-  where cleanup exs evs PWild                 = PWild
-        cleanup exs evs (PVar i s)            = PVar i s
-        cleanup exs evs (PCon c ts ebinds is) = PCon c ts ebinds is
+  where cleanup vs exs evs PWild                 = PWild
+        cleanup vs exs evs (PVar i s)            = PVar i (cleanType vs s)
+        cleanup vs exs evs (PCon c ts ebinds is) = PCon c (map (cleanType vs) ts) [(e, cleanType vs p) | (e, p) <- ebinds] is
 
 --------------------------------------------------------------------------------
 -- Guards
 --------------------------------------------------------------------------------
 
 instance Cleanup Guard
-  where cleanup exs evs (GFrom p e)    = GFrom (cleanup exs evs p)
-                                                   (cleanup exs evs e)
-        cleanup exs evs (GLet ds)      = GLet (cleanup exs evs ds)
-        cleanup exs evs (GLetTypes cs) = GLetTypes cs
+  where cleanup vs exs evs (GFrom p e)    = GFrom (cleanup vs exs evs p)
+                                                   (cleanup vs exs evs e)
+        cleanup vs exs evs (GLet ds)      = GLet (cleanup vs exs evs ds)
 
 --------------------------------------------------------------------------------
 -- Declarations
 --------------------------------------------------------------------------------
 
 instance Cleanup Defn
-  where cleanup exs evs (Defn i s body)
-          = Defn i s (cleanup exs evs `fmap` body)
+  where cleanup vs exs evs (Defn i s (Left (name, ts)))
+          = Defn i (cleanType vs s) (Left (name, map (cleanType vs) ts))
+        cleanup vs exs evs (Defn i s (Right body))
+          = Defn i (cleanType vs s) (Right (cleanup vs exs evs body))
 
 instance Cleanup Decls
-  where cleanup exs evs (Decls defns) = Decls (cleanup exs evs defns)
+  where cleanup vs exs evs (Decls defns) = Decls (cleanup vs exs evs defns)
 
 --------------------------------------------------------------------------------
 -- Top-level declarations
 --------------------------------------------------------------------------------
 
 instance Cleanup (Program KId)
-  where cleanup exs evs p = p { decls = cleanup exs evs (decls p) }
-
+  where cleanup vs exs evs p = p { decls = cleanup vs exs evs (decls p) }

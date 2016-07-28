@@ -27,13 +27,13 @@ data NameMapping = NM { varNameCounts   :: Map String Int
 
 data PrinterOptions = PO { precedence     :: Int
                          , showKinds      :: Bool
-                         , operatorParens :: Bool
+                         , symbolInfix    :: Bool
                          , fixities       :: Fixities
                          , nameMapping    :: Maybe NameMapping }
 
 defaultOptions = PO { precedence = 0
                     , showKinds = False
-                    , operatorParens = True
+                    , symbolInfix = False
                     , fixities = Fixities Map.empty Map.empty
                     , nameMapping = Nothing }
 
@@ -181,16 +181,19 @@ withShortenedNames :: Bool -> Doc -> Doc
 withShortenedNames True  = local (\po -> po { nameMapping = Just (NM Map.empty Map.empty Map.empty Map.empty) })
 withShortenedNames False = local (\po -> po { nameMapping = Nothing })
 
-withoutOperatorParens :: Doc -> Doc
-withoutOperatorParens = local (\po -> po { operatorParens = False })
+asInfixSymbol :: Doc -> Doc
+asInfixSymbol = local (\po -> po{ symbolInfix = True })
+
+unInfix :: Doc -> Doc
+unInfix = local (\po -> po{ symbolInfix = False })
 
 printInfix :: (Printable t, Printable u, Printable v) => Fixity -> t -> u -> v -> Doc
 printInfix (Fixity LeftAssoc level) lhs op rhs =
-    atPrecedence level (group (align (ppr lhs <+> withoutOperatorParens (ppr op) <$> withPrecedence (level + 1) (ppr rhs))))
+    atPrecedence level (group (align (ppr lhs <+> asInfixSymbol (ppr op) <$> withPrecedence (level + 1) (ppr rhs))))
 printInfix (Fixity RightAssoc level) lhs op rhs =
-    atPrecedence level (group (align (withPrecedence (level + 1) (ppr lhs) <+> withoutOperatorParens (ppr op) <$> ppr rhs)))
+    atPrecedence level (group (align (withPrecedence (level + 1) (ppr lhs) <+> asInfixSymbol (ppr op) <$> ppr rhs)))
 printInfix (Fixity NoAssoc level) lhs op rhs =
-    atPrecedence level (group (align (withPrecedence (level + 1) (ppr lhs) <+> withoutOperatorParens (ppr op) <$> withPrecedence (level + 1) (ppr rhs))))
+    atPrecedence level (group (align (withPrecedence (level + 1) (ppr lhs) <+> asInfixSymbol (ppr op) <$> withPrecedence (level + 1) (ppr rhs))))
 
 -- access using: asks showKinds :: Printer Bool
 
@@ -311,9 +314,14 @@ symbol s@(c:_)
     | not (isAlpha c || isNumber c || c == '$') = parens (text s)
     | otherwise                                 = text s
 
+infixSymbol s@(c:_)
+    | s == "()"                           = text s
+    | isAlpha c || isNumber c || c == '$' = text "`" <> text s <> text "`"
+    | otherwise                           = text s
+
 instance Printable Id
-    where ppr i = do b <- asks operatorParens
-                     if b then symbol (fromId i) else text (fromId i)
+    where ppr i = do b <- asks symbolInfix
+                     if b then infixSymbol (fromId i) else symbol (fromId i)
 
 instance Printable t => Printable (Kinded t)
     where ppr (Kinded id k) = do b <- asks showKinds

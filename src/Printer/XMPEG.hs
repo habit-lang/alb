@@ -36,7 +36,7 @@ instance Printable (Pred Type)
     where ppr (Pred cl args f) = ppr cl <+> cat (punctuate space (map (withPrecedence 10 . ppr) args)) <> ppr f
 
 instance Printable t => Printable (Scheme t)
-    where ppr (Forall ks es t) = align (group (vsep [ group ( vcat [ braces (align (fillSep (punctuate comma [text "_" <> int i <::> ppr k | (i, (Kinded _ k)) <- zip [0..] ks ])))
+    where ppr (Forall ks es t) = align (group (vsep [ group ( vcat [ braces (align (fillSep (punctuate comma [text "_" <> int i <::> ppr k | (i, Kinded _ k) <- zip [0..] ks ])))
                                                                    , braces (cat (punctuate (comma <> space) (map ppr es))) ])
                                                     , align (ppr t) ]))
 
@@ -58,7 +58,7 @@ instance Printable Expr
                     iter (v:vs) d = bindingVar v (const (iter vs d))
           ppr (ELetTypes (Left cs) body) = align (atPrecedence 0 ("let types" <+> align pprCases </> text "in" <+> ppr body))
               where pprCases = cat (punctuate (semi <> softline) [pprPairs cond <+> "->" <+> pprPairs impr | (cond, impr) <- cs])
-                    pprPairs ps = brackets (cat (punctuate (comma <> space) [ppr t <> slash <> ppr v | (v, t) <- ps]))
+                    pprPairs ps = brackets (cat (punctuate (comma <> space) [ppr t <> slash <> tyvarName v | (v, t) <- ps]))
           ppr (ELetTypes (Right (args, results, _)) body) =
               iter results $
               atPrecedence 0 (group (align ("let types" <+> braces (hsep (punctuate comma (map tyvarName results))) <+> equals <+> "computed" <> braces (hsep (punctuate comma (map tyvarName args))) <$>
@@ -111,7 +111,7 @@ instance Printable ([EvPat], Ev)
 
 instance Printable Inst
     where ppr (Inst id [] []) = varName id -- special case to reduce noise :-)
-          ppr (Inst id ts es) = varName id <> group (pprTypeArgs ts es)
+          ppr (Inst id ts es) = varName id <> unInfix (group (pprTypeArgs ts es))
 
 pprTypeArgs      :: [Type] -> [Ev] -> Doc
 pprTypeArgs ts es = align (group (vcat [withPrecedence 0 (braceList ts), group (withPrecedence 0 (braceList es))]))
@@ -149,7 +149,7 @@ instance Printable Guard
           ppr (GSubst evs) = pprSubst evs
           ppr (GLetTypes (Left cs)) = hang 4 ("let types" <+> align pprCases)
               where pprCases = cat (punctuate (semi <> softline) [pprPairs cond <+> "->" <+> pprPairs impr | (cond, impr) <- cs])
-                    pprPairs ps = brackets (cat (punctuate (comma <> space) [ppr t <> slash <> ppr v | (v, t) <- ps]))
+                    pprPairs ps = brackets (cat (punctuate (comma <> space) [ppr t <> slash <> tyvarName v | (v, t) <- ps]))
           ppr (GLetTypes (Right (args, results, _))) =
               atPrecedence 0 ("let types" <+> braces (hsep (punctuate comma (map ppr results))) <+> equals <+> "computed" <> braces (hsep (punctuate comma (map ppr args))))
 
