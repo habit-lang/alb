@@ -85,6 +85,7 @@ instance HasTypeVariables Type
           _ # TyCon id   = TyCon id
           _ # TyGen i    = TyGen i
           s # TyApp t t' = TyApp (s # t) (s # t')
+          s # TyTuple ts = TyTuple (s # ts)
           _ # TyNat i    = TyNat i
           _ # TyLabel l  = TyLabel l
 
@@ -120,6 +121,7 @@ instance HasTypeVariables Expr
           s # ELetVar tapp   = ELetVar (s # tapp)
           s # e@(EBits {})   = e
           s # ECon tapp      = ECon (s # tapp)
+          s # ETuple es      = ETuple (s # es)
           s # ELam v t e     = ELam v (s # t) (s # e)
           s # ELet ds e      = ELet (s # ds) (s # e)
           s # ELetTypes (Left cs) e =
@@ -142,6 +144,7 @@ instance HasEvidenceVariables Expr
           fevs (ELetVar tapp)                  = fevs tapp
           fevs (EBits {})                      = []
           fevs (ECon tapp)                     = fevs tapp
+          fevs (ETuple es)                     = concatMap fevs es
           fevs (ELam _ _ body)                 = fevs body
           fevs (ELet ds body)                  = fevs ds ++ fevs body
           fevs (ELetTypes _ e)                 = fevs e
@@ -159,6 +162,7 @@ instance HasTypeVariables Ev
           s # EvCases cs        = EvCases (catMaybes [do cond' <- cond `under` s; return (cond', s # ev) | (cond, ev) <- cs])
           s # e@(EvComputed {}) = e
           s # EvFrom p e e'     = EvFrom (s # p) (s # e) (s # e')
+          s # EvZero schemes    = EvZero (s # schemes)
 
 instance HasEvidenceVariables Ev
     where fevs (EvVar v)                       = [v]
@@ -168,7 +172,7 @@ instance HasEvidenceVariables Ev
           fevs (EvComputed {})                 = []
           fevs (EvFrom EvWild e e')            = fevs e ++ fevs e'
           fevs (EvFrom (EvPat _ _ evars) e e') = fevs e ++ filter (`notElem` evars) (fevs e')
-
+          fevs (EvZero _)                      = []
 
 instance HasTypeVariables EvPat
     where s # EvPat id ts ps = EvPat id (s # ts) ps
@@ -231,12 +235,12 @@ instance HasEvidenceVariables Guard
           fevs (GLetTypes cs) = []
 
 instance HasTypeVariables Defn
-    where s # Defn name tys (Right body) = Defn name (s # tys) (Right (s # body))
-          s # Defn name tys (Left body) = Defn name (s # tys) (Left body)
+    where s # PrimDefn name tys body = PrimDefn name (s # tys) body
+          s # Defn name tys body = Defn name (s # tys) (s # body)
 
 instance HasEvidenceVariables Defn
-    where fevs (Defn _ _ (Right body)) = fevs body
-          fevs (Defn _ _ (Left _)) = []
+    where fevs (PrimDefn{}) = []
+          fevs (Defn _ _ body) = fevs body
 
 instance HasTypeVariables Decls
     where s # Decls ds = Decls (s # ds)

@@ -104,6 +104,7 @@ instance Cleanup Ev
         cleanup vs exs evs (EvFrom EvWild e e') = EvFrom EvWild (cleanup vs exs evs e) (cleanup vs exs evs e')
         cleanup vs exs evs (EvFrom p@(EvPat _ ts _) e e') = EvFrom p (cleanup vs exs evs e) (cleanup vs' exs evs e')
             where vs' = tvs ts ++ vs
+        cleanup vs exs evs (EvZero tys) = EvZero (map (cleanType vs) tys)
 
 instance Cleanup t => Cleanup (Gen t)
   where cleanup vs exs evs (Gen ts' es t) = Gen ts' es (cleanup (ts' ++ vs) exs evs t)
@@ -153,10 +154,10 @@ instance Cleanup Guard
 --------------------------------------------------------------------------------
 
 instance Cleanup Defn
-  where cleanup vs exs evs (Defn i s (Left (name, ts)))
-          = Defn i (cleanType vs s) (Left (name, map (cleanType vs) ts))
-        cleanup vs exs evs (Defn i s (Right body))
-          = Defn i (cleanType vs s) (Right (cleanup vs exs evs body))
+  where cleanup vs exs evs (PrimDefn name tys (primName, tyArgs))
+          = PrimDefn name (cleanType vs tys) (primName, map (cleanType vs) tyArgs)
+        cleanup vs exs evs (Defn i s body)
+          = Defn i (cleanType vs s) (cleanup vs exs evs body)
 
 instance Cleanup Decls
   where cleanup vs exs evs (Decls defns) = Decls (cleanup vs exs evs defns)

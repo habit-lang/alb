@@ -165,6 +165,7 @@ given EvDecls, TSubst, and Dict Subst using the following function:
 >                                             "but found",
 >                                             "     " ++ show (ppr d) ])
 >     where d = evalEv env senv tys dcs e
+> evalEv _ _ _ _ (EvZero _) = error "Specializer.lhs:168"
 
 A similar operation is proved for converting Inst values (which appear as
 components of EvCons nodes) into DApp values:
@@ -191,7 +192,7 @@ of the components are used.
 >                           Types ->       -- records the set of types used
 >                           Base (Types, a) }
 
-The Types component records the set of (speicalized) types that are used.
+The Types component records the set of (specialized) types that are used.
 Although the Type structure includes type variables, we assume that all types
 in the list will be ground instances.  This implies that the type substitution
 and the types components can't interact.
@@ -282,6 +283,10 @@ and return the required specialization by supplying the appropriate lists
 of type and dictionary parameters to the method implementation:
 
 > method :: Ev -> Int -> [Type] -> [Ev] -> M DApp
+> method (EvZero methodSchemes) n ts' es'
+>   = M (\env senv tys dcs rqts ->
+>           let Forall _ _ t = methodSchemes !! n
+>           in return (rqts, DApp "diverge" [inst ts' t] []))
 > method ev n ts' es'
 >   = M (\env senv tys dcs rqts ->
 >           case evalEv env senv tys dcs ev of
@@ -640,7 +645,8 @@ the fields:
 > enter :: Decls -> c -> Scope c
 > enter (Decls decls) c = Scope { defns, specd=[], reqd=[], numReqd=0, enc=c }
 >  where defns = foldr insertDefn Map.empty decls
->        insertDefn (X.Defn id scheme rhs) = Map.insert id (scheme, rhs)
+>        insertDefn (X.PrimDefn id scheme rhs) = Map.insert id (scheme, Left rhs)
+>        insertDefn (X.Defn id scheme rhs) = Map.insert id (scheme, Right rhs)
 
 Conversely, when there are no remaining specializations requests, we can use
 the exit function to turn the list of specializations that have been computed
@@ -649,7 +655,9 @@ context.
 
 > exit  :: Scope c -> (Decls, c)
 > exit c = (Decls ds, enc c)
->  where ds = [ X.Defn i scheme body | (_, i, (scheme, body)) <- specd c ]
+>  where ds = [ case body of
+>                 Left rhs -> X.PrimDefn i scheme rhs
+>                 Right rhs -> X.Defn i scheme rhs | (_, i, (scheme, body)) <- specd c ]
 
 Specialization in a Scope context begins by testing to see if the variable
 that is mentioned in the given Inst is actually defined in this scope; if not,
@@ -878,7 +886,7 @@ this cause problems later in the pipeline?
 >                                           let builtTys     = map fst built
 >                                               newRqs'      = filter (`notElem` builtTys) newRqs
 >                                           iter ((rq, d') : built) (newRqs' ++ rqs)
->
+
 >         specArea (Area v ids ty size align)
 >           = return (Just (Area v ids ty size align), requestedBy ty)
 >         specArea _
@@ -889,7 +897,7 @@ this cause problems later in the pipeline?
 >     = case flattenType t of
 >         (TyCon (Kinded id _), _) -> lookFor id topDecls
 >         _ -> Nothing
->
+
 >     where lookFor id [] = Nothing
 >           lookFor id (d@(Datatype id' _ _) : _)
 >             | id == id' = Just d
@@ -905,7 +913,7 @@ this cause problems later in the pipeline?
 >        return (Datatype name ts (catMaybes ctors'), concat requested)
 >     where (_, ts) = flattenType ty
 >           s       = new (zip params ts)
->
+
 >           spec (name, kids, ps, ts)
 >             = do enames <- replicateM (length ps) (fresh "e")
 >                  ts'' <- solve (zip enames ps')
@@ -916,7 +924,7 @@ this cause problems later in the pipeline?
 >               where newTys = [TyVar v | v <- kids]
 >                     ps'    = [Pred className (map ((s #) . inst newTys) ts) f | Pred className ts f <- ps]
 >                     ts'    = map ((s #) . inst newTys) ts
->
+
 > specTopDecl (Bitdatatype name size conSpecs) _ = return (Bitdatatype name size conSpecs, requested)
 >     where requested = concatMap requestedBy [ty | (_, fields, _) <- conSpecs, LabeledField _ ty _ _ <- fields]
 > specTopDecl (Struct name size fields) _ = return (Struct name size fields, requested)

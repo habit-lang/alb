@@ -453,9 +453,9 @@ checkTypingGroup (Explicit (name, params, body) expectedTyS) =
                           contextTooWeak assumed retainedGoals'
 
               return R{ payload = ([X.Defn name (convert expectedTyS)
-                                                (Right (X.Gen declaredTyVars
-                                                         evvars
-                                                         (X.ESubst [] evsubst body')))],
+                                                (X.Gen declaredTyVars
+                                                  evvars
+                                                  (X.ESubst [] evsubst body'))],
                                    Map.singleton name (LetBound expectedTyS))
                       , assumed = deferredAssumptions
                       , goals = deferredGoals
@@ -551,15 +551,15 @@ checkTypingGroup (Implicit fs) =
                mapM qualify ts''
 
        let functions    = [X.Defn id (convert tys)
-                                     (Right (X.Gen quantifyingVs
-                                                   retainedVs
-                                                   (foldr (\cbinds e ->
-                                                               case cbinds of
-                                                                 Left cs | all null (map snd cs) -> e
-                                                                         | otherwise             -> X.ELetTypes (Left cs) e
-                                                                 Right (args, results, f)        -> X.ELetTypes (Right (args, results, f)) e)
-                                                          (X.ESubst replacements evsubst f)
-                                                          cbindss)))
+                                     (X.Gen quantifyingVs
+                                            retainedVs
+                                            (foldr (\cbinds e ->
+                                                        case cbinds of
+                                                          Left cs | all null (map snd cs) -> e
+                                                                  | otherwise             -> X.ELetTypes (Left cs) e
+                                                          Right (args, results, f)        -> X.ELetTypes (Right (args, results, f)) e)
+                                                   (X.ESubst replacements evsubst f)
+                                                   cbindss))
                           | (id, tys, f) <- zip3 ids tyss fs']
            replacements = [(id, X.ELetVar (X.Inst id (map X.TyVar quantifyingVs) (map X.EvVar retainedVs)))
                           | id <- ids]
@@ -604,39 +604,116 @@ checkTypingGroup (Implicit fs) =
 -- extensive changes.  So, for the time being, I'm cheating, by avoiding the contraction check on
 -- the xi bindings.
 
+-- Polymorphism and pattern bindings:
+--
+-- Current theory is the following.  First, we still translate all (potentially nested) pattern
+-- bindings to tuple bindings.  So, for example, if the pattern binding is
+--
+--    x :: S; z :: T
+--    (MkK (MkJ x y) (MkL z (Just w))) = M
+--
+-- Then we would translate to
+--
+--    (x, y, z, w) = {rhs <- m =>
+--                    (MkK (MkJ x' y) (MkL z' (Just w))) <- rhs =>
+--                    let x :: S; x = x'; z :: T; z = z' =>
+--                    ^(x, y, z, w)}
+--
+-- We then infer the type of the (new) RHS.  This should have a type something like
+--
+--     forall vs. P => (T1, T2, T3, T4)
+--
+-- Finally, we attempt to construct a new typing environment as follows.  For each bound variable
+-- x_i, we either give it its assigned type (if it has one), or the type S_i = forall ws. P_i =>
+-- T_i, where the ws and P_i are the closure of the variables appearing in T_i and their
+-- constraining predicates.  We check that this "partition" of the original type signature gives
+-- unambiguous types, and that each predicate in 'P' appears in at least one of the S_i.
+
 checkTypingGroup (Pattern (At l p) m signatures) =
     appendFailureContext ("In the pattern bindings for" <+> hsep (punctuate comma (map ppr (bound p)))) $
-    do tupleVar <- fresh "v"
-       rhsVar   <- fresh "rhs"
-       vs'      <- mapM fresh vs
-       let body       = MGuarded (GLet (Decls [Implicit [(rhsVar, [], m)]]))
-                                 (MGuarded (GFrom (At l (rename (zip vs vs') p)) (At l (EVar rhsVar)))
-                                           (MCommit (introduced (foldl eapp (ECon (fromString ("$Tuple" ++ show (length vs)))) (map EVar vs')))))
-           components = [makeTypingGroup (v, [], MCommit (At l (eapp (EVar (fromString ("$t" ++ show n ++ '_' : show m))) (EVar tupleVar)))) | (v,m) <- zip vs [0..]]
+    do tupleVar  <- fresh "v"
+       rhsVar    <- fresh "rhs"
+       vs'       <- mapM fresh vs
+       let typed = [(id, (fromJust (lookup id (zip vs vs')), tys)) | Signature id tys <- signatures]
+       ws        <- mapM (fresh . fst) typed
+       let ws'   = [fromMaybe v' (lookup v (zip (map fst typed) ws)) | (v, v') <- zip vs vs']
+           body  = MGuarded (GLet (Decls [Implicit [(rhsVar, [], m)]]))
+                            (MGuarded (GFrom (At l (rename (zip vs vs') p)) (At l (EVar rhsVar)))
+                                      (MGuarded (GLet (Decls [Explicit (w, [], MCommit (introduced $ EVar v')) s | (w, (_, (v', s))) <- zip ws typed]))
+                                                (MCommit (introduced (foldl eapp (ECon (fromString ("$Tuple" ++ show (length vs)))) (map EVar ws'))))))
        rBody <- checkTypingGroup (Implicit [(tupleVar, [], body)])
        let (tupleGroup, tupleEnv) = payload rBody
-       componentRs <- mapM (binds l tupleEnv . checkTypingGroup) components
-       let (componentGroups, componentEnvs) = unzip (map payload componentRs)
-       return R{ payload = (concat (tupleGroup : componentGroups), Map.unions (tupleEnv : componentEnvs))
-               , assumed = assumed rBody ++ concatMap assumed componentRs
-               , goals = goals rBody ++ concatMap goals componentRs
-               , used = used rBody } -- Cheat: I'm not checking the 'used' bits of the component results.
+           LetBound tupleTys = fromJust (Map.lookup tupleVar tupleEnv)
+       (kvars, tyvars, tuplePreds :=> tupleType) <- instantiate tupleTys
+       fds <- inducedDependencies tuplePreds
+       let componentTypes   = flattenTupleType (dislocate tupleType)
+           componentQtys    = [let vs = close (tvs t) fds in filter (any (`elem` vs) . tvs) tuplePreds :=> introduced t | t <- componentTypes]
+           componentPreds   = concat [ps | ps :=> _ <- componentQtys]
+           componentSchemes = [let vs = filter (`elem` tvs qty) tyvars in (vs, quantify vs qty) | qty <- componentQtys]
+           componentEnv     = Map.fromList (zip vs (map (LetBound . snd) componentSchemes))
+           ambiguousPreds   = filter (`notElem` componentPreds) tuplePreds
+
+       -- TODO: I'm not sure if this can happen; wouldn't it already have been detected as an
+       -- ambiguity in checking the type of the body, above?
+       when (not (null ambiguousPreds)) $
+            failWith ("Ambiguous constraints:" <+> pprList' ambiguousPreds)
+
+       componentGroups <- mapM (\(v, n, ts, qty) -> buildProjection v n ts qty tupleVar tyvars (tuplePreds :=> tupleType))
+                               (zip4 vs [0..] (map fst componentSchemes) componentQtys)
+
+       trace (show ("Generalizing from pattern binding:" <$$>
+                    vcat ["   " <> ppr v <::> ppr tys | (v, (_, tys)) <- zip vs componentSchemes])) $
+            return R{ payload = (tupleGroup ++ componentGroups, componentEnv)
+                    , assumed = assumed rBody
+                    , goals = goals rBody
+                    , used = used rBody }
+
     where vs        = bound p
           n         = length vs
           eapp e e' = EApp (introduced e) (introduced e')
 
-          lookupSignature id [] = Nothing
-          lookupSignature id (Signature id' tys : rest)
-              | id == id'       = Just tys
-              | otherwise       = lookupSignature id rest
+          flattenTupleType (TyApp (At _ (TyCon (Kinded (Ident s _ _) _))) (At _ t))
+              | take 6 s == "$Tuple" = [t]        -- check on 's' shouldn't be necessary...
+              | otherwise = error "Typechecker.TypeInference.Expr.hs:488"
+          flattenTupleType (TyApp (At _ t) (At _ u)) = flattenTupleType t ++ [u]
 
-          makeTypingGroup f@(id, _, _) =
-              case lookupSignature id signatures of
-                Nothing -> Implicit [f]
-                Just tys -> Explicit f tys
+          -- Suppose we have (f{t}{v}, g{u}{w}) = M{t,u}{v,w}.  We want to build f and g out of
+          -- projections, relying on parametricity to allow us to substitute dummy type and dummy
+          -- evidence.  Roughly, we should end up with:
+          --    f{t}{v} = M{t,Zero}{v,Zero}
+          --    g{u}{w} = M{Zero,u}{Zero,w}
+          -- The problem is what 'Zero' evidence amounts to.  We assume that methods of Zero should
+          -- never be called, so we intend to replace them (in the Specializer) with calls to
+          -- divergence.  However, we still have to know at what type to diverge!  So, we augment
+          -- the Zero evidence with the type schemes of its predicates.  Supposing that 'v' and 'w'
+          -- above are each Eq dictionaries, for example, we would end up with
+          --    f{t}{v} = M{t,Zero}{v,Zero[Zero -> Zero -> Bool]}
+          --    g{u}{w} = M{Zero,t}{Zero[Zero -> Zero -> Bool],w}
+
+          buildProjection name idx quantifiedVars (projectedPs :=> projectedT) tupleName originalVars (tuplePs :=> tupleT) =
+              do evars <- freshFor "e" projectedPs
+                 let eps = zip projectedPs evars
+                 evs <- mapM (evidenceFor eps) tuplePs
+                 rProj <- checkExpr (introduced (EVar (Ident ("$t" ++ show n ++ "_" ++ show idx) 0 Nothing))) (dislocate tupleT `unrTo` dislocate projectedT)
+                 return (X.Defn name (convert (quantify quantifiedVars (projectedPs :=> projectedT)))
+                                (X.Gen quantifiedVars evars
+                                    (X.EApp (payload rProj)
+                                            (X.ELetVar (X.Inst tupleName
+                                                               (map (\v@(Kinded _ k) -> if v `elem` quantifiedVars then X.TyVar v else zeroTy k) originalVars)
+                                                               evs)))))
+              where zeroTy k = X.TyCon (Kinded "Zero" k)
+                    evidenceFor eps p@(At _ (Pred cl ts f)) =
+                        case lookup p eps of
+                          Just v               -> return (X.EvVar v)
+                          Nothing | f == Fails -> return (X.EvZero [])-- Can't get any methods from a 'fails' predicate
+                                  | otherwise  ->
+                              do (classParams, methods) <- gets (fromJust . Map.lookup cl . methodSignatures . classEnvironment)
+                                 let instantiation = new (zip classParams (map dislocate ts))
+                                     instantiatedSignatures = [convert (ForallK ids (instantiation # tys)) | (_, ForallK ids tys) <- methods]
+                                 return (X.EvZero instantiatedSignatures)
 
 checkTypingGroup (PrimValue (Signature name expectedTyS) str) =
-    return R{ payload = ([X.Defn name (convert expectedTyS) (Left (str, []))],
+    return R{ payload = ([X.PrimDefn name (convert expectedTyS) (str, [])],
                          Map.singleton name (LetBound expectedTyS))
             , assumed = []
             , goals = []
