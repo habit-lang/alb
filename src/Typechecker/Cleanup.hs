@@ -104,6 +104,7 @@ instance Cleanup Ev
         cleanup vs exs evs (EvFrom EvWild e e') = EvFrom EvWild (cleanup vs exs evs e) (cleanup vs exs evs e')
         cleanup vs exs evs (EvFrom p@(EvPat _ ts _) e e') = EvFrom p (cleanup vs exs evs e) (cleanup vs' exs evs e')
             where vs' = tvs ts ++ vs
+        cleanup vs exs evs (EvZero tys) = EvZero (map (cleanType vs) tys)
 
 instance Cleanup t => Cleanup (Gen t)
   where cleanup vs exs evs (Gen ts' es t) = Gen ts' es (cleanup (ts' ++ vs) exs evs t)

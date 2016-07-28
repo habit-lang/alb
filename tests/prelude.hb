@@ -2,6 +2,8 @@
 -- Basic Types (4.1) --------------------------------------------
 
 data Zero
+diverge :: a
+diverge = diverge
 
 primitive type (->) :: * -> * -> *
 infixr type 5 ->

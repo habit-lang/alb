@@ -103,6 +103,7 @@ instance Printable Ev
               where pprPairs ps = brackets (cat (punctuate (comma <> space) [ppr t <> slash <> ppr v | (v, t) <- ps]))
           ppr (EvComputed ts _) = "computed" <> braces (cat (punctuate (comma <> space) (map ppr ts)))
           ppr (EvFrom pat ev ev') = parens (ppr pat <+> "<-" <+> ppr ev) <+> "=>" <+> ppr ev'
+          ppr (EvZero tys) = "0" <> braces (align (fillSep (punctuate (comma <> space) (map ppr tys))))
 
 instance Printable EvPat
     where ppr (EvPat id ts pvars) = ppr id <> braces (cat (punctuate (comma <> space) (map ppr ts))) <> parens (cat (punctuate (comma <> space) (map ppr pvars)))

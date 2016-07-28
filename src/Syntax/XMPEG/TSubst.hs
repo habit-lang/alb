@@ -162,6 +162,7 @@ instance HasTypeVariables Ev
           s # EvCases cs        = EvCases (catMaybes [do cond' <- cond `under` s; return (cond', s # ev) | (cond, ev) <- cs])
           s # e@(EvComputed {}) = e
           s # EvFrom p e e'     = EvFrom (s # p) (s # e) (s # e')
+          s # EvZero schemes    = EvZero (s # schemes)
 
 instance HasEvidenceVariables Ev
     where fevs (EvVar v)                       = [v]
@@ -171,6 +172,7 @@ instance HasEvidenceVariables Ev
           fevs (EvComputed {})                 = []
           fevs (EvFrom EvWild e e')            = fevs e ++ fevs e'
           fevs (EvFrom (EvPat _ _ evars) e e') = fevs e ++ filter (`notElem` evars) (fevs e')
+          fevs (EvZero _)                      = []
 
 instance HasTypeVariables EvPat
     where s # EvPat id ts ps = EvPat id (s # ts) ps

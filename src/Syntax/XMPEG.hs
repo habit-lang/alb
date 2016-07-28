@@ -119,6 +119,7 @@ data Ev = EvVar Id
         | EvCases [([(KId, Type)], Ev)]
         | EvComputed [KId] ([Type] -> Ev)
         | EvFrom EvPat Ev Ev
+        | EvZero [Scheme Type]  -- Represents "dummy" evidence for the 'Zero' type; should never actually be used.
 
 evVars :: Ev -> [Id]
 evVars (EvVar id) = [id]
@@ -128,6 +129,7 @@ evVars (EvCases bs) = concatMap (evVars . snd) bs
 evVars (EvComputed _ _) = []
 evVars (EvFrom EvWild e e') = evVars e ++ evVars e'
 evVars (EvFrom (EvPat _ _ vs) e e') = evVars e ++ filter (`notElem` vs) (evVars e')
+evVars (EvZero _) = []
 
 data EvPat = EvPat Id [Type] [Id] | EvWild
 
