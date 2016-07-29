@@ -46,6 +46,7 @@ import Typechecker
 import qualified Typechecker.TypeInference as Inference (doTrace)
 import Typechecker.LambdaCase (checkLCProgram)
 import Typechecker.LambdaCasePropagation (propagateLCTypes)
+import qualified Typechecker.TypeInferenceNew as InferenceNew
 
 import qualified Debug.Trace as Trace
 
@@ -54,6 +55,7 @@ import qualified Debug.Trace as Trace
 data Stage = Desugared
            | KindsInferred
            | TypesInferred
+           | NewTypesInferred
            | Specialized
            | Normalized
            | Annotated
@@ -135,6 +137,9 @@ options =
 
     , Option ['t'] ["St"] (NoArg (\opt -> opt { stage = TypesInferred }))
         "Stop after type inference"
+
+    , Option [] ["ST"] (NoArg (\opt -> opt { stage = NewTypesInferred }))
+        "Stop after type inference (new algorithm)"
 
     , Option [] ["Ss"] (NoArg (\opt -> opt { stage = Specialized }))
         "Stop after specialization"
@@ -321,6 +326,7 @@ buildPipeline options =
       Desugared        -> filePipe $ \s q -> toDesugar
       KindsInferred    -> filePipe $ \s q -> toInferKinds
       TypesInferred    -> filePipe $ \s q -> toInferTypes s >=> pure fst
+      NewTypesInferred -> filePipe $ \s q -> toInferTypesNew s >=> pure fst
       Specialized      -> codePipe toSpecialized
       Normalized       -> codePipe toNormalized
       Annotated        -> codePipe toAnnotated
@@ -352,6 +358,10 @@ buildPipeline options =
 
           toInferTypes s
             = toInferKinds >=> inferTypes s >=>
+              first cleanupProgram
+
+          toInferTypesNew s
+            = toInferKinds >=> up (InferenceNew.inferTypes s) >=>
               first cleanupProgram
 
           toSpecialized
