@@ -9,8 +9,8 @@ DEPENDENCIES
 Albatross attempts to be relatively self-contained; however, it does require some packages that may
 or may not be installed on your machine.  The alb.cabal file should have up-to-date dependencies.
 
-Alb compiles using GHC 7.8.  I doubt it compiles on 7.10 yet, because I can't be arsed to deal with
-Applicative instances.
+Alb compiles using GHC 7.10, and hopefully later versions, but does not compile on version 7.8 or
+earlier (as a result of having to work around the Applicative Monad Phoolishness).
 
 BUILDING
 
@@ -234,3 +234,21 @@ use:
 This has been tested on both Windows and Mac OS.  The test framework requires some version
 of the process package - I currently seem to be using 1.0.1.1.  I assume this is in the
 standard GHC/Haskell Platform distribution at this point.
+
+Additional contributors
+=======================
+
+Members of the HASP project at Portland State University contributed to the development and testing
+of Alb before it was made publicly visible.  They are listed here.  Corrections/additions are
+welcomed.
+
+Andrew Sackville-West
+Andrew Tolmach
+Caylee Hogg
+J. Garrett Morris
+James Hook
+Justin Bailey
+Lewis Coates
+Mark P. Jones
+Michael D. Adams
+Thomas M. DuBuisson
