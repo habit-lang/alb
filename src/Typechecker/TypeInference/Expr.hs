@@ -209,11 +209,17 @@ checkMatch (MGuarded (GFrom (At l p) e) m) expected =
          PWild ->
              do (e', ps) <- checkExpr e t
                 (m', qs) <- checkMatch m expected
-                return (X.MGuarded (X.GFrom X.PWild e') m', ps ++ qs)
+                v <- fresh "v"
+                let tys :: TyS
+                    tys = Forall [] ([] :=> introduced t)
+                return (X.MGuarded (X.GLet (X.Decls [(X.Defn v (convert tys) (Right (X.Gen [] [] e')))]))
+                                   (X.MGuarded (X.GFrom X.PWild v) m'), ps ++ qs)
          PVar id ->
              do (e', ps) <- checkExpr e t
                 (m', qs) <- bind id (LamBound t) (checkMatch m expected)
-                return (X.MGuarded (X.GFrom (X.PVar id (convert t)) e') m', ps ++ qs)
+                let tys :: TyS
+                    tys = Forall [] ([] :=> introduced t)
+                return (X.MGuarded (X.GLet (X.Decls [(X.Defn id (convert tys) (Right (X.Gen [] [] e')))])) m', ps ++ qs)
          PCon ctor vs ->
              do (tys, n) <- ctorBinding ctor
                 (kvars, tyvars, ps :=> At _ t) <- instantiate tys
@@ -224,6 +230,9 @@ checkMatch (MGuarded (GFrom (At l p) e) m) expected =
                   failWithS (fromId ctor ++ " requires " ++ multiple arity "argument" "arguments")
 
                 (e', qs) <- checkExpr e result
+                v <- fresh "v"
+                let tys :: TyS
+                    tys = Forall [] ([] :=> introduced result)
 
                 evs <- freshFor "e" ps
                 envvars <- freeEnvironmentVariables
@@ -238,7 +247,8 @@ checkMatch (MGuarded (GFrom (At l p) e) m) expected =
                             (show ("Simplifying predicates from guarded match:" <+> pprList (map snd rs)))
                             (entails transparents (tvs expected ++ tvs valEnv) ps' rs)
                 extPreds <- existentialPredicates (take n tyvars) ps' (qs ++ rs') expected
-                return (X.MGuarded (X.GFrom (X.PCon ctor (map X.TyVar tyvars) ps'' vs) e')
+                return (X.MGuarded (X.GLet (X.Decls [X.Defn v (convert tys) (Right (X.Gen [] [] e'))])) $
+                        X.MGuarded (X.GFrom (X.PCon ctor (map X.TyVar tyvars) ps'' vs) v)
                          (foldr (\cbinds m -> case cbinds of
                                                 Left cs | all null (map snd cs) -> m
                                                         | otherwise             -> X.MGuarded (X.GLetTypes (Left cs)) m

@@ -560,24 +560,23 @@ Specialization of Match constructs:
 >     = do (m', c1)  <- specialize (enter ds c) m
 >          (ds', c2) <- specDecls c1
 >          return (MGuarded (GLet ds') m', c2)
->   specialize c (MGuarded (GFrom p e) m)
->     = do (e', c1) <- specialize c e
->          case p of
->            PWild ->
->              do (m', c2) <- specialize c1 m
->                 return (MGuarded (GFrom PWild e') m', c2)
->            PVar i t ->
->              do (m', c2) <- specialize c1 m
->                 t' <- substitute t
->                 return (MGuarded (GFrom (PVar i t') e') m', c2)
->            PCon cname ts ebinds is ->
->              do r <- solve ebinds
->                            (do (m', c2) <- specialize c1 m
->                                (ECon (Inst _ ts' _), c3) <- dictify (Inst cname ts []) >>= specDApp c2
->                                return (MGuarded (GFrom (PCon cname ts' [] is) e') m', c3))
->                 case r of
->                   Nothing -> return (MFail, c1)
->                   Just (m', c3) -> return (m', c3)
+>   specialize c (MGuarded (GFrom p id) m)
+>     = case p of
+>         PWild ->
+>           do (m', c1) <- specialize c m
+>              return (MGuarded (GFrom PWild id) m', c1)
+>         PVar i t ->
+>           do (m', c1) <- specialize c m
+>              t' <- substitute t
+>              return (MGuarded (GFrom (PVar i t') id) m', c1)
+>         PCon cname ts ebinds is ->
+>           do r <- solve ebinds
+>                         (do (m', c1) <- specialize c m
+>                             (ECon (Inst _ ts' _), c2) <- dictify (Inst cname ts []) >>= specDApp c1
+>                             return (MGuarded (GFrom (PCon cname ts' [] is) id) m', c2))
+>              case r of
+>                Nothing -> return (MFail, c)
+>                Just (m', c2) -> return (m', c2)
 >   specialize c (MGuarded (GLetTypes (Left cs)) m)
 >     = iter cs
 >     where iter ((cond, impr):rest) =
@@ -638,9 +637,12 @@ create a new specialization Scope context with appropriate values for each of
 the fields:
 
 > enter :: Decls -> c -> Scope c
-> enter (Decls decls) c = Scope { defns, specd=[], reqd=[], numReqd=0, enc=c }
+> enter (Decls decls) c = Scope { defns, specd=[],
+>                                 reqd=monoDefns, numReqd=length monoDefns,
+>                                 enc=c }
 >  where defns = foldr insertDefn Map.empty decls
 >        insertDefn (X.Defn id scheme rhs) = Map.insert id (scheme, rhs)
+>        monoDefns = [(DApp id [] [], id, (tys, body)) | d@(X.Defn id tys@(Forall [] [] _) body) <- decls]
 
 Conversely, when there are no remaining specializations requests, we can use
 the exit function to turn the list of specializations that have been computed
@@ -878,7 +880,7 @@ this cause problems later in the pipeline?
 >                                           let builtTys     = map fst built
 >                                               newRqs'      = filter (`notElem` builtTys) newRqs
 >                                           iter ((rq, d') : built) (newRqs' ++ rqs)
->
+
 >         specArea (Area v ids ty size align)
 >           = return (Just (Area v ids ty size align), requestedBy ty)
 >         specArea _
@@ -889,7 +891,7 @@ this cause problems later in the pipeline?
 >     = case flattenType t of
 >         (TyCon (Kinded id _), _) -> lookFor id topDecls
 >         _ -> Nothing
->
+
 >     where lookFor id [] = Nothing
 >           lookFor id (d@(Datatype id' _ _) : _)
 >             | id == id' = Just d
@@ -905,7 +907,7 @@ this cause problems later in the pipeline?
 >        return (Datatype name ts (catMaybes ctors'), concat requested)
 >     where (_, ts) = flattenType ty
 >           s       = new (zip params ts)
->
+
 >           spec (name, kids, ps, ts)
 >             = do enames <- replicateM (length ps) (fresh "e")
 >                  ts'' <- solve (zip enames ps')
@@ -916,7 +918,7 @@ this cause problems later in the pipeline?
 >               where newTys = [TyVar v | v <- kids]
 >                     ps'    = [Pred className (map ((s #) . inst newTys) ts) f | Pred className ts f <- ps]
 >                     ts'    = map ((s #) . inst newTys) ts
->
+
 > specTopDecl (Bitdatatype name size conSpecs) _ = return (Bitdatatype name size conSpecs, requested)
 >     where requested = concatMap requestedBy [ty | (_, fields, _) <- conSpecs, LabeledField _ ty _ _ <- fields]
 > specTopDecl (Struct name size fields) _ = return (Struct name size fields, requested)

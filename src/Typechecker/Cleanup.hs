@@ -144,8 +144,7 @@ instance Cleanup Pattern
 --------------------------------------------------------------------------------
 
 instance Cleanup Guard
-  where cleanup vs exs evs (GFrom p e)    = GFrom (cleanup vs exs evs p)
-                                                   (cleanup vs exs evs e)
+  where cleanup vs exs evs (GFrom p id)   = GFrom (cleanup vs exs evs p) id
         cleanup vs exs evs (GLet ds)      = GLet (cleanup vs exs evs ds)
 
 --------------------------------------------------------------------------------

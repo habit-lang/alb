@@ -163,7 +163,7 @@ flattenGuards m = ([], m)
 --------------------------------------------------------------------------------
 
 data Pattern = PWild
-             | PVar Id Type
+             | PVar Id Type                           -- TODO: Why is there a type annotation here?
              | PCon Id [Type] [(Id, Pred Type)] [Id]
 
 instance HasVariables Pattern
@@ -180,7 +180,7 @@ instance Binder Pattern
 -- Guards
 --------------------------------------------------------------------------------
 
-data Guard = GFrom Pattern Expr
+data Guard = GFrom Pattern Id
            | GLet Decls
            | GSubst EvSubst
            | GLetTypes TypeBinding
@@ -192,7 +192,7 @@ instance Binder Guard
           bound (GLetTypes _) = []
 
 instance HasVariables Guard
-    where freeVariables (GFrom p e)   = freeVariables p ++ freeVariables e
+    where freeVariables (GFrom p id)  = id : freeVariables p
           freeVariables (GLet ds)     = freeVariables ds
           freeVariables (GSubst _)    = []
           freeVariables (GLetTypes _) = []

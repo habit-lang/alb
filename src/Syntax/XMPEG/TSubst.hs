@@ -202,8 +202,8 @@ instance HasEvidenceVariables Match
     where fevs MFail          = []
           fevs (MCommit e)    = fevs e
           fevs (MElse m m')   = fevs m ++ fevs m'
-          fevs (MGuarded (GFrom (PCon c ts ebinds vs) e) m) =
-              fevs e ++ (fevs m \\ map fst ebinds)
+          fevs (MGuarded (GFrom (PCon c ts ebinds vs) id) m) =
+              fevs m \\ map fst ebinds
           fevs (MGuarded g m) = fevs g ++ fevs m
 
 instance HasTypeVariables Pattern
@@ -217,7 +217,7 @@ instance HasEvidenceVariables Pattern
           fevs (PCon {})      = []
 
 instance HasTypeVariables Guard
-    where s # GFrom p e               = GFrom (s # p) (s # e)
+    where s # GFrom p id              = GFrom (s # p) id
           s # GLet ds                 = GLet (s # ds)
           s # GSubst evs              = GSubst evs'
               where evs' = [(v, s # ev) | (v, ev) <- evs]
@@ -225,7 +225,7 @@ instance HasTypeVariables Guard
           s # g@(GLetTypes (Right _)) = g
 
 instance HasEvidenceVariables Guard
-    where fevs (GFrom p e)    = fevs p ++ fevs e
+    where fevs (GFrom p id)   = fevs p
           fevs (GLet ds)      = fevs ds
           fevs (GSubst evs)   = concatMap (fevs . snd) evs
           fevs (GLetTypes cs) = []
