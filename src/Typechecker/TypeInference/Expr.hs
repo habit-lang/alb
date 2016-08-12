@@ -392,27 +392,27 @@ checkTypingGroup (Implicit fs) =
        ts' <- mapM substitute ts
        qs <- mapM (substitute . snd) ps
        fds <- inducedDependencies qs
-       let rvs = nub (tvs retainedPs)
-           quantifyingVs = nub (rvs ++ tvs ts') \\ envvars -- hyper-efficient
-           -- 'qualify t' begins by computing the determined variables given the type t and the
+       let -- 'qualify t' begins by computing the determined variables given the type t and the
            -- functional dependencies from retained.  If all the variables in retained are
            -- determined, it generates a type scheme by quantifying over all the variables in
            -- 'retained => t'; otherwise, it complains about ambiguous types.  Again, we've lost the
            -- information to give a good error location here.
            qualify t =
-               let determined = close (tvs t ++ envvars) fds
+               let quantifyingVs = tvs t \\ envvars
+                   determined = close (tvs t ++ envvars) fds
                    qty = retainedPs :=> introduced t
                    ambiguities = filter (`notElem` determined) quantifyingVs
                in case ambiguities of
-                    [] -> return (quantify quantifyingVs qty)
+                    [] -> return (quantifyingVs, quantify quantifyingVs qty)
                     vs -> failWith (ambiguousTypeError vs qty)
 
-       tyss <- trace (show (hang 4 ("From predicates" <+> cat (punctuate ", " (map ppr qs)) <$>
-                                   "induced dependencies" <+> cat (punctuate ", " (map ppr fds))))) $
-               mapM qualify ts'
+       tyss <- mapM qualify ts'
 
-       let functions    = [X.Defn id (convert tys)
-                                     (Right (X.Gen quantifyingVs
+       let replacements = [(id, X.ELetVar (X.Inst id (map X.TyVar quantifyingVs) (map X.EvVar retainedVs)))
+                          | (id, (quantifyingVs, _)) <- zip ids tyss]
+
+           functions    = [X.Defn id (convert tys)
+                                     (Right (X.Gen vs
                                                    retainedVs
                                                    (foldr (\cbinds e ->
                                                                case cbinds of
@@ -421,22 +421,20 @@ checkTypingGroup (Implicit fs) =
                                                                  Right (args, results, f)        -> X.ELetTypes (Right (args, results, f)) e)
                                                           (X.ESubst replacements evsubst f)
                                                           cbindss)))
-                          | (id, tys, f) <- zip3 ids tyss fs']
-           replacements = [(id, X.ELetVar (X.Inst id (map X.TyVar quantifyingVs) (map X.EvVar retainedVs)))
-                          | id <- ids]
+                          | (id, (vs, tys), f) <- zip3 ids tyss fs']
 
        trace (show (hang 4 ("Inferred types" <$>
-                            vcat [ppr id <::> ppr tys <+> "(generalized from" <+> ppr t <> ")" | (id, tys, t) <- zip3 ids tyss ts']) <$>
+                            vcat [ppr id <::> ppr tys <+> "(generalized from" <+> ppr t <> ")" | (id, (_, tys), t) <- zip3 ids tyss ts']) <$>
                     "With free environment variables" <+> cat (punctuate (comma <> space) (map ppr envvars))))
              (return ( functions
                      , deferred
-                     , Map.fromList (zip ids (map LetBound tyss)) ))
+                     , Map.fromList (zip ids (map (LetBound . snd) tyss)) ))
 
     where (ids, alts) = unzip [(name, (params, match)) | (name, params, match) <- fs]
           ambiguousTypeError avs qty = shorten qty message
-              where message
-                        | length avs == 1 = "Ambiguous type variable" <+> ppr (head avs) <+> "in type" <+> ppr qty
-                        | otherwise       = "Ambiguous type variables" <+> hsep (punctuate comma (map ppr avs)) <+> "in type" <+> ppr qty
+              where message = case avs of
+                                [v] -> "Ambiguous type variable" <+> ppr v <+> "in type" <+> ppr qty
+                                _   -> "Ambiguous type variables" <+> hsep (punctuate comma (map ppr avs)) <+> "in type" <+> ppr qty
 
 checkTypingGroup (Pattern (At l p) m signatures) =
     appendFailureContext ("In the pattern bindings for" <+> hsep (punctuate comma (map ppr (bound p)))) $
