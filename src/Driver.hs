@@ -19,7 +19,7 @@ import System.IO
 
 import Analyzer
 import Common
-import CompCert
+import CompCert as CompCert
 import Fidget.LambdaCaseToFidget
 import Fidget.Thunkify
 import Fidget.Mangle
@@ -34,15 +34,18 @@ import Fidget.TailCalls
 import LC.LambdaCaseToLC
 import LC.RenameTypes
 import LCC
+import Mon6a as Mon6a
 import Normalizer.EtaExpansion (expand)
 import Normalizer.EtaInit
 import Normalizer.Inliner
+import Normalizer.LambdaLifting
 import Normalizer.PatternMatchCompiler
 import Parser
 import Printer.Common hiding (defaultOptions, showKinds, (</>))
 import Printer.IMPEG
 import Printer.LambdaCase
 import Printer.LC
+import Printer.Mon6
 import Solver.Trace as Solver
 import qualified Syntax.Surface as S
 import Syntax.LC
@@ -62,12 +65,15 @@ data Stage = Desugared
            | TypesInferred
            | Specialized
            | Normalized
+           | LC'd
            | Annotated
            | Thunkified
            | LCed
            | Fidgetted
            | Compiled
            | LCCompiled
+           | Mon6d
+           | Evaluated
 
 data Input = Quiet { filename :: String}
            | Loud  { filename :: String }
@@ -149,8 +155,11 @@ options =
     , Option [] ["Ss"] (NoArg (\opt -> opt { stage = Specialized }))
         "Stop after specialization"
 
-    , Option [] ["Sn"] (NoArg (\opt -> opt { stage = Normalized }))
+    , Option [] ["Sn"] (NoArg (\opt -> opt{ stage = Normalized }))
         "Stop after MPEG normalization"
+
+    , Option [] ["Sl"] (NoArg (\opt -> opt { stage = LC'd }))
+        "Stop after lambda_case normalization"
 
     , Option [] ["Sa"] (NoArg (\opt -> opt { stage = Annotated }))
         "Stop after lambda_case annotation"
@@ -166,6 +175,12 @@ options =
 
     , Option [] ["lcc"] (NoArg (\opt -> opt { stage = LCCompiled }))
         "Compile using lcc rather than ccomp"
+
+    , Option ['6'] ["S6"] (NoArg (\opt -> opt{ stage = Mon6d }))
+        "Stop after generating Mon6"
+
+    , Option ['g'] [] (NoArg (\opt -> opt{ stage = Evaluated }))
+        "Interpret generated Mon6"
 
     , Option ['O'] [] (ReqArg (\p opt -> opt { optimize = Full (read p) }) "PASSES")
         "Perform PASSES passes of full optimization in Fidget"
@@ -347,18 +362,20 @@ buildPipeline options =
       KindsInferred    -> filePipe $ \s q -> toInferKinds
       TypesInferred    -> filePipe $ \s q -> toInferTypes s >=> pure fst
       Specialized      -> codePipe toSpecialized
-      Normalized       -> codePipe toNormalized
+      LC'd             -> codePipe toLC
       Annotated        -> codePipe toAnnotated
       Thunkified       -> codePipe toThunkified
       LCed             -> codePipe toLCed
       Fidgetted        -> toFidgetted >=> pure (text . show . pprogram) >=> writeIntermediate
       Compiled         -> case output options of
                             Nothing -> pure (const (hPutStrLn stderr "Cannot compile program without output name"))
-                            Just s  -> toFidgetted >=> pure (compile (compCertOptions options) s)
+                            Just s  -> toFidgetted >=> pure (CompCert.compile (compCertOptions options) s)
       LCCompiled       -> case output options of
                             Nothing -> pure (const (hPutStrLn stderr "Cannot compile program without output name"))
                             Just s  -> toLCed >=> pure (lccompile (lccOptions options) s)
-
+      Normalized       -> codePipe (toNormalized)
+      Mon6d            -> codePipe (toNormalized >=> Mon6a.compile)
+      Evaluated        -> toNormalized >=> Mon6a.compile >=> pure (Mon6a.runProgram >=> (putStrLn . show . ppr))
 
     where --filePipe' :: (s -> q -> Pass _ x y) -> (Pass () [(s, (q, x))] [y])
           filePipe' = initial initialState . mapM . (\f -> \(s, (q, p)) -> f s q p)
@@ -388,10 +405,13 @@ buildPipeline options =
             = filePipe' (\s q -> toInferTypes s) >=> pure concat' >=> specializeProgram exported
 
           toNormalized
+            = toSpecialized >=> expand >=> liftDefinitions
+
+          toLC
             = toSpecialized >=> patternMatch >=> pure (inlineProgram exported) >=> pure etaInit
 
           toAnnotated
-            = toNormalized >=> propagateLCTypes >=> checkLCProgram
+            = toLC >=> propagateLCTypes >=> checkLCProgram
 
           toThunkified
             = toAnnotated >=> thunkifyLC (initialize options) >=> pure etaInit >=>

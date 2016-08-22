@@ -5,6 +5,7 @@ import Control.Monad.Error
 import Data.Char
 import Data.Generics hiding (Fixity)
 import Data.List
+import Data.Maybe (fromMaybe)
 import GHC.Exts (IsString(..), fromString)
 import Text.Parsec.Pos
 
@@ -202,6 +203,9 @@ instance HasVariables t => HasVariables (Maybe t)
 instance HasVariables t => HasVariables (Located t)
     where freeVariables (At _ t) = freeVariables t
           rename m = fmap (rename m)
+
+replacement m id = fromMaybe id (lookup id m)
+replacements m = map (replacement m)
 
 --
 

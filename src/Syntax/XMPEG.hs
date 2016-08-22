@@ -94,6 +94,23 @@ instance HasVariables Expr
           freeVariables (EApp e e')             = freeVariables e ++ freeVariables e'
           freeVariables (EBind _ _ _ _ id e e') = freeVariables e ++ filter (id /=) (freeVariables e')
 
+          rename s (ELamVar id)                = ELamVar (replacement s id)
+          rename s (ELetVar (Inst id ts es))   = ELetVar (Inst (replacement s id) ts es)
+          rename s e@(EBits{})                 = e
+          rename s e@(ECon{})                  = e
+          rename s (ELam id t body)            = ELam id t (rename (filter ((id /=) . fst) s) body)
+          rename s e@(EMethod{})               = e
+          rename s (ELet (Decls ds) body)      = ELet (Decls (map (rename s') ds)) (rename s' body)
+              where xs = [x | Defn x _ _ <- ds]
+                    s' = filter ((`notElem` xs) . fst) s
+          rename s (ELetTypes ts e)            = ELetTypes ts (rename s e)
+          rename s (ESubst exs evs e)          = ESubst exs evs (rename s' e)
+              where xs = map fst exs
+                    s' = filter ((`notElem` xs) . fst) s
+          rename s (EMatch m)                  = EMatch (rename s m)
+          rename s (EApp e e')                 = EApp (rename s e) (rename s e')
+          rename s (EBind ta tb tm evm id e k) = EBind ta tb tm evm id (rename s e) (rename (filter ((id /=) . fst) s) k)
+
 flattenApp :: Expr -> (Expr, [Expr])
 flattenApp (EApp lhs rhs) = (op, args ++ [rhs])
     where (op, args) = flattenApp lhs
@@ -147,6 +164,13 @@ instance HasVariables Match
           freeVariables (MElse m m')   = freeVariables m ++ freeVariables m'
           freeVariables (MGuarded g m) = freeVariables g ++ withoutBound g (freeVariables m)
 
+          rename s MFail          = MFail
+          rename s (MCommit e)    = MCommit (rename s e)
+          rename s (MElse m m')   = MElse (rename s m) (rename s m')
+          rename s (MGuarded g m) = MGuarded (rename s g) (rename s' m)
+              where xs = bound g
+                    s' = filter ((`notElem` xs) . fst) s
+
 flattenElses :: Match -> [Match]
 flattenElses (MElse m m') = ms ++ ms'
     where ms = flattenElses m
@@ -165,11 +189,6 @@ flattenGuards m = ([], m)
 data Pattern = PWild
              | PVar Id Type                           -- TODO: Why is there a type annotation here?
              | PCon Inst [Id]
-
-instance HasVariables Pattern
-    where freeVariables PWild          = []
-          freeVariables (PVar {})      = []
-          freeVariables (PCon {})      = []
 
 instance Binder Pattern
     where bound PWild           = []
@@ -192,10 +211,16 @@ instance Binder Guard
           bound (GLetTypes _) = []
 
 instance HasVariables Guard
-    where freeVariables (GFrom p id)  = id : freeVariables p
+    where freeVariables (GFrom p id)  = [id]
           freeVariables (GLet ds)     = freeVariables ds
           freeVariables (GSubst _)    = []
           freeVariables (GLetTypes _) = []
+
+          rename s (GFrom p id)      = GFrom p (replacement s id)
+          rename s (GLet (Decls ds)) = GLet (Decls (map (rename s) ds))
+              where xs = [x | Defn x _ _ <- ds]
+                    s' = filter ((`notElem` xs) . fst) s
+          rename s g                 = g
 
 --------------------------------------------------------------------------------
 -- Declarations
