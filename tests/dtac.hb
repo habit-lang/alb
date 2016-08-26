@@ -1,12 +1,15 @@
-requires miniprelude
+requires prelude
 requires list
 
+id x = x
 compose f g x = f (g x)
 
 data (f :+: g) (e :: *) = Inl (f e) | Inr (g e)
 (f <?> g) (Inl x) = f x
 (f <?> g) (Inr x) = g x
 data Fix e = In (e (Fix e))
+
+infix type 5 :+:
 
 class Functor f
     where fmap :: (a -> b) -> f a -> f b
@@ -52,6 +55,22 @@ else (f :+: g) :-: h = f :+: (g :-: h) if In h g fails
 
 --------------------------------------------------------------------------------
 
+cases cs (In e) = cs e (cases cs)
+casesUp cs (In e) = cs (fmap (casesUp cs) e)
+
+-- Not sure if this one is useful---haven't sorted out the details of its usage yet.
+casesDown cs (In e) = In (fmap (casesDown cs) (cs e))
+
+--------------------------------------------------------------------------------
+-- Replacing cases is easy.
+
+(<<?) :: (f :-: g = h, h :<: f) => (g e -> r) -> (f e -> r) -> f e -> r
+m <<? n = m ? (n `compose` inj)
+
+
+--------------------------------------------------------------------------------
+-- Example 1: tuples
+
 data CoreExpr e = ECon Unsigned | EApp e e
 econ s = In (inj (ECon s))
 eapp e e' = In (inj (EApp e e'))
@@ -67,14 +86,6 @@ etuplecon n = In (inj (ETupleCon n))
 instance Functor TupleExpr
     where fmap f (ETuple es) = ETuple (map f es)
           fmap f (ETupleCon n) = ETupleCon n
-
---------------------------------------------------------------------------------
-
-cases cs (In e) = cs e (cases cs)
-casesUp cs (In e) = cs (fmap (casesUp cs) e)
-
--- Not sure if this one is useful---haven't sorted out the details of its usage yet.
-casesDown cs (In e) = In (fmap (casesDown cs) (cs e))
 
 
 rewriteTuples (In e) = (f ? compose In (fmap rewriteTuples)) e
@@ -92,7 +103,38 @@ f' :: Fix (TupleExpr :+: CoreExpr) -> Fix CoreExpr
 f' = rewriteTuples
 
 --------------------------------------------------------------------------------
--- Replacing cases is easy.
+-- Example 2: expressions
 
-(<<?) :: (f :-: g = h, h :<: f) => (g e -> r) -> (f e -> r) -> f e -> r
-m <<? n = m ? (n `compose` inj)
+data Const (e :: *) = Const Unsigned
+data Sum e = Sum e e
+data Product e = Product e e
+
+type ExprOne = Fix (Const :+: Sum)
+type ExprTwo = Fix ((Const :+: Sum) :+: Product)
+type ExprThree = Fix (Const :+: (Sum :+: Product))
+
+const_ i = In (inj (Const i))
+sum_ x y = In (inj (Sum x y))
+product_ x y = In (inj (Product x y))
+
+one :: ExprOne
+one = sum_ (const_ 1) (const_ 2)
+
+two :: ExprTwo
+two = sum_ (const_ 1) (product_ (const_ 2) (const_ 3))
+
+three :: ExprThree
+three = sum_ (const_ 1) (product_ (const_ 2) (const_ 3))
+
+evalConst (Const u) r = u
+evalSum (Sum x y) r = r x + r y
+evalProduct (Product x y) r = r x * r y
+
+evalOne = cases (evalConst ? evalSum)
+x       = evalOne one
+
+evalTwo = cases (evalConst ? (evalSum ? evalProduct))
+y       = evalTwo two
+z       = evalTwo three
+
+main = (x, y, z)
