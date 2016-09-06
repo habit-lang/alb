@@ -18,7 +18,7 @@ data Type = TyCon (Kinded Id)
           | TyApp Type Type
           | TyNat Integer
           | TyLabel Id
-            deriving Eq
+            deriving (Eq, Show)
 
 flattenType :: Type -> (Type, [Type])
 flattenType (TyApp lhs rhs) = (op, ts ++ [rhs])

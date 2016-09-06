@@ -31,6 +31,7 @@ import Fidget.RenameIds
 import Fidget.SpecialTypes
 import Fidget.AddExports
 import Fidget.TailCalls
+import LC.LambdaCaseToLC
 import Normalizer.EtaInit
 import Normalizer.Inliner
 import Normalizer.PatternMatchCompiler
@@ -38,8 +39,10 @@ import Parser
 import Printer.Common hiding (defaultOptions, showKinds, (</>))
 import Printer.IMPEG
 import Printer.LambdaCase
+import Printer.LC
 import Solver.Trace as Solver
 import qualified Syntax.Surface as S
+import Syntax.LC
 import Syntax.XMPEG
 import Specializer
 import Typechecker
@@ -58,6 +61,7 @@ data Stage = Desugared
            | Normalized
            | Annotated
            | Thunkified
+           | LCed
            | Fidgetted
            | Compiled
 
@@ -147,6 +151,9 @@ options =
 
     , Option [] ["Sh"] (NoArg (\opt -> opt { stage = Thunkified }))
         "Stop after thunkifying lambda_case"
+
+    , Option [] ["Sc"] (NoArg (\opt -> opt { stage = LCed }))
+        "Stop after generating LC"
 
     , Option ['f'] ["Sf"] (NoArg (\opt -> opt { stage = Fidgetted }))
         "Stop after generating Fidget"
@@ -325,6 +332,7 @@ buildPipeline options =
       Normalized       -> codePipe toNormalized
       Annotated        -> codePipe toAnnotated
       Thunkified       -> codePipe toThunkified
+      LCed             -> codePipe toLCed
       Fidgetted        -> toFidgetted >=> pure (text . show . pprogram) >=> writeIntermediate
       Compiled         -> case output options of
                             Nothing -> pure (const (hPutStrLn stderr "Cannot compile program without output name"))
@@ -366,6 +374,12 @@ buildPipeline options =
           toThunkified
             = toAnnotated >=> thunkifyLC (initialize options) >=> pure etaInit >=>
               pure (inlineProgram exported) >=> renameProgramCtors >=> renameProgramTypes
+
+          toLCed
+            | Nothing <- mainId options = error "Unable to generate LC without main"
+            | Just main <- mainId options = 
+                toAnnotated >=> pure etaInit >=> pure (inlineProgram exported) >=> 
+                renameProgramCtors >=> renameProgramTypes >=> lambdaCaseToLC (Entrypoints exported)
 
           toFidgetted
             | Nothing <- mainId options = error "Unable to generate fidget without main"
