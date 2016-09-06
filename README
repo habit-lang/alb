@@ -24,6 +24,18 @@ ghc --make is your friend.  For example:
 
   ghc --make -XOverloadedStrings -O2 -o alb -odir obj -hidir obj -isrc -main-is Driver.main Driver
 
+Via make w/o stack:
+
+  make alb
+
+Via make with stack:
+
+  make stack && make alb
+
+Stop using stack:
+
+  make nostack
+
 RUNNING
 
 Albatross is a batch compiler, and currently lacks an interactive mode.  Flags can be listed using

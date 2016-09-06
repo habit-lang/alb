@@ -80,7 +80,7 @@ Executable alb
   Build-depends:    base >= 4 && < 6, parsec >= 3.1.1, mtl >= 2, strict >= 0.3
                   , template-haskell >= 2.4, containers >= 0.3, filepath >= 1.1
                   , directory >= 1.0, pretty >= 1.1, process >= 1.0
-                  , syb >= 0.1, array >= 0.3, transformers >= 0.2, TYB
+                  , syb >= 0.1, array >= 0.3, transformers >= 0.2
                   , indentation >= 0.2.1
 
   -- Modules not exported by this package.
@@ -98,7 +98,7 @@ Executable albc
   Build-depends:    base >= 4 && < 6, parsec >= 3.1.1, mtl >= 2, strict >= 0.3
                   , template-haskell >= 2.4, containers >= 0.3, filepath >= 1.1
                   , directory >= 1.0, pretty >= 1.1, process >= 1.0
-                  , syb >= 0.1, array >= 0.3, transformers >= 0.2, TYB
+                  , syb >= 0.1, array >= 0.3, transformers >= 0.2
                   , indentation >= 0.2.1
                   , cmdargs >= 0.10
                   , temporary >= 1.2.0

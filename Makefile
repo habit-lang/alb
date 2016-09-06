@@ -1,24 +1,38 @@
-GHC=ghc
+ifneq ("$(wildcard ./.useStack)","")
+	GHC=stack exec ghc --
+	SDEP=stack
+else
+	GHC=ghc
+	SDEP=
+endif
+OPT=-XOverloadedStrings -O2 -j3 -o $@ -odir obj -hidir obj -isrc src/Driver.hs
+HIDE=-hide-package indentation-parsec-0.0 -hide-package indentation-core-0.0 -hide-package indentation-trifecta-0.0
 OBJDIR=obj
 
 .PHONY: all alb albp alb-hpc test ilab
 
 all: ilab alb
 
-alb:
-	$(GHC) --make -XOverloadedStrings -O2 -o $@ -odir obj -hidir obj -isrc src/Driver.hs -rtsopts
+stack: stack.yaml
+	stack setup && stack build --only-dependencies --library-profiling --ghc-options="-j3" && touch .useStack
 
-albp: alb
-	$(GHC) --make -XOverloadedStrings -O2 -o $@ -odir obj -hidir obj -isrc src/Driver.hs -rtsopts -prof -auto-all -osuf p_o -hisuf p_hi
+nostack:
+	rm .useStack
 
-alb-hpc:
-	$(GHC) -fhpc --make -fforce-recomp -XOverloadedStrings -O2 -o $@ -odir objhpc -hidir objhpc -isrc src/Driver.hs
+alb: $(SDEP)
+	$(GHC) $(HIDE) --make $(OPT) -rtsopts
 
-albc:   ./src/albc/Albc.hs
-	$(GHC) --make -O2 -o $@ -odir obj -hidir obj src/albc/Albc.hs
+albp: $(SDEP)
+	$(GHC) $(HIDE) --make $(OPT) -rtsopts -prof -auto-all -osuf p_o -hisuf p_hi
 
-ilab:
-	ghc --make -XOverloadedStrings -O2 -o ilab -odir obj -hidir obj -isrc -main-is Solver.REPL.main Solver.REPL
+alb-hpc: $(SDEP)
+	$(GHC) $(HIDE) -fhpc --make -fforce-recomp $(OPT)
 
-test:
+albc:   ./src/albc/Albc.hs $(SDEP)
+	$(GHC) $(HIDE) --make -O2 -o $@ -odir obj -hidir obj src/albc/Albc.hs
+
+ilab: $(SDEP)
+	$(GHC) $(HIDE) --make -XOverloadedStrings -O2 -j3 -o ilab -odir obj -hidir obj -isrc -main-is Solver.REPL.main Solver.REPL
+
+test: alb
 	./alb -i tests -f main $(TEST)
