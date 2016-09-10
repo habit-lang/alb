@@ -388,7 +388,7 @@ buildPipeline options =
                 optFidget (map fst (exports options)) (optimize options) >=>
                 tailCallOpt exported >=>
                 optFidget (map fst (exports options)) (optimize options) >=>
-	        renameVars (prefix options) >=>
+                renameVars (prefix options) >=>
                 addExports (prefix options) (exports options) (printExportSignatures options) >=>
                 mangleProgram >=> fixIds (map snd (exports options)) (simplifyNames options)
 
