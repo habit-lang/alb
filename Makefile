@@ -8,16 +8,20 @@ endif
 OPT=-XOverloadedStrings -O2 -j3 -o $@ -odir obj -hidir obj -isrc src/Driver.hs
 HIDE=-hide-package indentation-parsec-0.0 -hide-package indentation-core-0.0 -hide-package indentation-trifecta-0.0
 OBJDIR=obj
+TARGETS=ilab alb albp alb-hpc albc
 
 .PHONY: all alb albp alb-hpc test ilab
 
-all: ilab alb
+all: $(TARGETS)
 
 stack: stack.yaml
 	stack setup && stack build --only-dependencies --library-profiling --ghc-options="-j3" && touch .useStack
 
 nostack:
 	rm .useStack
+
+clean:
+	rm -fr $(TARGETS) obj .stack-work .cabal-sandbox
 
 alb: $(SDEP)
 	$(GHC) $(HIDE) --make $(OPT) -rtsopts
