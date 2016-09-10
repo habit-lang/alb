@@ -17,7 +17,6 @@ instance Printable Type
            | not (isAlpha c)        = atPrecedence 5 (withPrecedence 6 (ppr d) <+> text s <+> ppr r)
           ppr (TyApp t t')          = atPrecedence 9 (ppr t <+> withPrecedence 10 (ppr t'))
           ppr (TyLit i)             = integer i
-          --ppr (TyLabel l)           = parens (text "Lab" <+> dquotes (ppr l))
           ppr (TyLabel l)           = dquotes (ppr l)
 
 ----------------------------------------------------------------------------------------------------
@@ -46,10 +45,8 @@ instance Printable Expr
           ppr (ENat n)          = integer n
           ppr (ECon id ts ty)   = atPrecedence 9 $
                                   ppr id {- <> commaBraces (map ppr ts) -}
-          ppr (ELam id ty body) = {- parens $ -} 
-                                  atPrecedence 9 $
+          ppr (ELam id ty body) = atPrecedence 9 $
                                   ((backslash <+> 
-                                   {- ppr id -} 
                                    parens
                                    (text (fromId id) <+> 
                                     text "::" <+> ppr ty) <+> 
@@ -60,9 +57,9 @@ instance Printable Expr
           ppr (ECase e alts)    = atPrecedence 9
                                 $ align
                                 $ ((text "case" <+> withPrecedence 9 (ppr e) <+> text "of") <$$>
-                                   indent 2 (align $ hcat $ punctuate (line <> bar) $ map ppr alts))
+                                   indent 2 (align . vcat $ map ppr alts))
           ppr (EApp e e')       = parens $ atPrecedence 9 (ppr e <+> (withPrecedence 10 (ppr e')))
-          ppr (EFatbar e e')    = {- brackets -} (align (ppr e) </> text "|" {- text "||" -} <+> align (ppr e'))  -- could use precedence here
+          ppr e@(EFatbar e1 e2) = parens $ ppr e1 <+> bar <+> ppr e2
           ppr (EBind "_" _ e body)
                                 = align ((align (ppr e) <> semi) <$$> ppr body)
           ppr (EBind var varty e body)
@@ -70,28 +67,15 @@ instance Printable Expr
           ppr (EDo e)           = text "do" <+> ppr e
 
 instance Printable Alt
-    where ppr (Alt c [] [] e)   = ppr c <+> text "->" <+> (align (ppr e))
+    where ppr (Alt c [] [] e)   = ppr c <+> text "->" <+> align (ppr e)
           ppr (Alt c tys ids e) = ppr c {- <> (commaBraces (map (withPrecedence 0 . ppr) tys)) -}
-				  <+> (cat (punctuate comma (map ppr ids)))
-                                  <+> text "->" <+> (align (ppr e))
-
--- TODO convert each character to base 20, 
--- use symbol characters to spell out identifier 
--- characters in printed operator names
-changeBase 0 _ = []
-changeBase n b = f n b []
-  where f 0 _ acc = acc
-        f n b acc = f (n `div` b) b $ (n `mod` b) : acc
+                              <+> hsep (map ppr ids)
+                              <+> text "->" <+> (align (ppr e))
 
 instance Printable Defn
     where ppr (Defn i t (Left (pi,ts))) = text "external" <+> ppr i <+> braces (hsep (ppr pi : map (atPrecedence 10 . ppr) ts))<+> text "::" <+> ppr t 
           ppr (Defn i@(Ident s _ _) t (Right e)) = align (ppr i <+> text "::" <+> ppr t Printer.Common.<$> 
                                                          ppr i <+> text "=" <+> (withPrecedence 0 $ ppr e))
-          --ppr (Defn i t (Right e)) = ppr i <+> text "::" <+> ppr t <$$>
-          --                   indent 2 (text "=" <+> (nest 3 $ withPrecedence 0 $ ppr e))
-          --ppr (Defn i t (Left (impl,types)))  = text "primitive" <+> ppr i <+> text "::" <+> ppr t <+> parens (text impl) <+> params types
-          --  where params ps = braces (cat (punctuate (comma <> space) (map ppr ps)))
-
 
 instance Printable Decl
     where ppr (Decl dn) = ppr dn
@@ -133,9 +117,6 @@ widthOffset width offset = text ("{- width = "++show width++", offset = "++show 
 instance Printable StructField
     where ppr (StructField mname ty width offset)
             = maybe id (\name -> (ppr name <::>)) mname (ppr ty <+> widthOffset width offset)
-
---instance Printable TopDecl
---    where ppr (WrappedTopDecl td) = PC.ppr td
 
 instance Printable Entrypoints
     where ppr (Entrypoints is) = text "entrypoint" <+> hcat (punctuate comma (map ppr is))

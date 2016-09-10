@@ -20,9 +20,11 @@ lambdaCaseToLC entries (C.Program decls topDecls) =
 -- don't need to worry about capture since nothing on the left is a valid
 -- type variable name... also, this pass is running after specialization.
 s :: String -> String
-s "True" = "TRUE"
-s "False"= "FALSE"
-s "Bool" = "BOOL"
+-- Right now, all mappings are commented out, so this substitution does 
+-- nothing.
+--s "True" = "TRUE"
+--s "False"= "FALSE"
+--s "Bool" = "BOOL"
 s x      = x
 
 sid :: Id -> Id
@@ -37,6 +39,8 @@ st (L.TyLit n)            = L.TyLit n
 -- to labels in BitdataCase.
 st (L.TyLabel i)          = L.TyLabel (sid i)
 
+-- I suppose 'm' is for "massage".
+
 mDecls :: C.Decls -> L.Decls
 mDecls (C.Decls dcs) = L.Decls 
                      . concatMap mDecl 
@@ -50,16 +54,16 @@ mDefn (C.Defn id t (Left (i,ts)))  = L.Defn id (st . convert $ t) (Left (i, map 
 mDefn (C.Defn id t (Right e)) = L.Defn id (st . convert $ t) (Right (mExpr e))
 
 mExpr :: C.Expr -> L.Expr
-mExpr (C.EVar i t)                      = L.EVar i (st . convert $ t)
-mExpr (C.EBits n s)                     = L.EBits n s
-mExpr (C.ENat n)                        = L.ENat n
-mExpr (C.ECon i ts t)                   = L.ECon (sid i) (map (st . convert) ts) (st . convert $ t)
-mExpr (C.ELam i t e)                    = L.ELam i (st . convert $ t) (mExpr e)
-mExpr (C.ELet dcs e)                    = L.ELet (mDecls dcs) (mExpr e)
-mExpr (C.ECase e as)                    = L.ECase (mExpr e) (map mAlt as)
-mExpr (C.EApp e1 e2)                    = L.EApp (mExpr e1) (mExpr e2)
-mExpr (C.EFatbar e1 e2)                 = L.EFatbar (mExpr e1) (mExpr e2)
-mExpr (C.EBind i t e1 e2)               = L.EDo $ L.EBind i (st . convert $ t) (mExpr e1) (collateDoBlock e2)
+mExpr (C.EVar i t)        = L.EVar i (st . convert $ t)
+mExpr (C.EBits n s)       = L.EBits n s
+mExpr (C.ENat n)          = L.ENat n
+mExpr (C.ECon i ts t)     = L.ECon (sid i) (map (st . convert) ts) (st . convert $ t)
+mExpr (C.ELam i t e)      = L.ELam i (st . convert $ t) (mExpr e)
+mExpr (C.ELet dcs e)      = L.ELet (mDecls dcs) (mExpr e)
+mExpr (C.ECase e as)      = L.ECase (mExpr e) (map mAlt as)
+mExpr (C.EApp e1 e2)      = L.EApp (mExpr e1) (mExpr e2)
+mExpr (C.EFatbar e1 e2)   = L.EFatbar (mExpr e1) (mExpr e2)
+mExpr (C.EBind i t e1 e2) = L.EDo $ L.EBind i (st . convert $ t) (mExpr e1) (collateDoBlock e2)
 
 collateDoBlock :: C.Expr -> L.Expr
 collateDoBlock (C.EBind i t e1 e2) = L.EBind i (st . convert $ t) (mExpr e1) (collateDoBlock e2)
@@ -82,10 +86,10 @@ mBCtor :: (Id, [C.BitdataField]) -> (Id, [L.BitdataField])
 mBCtor (i, bfs) = (sid i, map mBitdataField bfs)
 
 mTopDecl :: C.TopDecl -> L.TopDecl
-mTopDecl (C.Datatype i ts ctors)                     = L.Datatype (sid i) (map (st . convert) ts) (map mCtor ctors)
-mTopDecl (C.Bitdatatype i n bctors)                  = L.Bitdatatype (sid i) n (map mBCtor bctors)
-mTopDecl (C.Struct i n sfs)                          = L.Struct i n (map mStructField sfs)
-mTopDecl (C.Area i v e t n m)                        = L.Area i v (mExpr e) (st . convert $ t) n m
+mTopDecl (C.Datatype i ts ctors)    = L.Datatype (sid i) (map (st . convert) ts) (map mCtor ctors)
+mTopDecl (C.Bitdatatype i n bctors) = L.Bitdatatype (sid i) n (map mBCtor bctors)
+mTopDecl (C.Struct i n sfs)         = L.Struct i n (map mStructField sfs)
+mTopDecl (C.Area i v e t n m)       = L.Area i v (mExpr e) (st . convert $ t) n m
 
 mTopDecls :: C.TopDecls -> L.TopDecls
 mTopDecls = map mTopDecl
