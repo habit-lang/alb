@@ -32,6 +32,7 @@ import Fidget.SpecialTypes
 import Fidget.AddExports
 import Fidget.TailCalls
 import LC.LambdaCaseToLC
+import LCC
 import Normalizer.EtaInit
 import Normalizer.Inliner
 import Normalizer.PatternMatchCompiler
@@ -64,6 +65,7 @@ data Stage = Desugared
            | LCed
            | Fidgetted
            | Compiled
+           | LCCompiled
 
 data Input = Quiet { filename :: String}
            | Loud  { filename :: String }
@@ -85,6 +87,7 @@ data Options = Options { stage                :: Stage
                        , dotFiles             :: Bool
                        , simplifyNames        :: Bool
                        , compCertOptions      :: CompCertOptions
+                       , lccOptions           :: LCCOptions
                        , populateEnvironments :: Bool
                        , traceSolver          :: Bool
                        , traceSolverInputs    :: Bool
@@ -114,6 +117,7 @@ defaultOptions = Options { stage                = Compiled
                          , dotFiles             = True
                          , simplifyNames        = False
                          , compCertOptions      = defaultCompCertOptions
+                         , lccOptions           = defaultLCCOptions
                          , populateEnvironments = False
                          , traceSolver          = False
                          , traceSolverInputs    = False
@@ -157,6 +161,9 @@ options =
 
     , Option ['f'] ["Sf"] (NoArg (\opt -> opt { stage = Fidgetted }))
         "Stop after generating Fidget"
+
+    , Option [] ["lcc"] (NoArg (\opt -> opt { stage = LCCompiled }))
+        "Compile using lcc rather than ccomp"
 
     , Option ['O'] [] (ReqArg (\p opt -> opt { optimize = Full (read p) }) "PASSES")
         "Perform PASSES passes of full optimization in Fidget"
@@ -238,7 +245,7 @@ options =
     , Option [] ["simplify-names"] (NoArg (\opt -> opt { simplifyNames = True }))
          "Simplify the resulting Fidget names"
 
-    , Option [] ["compcert-root"] (ReqArg (\x opt -> opt { compCertOptions = (compCertOptions opt) { root = x } }) "PATH")
+    , Option [] ["compcert-root"] (ReqArg (\x opt -> opt { compCertOptions = (compCertOptions opt) { CompCert.root = x } }) "PATH")
          "Root of the CompCert installation"
 
     , Option [] ["ccomp-name"] (ReqArg (\x opt -> opt { compCertOptions = (compCertOptions opt) { ccompExe = x } }) "PATH")
@@ -250,11 +257,20 @@ options =
     , Option [] ["compcert-gc"] (ReqArg (\x opt -> opt { compCertOptions = (compCertOptions opt) { gc = x } }) "PATH")
           "Name of the garbage collector object file"
 
-    , Option [] ["compcert-other"] (ReqArg (\x opt -> opt { compCertOptions = (compCertOptions opt) { otherOptions = x } }) "STRING")
+    , Option [] ["compcert-other"] (ReqArg (\x opt -> opt { compCertOptions = (compCertOptions opt) { CompCert.otherOptions = x } }) "STRING")
           "Other options to ccomp"
 
-    , Option [] ["fake-compcert"] (NoArg (\opt -> opt { compCertOptions = (compCertOptions opt) { fake = True } }))
-          "Gemerate fidget output and ccomp command, but do not actually invoke ccomp"
+    , Option [] ["fake-compcert"] (NoArg (\opt -> opt { compCertOptions = (compCertOptions opt) { CompCert.fake = True } }))
+          "Generate fidget output and ccomp command, but do not actually invoke ccomp"
+
+    , Option [] ["lcc-root"] (ReqArg (\x opt -> opt { lccOptions = (lccOptions opt) { LCC.root = Just x } }) "PATH")
+         "Root of the lcc installation"
+
+    , Option [] ["lcc-other"] (ReqArg (\x opt -> opt { lccOptions = (lccOptions opt) { LCC.otherOptions = x } }) "STRING")
+          "Other options to lcc"
+
+    , Option [] ["fake-lcc"] (NoArg (\opt -> opt { lccOptions = (lccOptions opt) { LCC.fake = True } }))
+          "Generate LC output and lcc command, but do not actually invoke lcc"
 
     , Option [] ["verbose"] (NoArg (\opt -> opt { verbose = True }))
          "Be verbose"
@@ -337,6 +353,10 @@ buildPipeline options =
       Compiled         -> case output options of
                             Nothing -> pure (const (hPutStrLn stderr "Cannot compile program without output name"))
                             Just s  -> toFidgetted >=> pure (compile (compCertOptions options) s)
+      LCCompiled       -> case output options of
+                            Nothing -> pure (const (hPutStrLn stderr "Cannot compile program without output name"))
+                            Just s  -> toLCed >=> pure (lccompile (lccOptions options) s)
+
 
     where --filePipe' :: (s -> q -> Pass _ x y) -> (Pass () [(s, (q, x))] [y])
           filePipe' = initial initialState . mapM . (\f -> \(s, (q, p)) -> f s q p)
