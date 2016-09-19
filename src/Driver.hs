@@ -32,6 +32,7 @@ import Fidget.SpecialTypes
 import Fidget.AddExports
 import Fidget.TailCalls
 import LC.LambdaCaseToLC
+import LC.RenameTypes
 import LCC
 import Normalizer.EtaInit
 import Normalizer.Inliner
@@ -393,13 +394,15 @@ buildPipeline options =
 
           toThunkified
             = toAnnotated >=> thunkifyLC (initialize options) >=> pure etaInit >=>
-              pure (inlineProgram exported) >=> renameProgramCtors >=> renameProgramTypes
+              pure (inlineProgram exported) >=> Fidget.RenameTypes.renameProgramCtors >=> 
+              Fidget.RenameTypes.renameProgramTypes
 
           toLCed
             | Nothing <- mainId options = error "Unable to generate LC without main"
             | Just main <- mainId options = 
                 toAnnotated >=> pure etaInit >=> pure (inlineProgram exported) >=> 
-                renameProgramCtors >=> renameProgramTypes >=> lambdaCaseToLC (Entrypoints exported)
+                LC.RenameTypes.renameProgramCtors >=> LC.RenameTypes.renameProgramTypes >=> 
+                lambdaCaseToLC (Entrypoints exported)
 
           toFidgetted
             | Nothing <- mainId options = error "Unable to generate fidget without main"

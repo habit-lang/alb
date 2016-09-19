@@ -1,6 +1,8 @@
 {-# LANGUAGE FlexibleContexts, Rank2Types #-}
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
-module Fidget.RenameTypes (renameProgramCtors, renameProgramTypes) where
+module LC.RenameTypes (renameProgramCtors, renameProgramTypes) where
+
+-- This file began as a copy of src/Fidget/RenameTypes.hs
 
 -- This module uniquely renames types and constructors.
 -- As a result, all type applications become nullary.
@@ -87,9 +89,9 @@ build_type_env tds = liftM Map.fromList (concatMapM build tds) where
                   show . ppr . everywhere (mkT (flip freshPrefix 0))) $
              ts
     return [(type_from_tcon tcon ts, (TyCon (Kinded tcon' KStar)))]
-  build (Bitdatatype tcon _ dcons) = do
-    tcon' <- fresh tcon
-    return [(type_from_tcon tcon [], intT)]
+  build (Bitdatatype tcon _ dcons) = do return []
+    --tcon' <- fresh tcon
+    --return [(type_from_tcon tcon [], intT)]
   build (Struct _ _ _) = return []
   build (Area _ _ _ _ _ _) = return []
 
