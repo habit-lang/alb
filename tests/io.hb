@@ -1,4 +1,8 @@
 requires prelude
+requires list
+
+-- Perhaps these types could be updated?  I'm guessing that putchar should really return unit, and
+-- fflush doesn't need an argument?
 
 primitive getchar :: M Unsigned -- really should be Signed for -1
 primitive putchar :: Unsigned -> M Unsigned

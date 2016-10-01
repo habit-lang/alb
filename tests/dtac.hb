@@ -137,4 +137,5 @@ evalTwo = cases (evalConst ? (evalSum ? evalProduct))
 y       = evalTwo two
 z       = evalTwo three
 
-main = (x, y, z)
+main :: M (Unsigned, Unsigned, Unsigned)
+main = return (x, y, z)

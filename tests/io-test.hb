@@ -1,4 +1,4 @@
-requires miniprelude
+requires prelude
 requires io
 
 main :: M Unsigned
