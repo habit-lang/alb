@@ -447,9 +447,9 @@ for the name of the specialized version in the current context:
 >            Just c' -> return (i, c')
 >            Nothing -> return (i, c)
 
--- Because we're implementing specialization as an XMPEG to XMPEG translation,
--- we can't completely eliminate the use of Inst values in an ELetVar, but we
--- can get close by using [] for the two list arguments.
+Because we're implementing specialization as an XMPEG to XMPEG translation,
+we can't completely eliminate the use of Inst values in an ELetVar, but we
+can get close by using [] for the two list arguments.
 
 There are two operations that we use to describe the process of traversing
 the abstract syntax tree:
@@ -569,7 +569,18 @@ Specialization of Match constructs:
 >           do (m', c1) <- specialize c m
 >              t' <- substitute t
 >              return (MGuarded (GFrom (PVar i t') id) m', c1)
->         PCon cname ts ebinds is ->
+>         PCon cinst is ->
+>           do (m', c1) <- specialize c m
+>              (r, c2) <- dictify cinst >>= specDApp c1
+>              case r of
+>                ECon (Inst cname ts' _) ->
+>                    return (MGuarded (GFrom (PCon (Inst cname ts' []) is) id) m', c2)
+>                _ -> error ("Oops! Found myself a " ++ show (ppr r) ++
+>                            (case r of ELetVar _ -> " which is a (let-bound) variable!"
+>                                       ELamVar _ -> " which is a (lambda-bound) variable!"
+>                                       _ -> ""))
+
+> {-
 >           do r <- solve ebinds
 >                         (do (m', c1) <- specialize c m
 >                             (ECon (Inst _ ts' _), c2) <- dictify (Inst cname ts []) >>= specDApp c1
@@ -577,6 +588,8 @@ Specialization of Match constructs:
 >              case r of
 >                Nothing -> return (MFail, c)
 >                Just (m', c2) -> return (m', c2)
+> -}
+
 >   specialize c (MGuarded (GLetTypes (Left cs)) m)
 >     = iter cs
 >     where iter ((cond, impr):rest) =
@@ -794,7 +807,13 @@ specialized code).
 >                  (decls', c2)    <- specDecls c1
 >                  topDecls''      <- withRequiredTypes (selectTopDecls topDecls')
 >                  return (entries, topDecls'', decls', c2)
->       scope = enter (decls prog) (Constructors ctors (Primitives))
+>       scope = enter (filterDecls notConstructor (decls prog)) (Constructors ctors (Primitives))
+>       filterDecls p (X.Decls defns) = X.Decls (filter p defns)
+>       notConstructor (X.Defn name _ (Left _)) = name `notElem` (Map.keys ctors)
+>       notConstructor _                        = True
+
+
+
 
 > instance Specialize e => Specialize [e] where
 >   specialize c []     = return ([], c)

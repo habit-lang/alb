@@ -164,7 +164,7 @@ flattenGuards m = ([], m)
 
 data Pattern = PWild
              | PVar Id Type                           -- TODO: Why is there a type annotation here?
-             | PCon Id [Type] [(Id, Pred Type)] [Id]
+             | PCon Inst [Id]
 
 instance HasVariables Pattern
     where freeVariables PWild          = []
@@ -174,7 +174,7 @@ instance HasVariables Pattern
 instance Binder Pattern
     where bound PWild           = []
           bound (PVar v _)      = [v]
-          bound (PCon _ _ _ vs) = vs
+          bound (PCon _ vs)     = vs
 
 --------------------------------------------------------------------------------
 -- Guards

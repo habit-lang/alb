@@ -238,38 +238,32 @@ checkMatch (MGuarded (GFrom (At l p) e) m) expected =
                 envvars <- freeEnvironmentVariables
                 let ps'          = zip evs ps
                     transparents = tvs expected ++ tvs valEnv ++ envvars
-                    ps''         = [(id, convert (dislocate p)) | (id, p) <- ps']
+--                     ps''         = [(id, convert (dislocate p)) | (id, p) <- ps']
                     extVars      = take n tyvars
 
                 (m', rs) <- binds valEnv (checkMatch m expected)
-                (evsubst, rs', cbindss) <-
-                    traceIf (not (null rs))
-                            (show ("Simplifying predicates from guarded match:" <+> pprList (map snd rs)))
-                            (entails transparents (tvs expected ++ tvs valEnv) ps' rs)
-                extPreds <- existentialPredicates (take n tyvars) ps' (qs ++ rs') expected
+                -- (evsubst, rs', cbindss) <-
+                --     traceIf (not (null rs))
+                --             (show ("Simplifying predicates from guarded match:" <+> pprList (map snd rs)))
+                --             (entails transparents (tvs expected ++ tvs valEnv) ps' rs)
                 return (X.MGuarded (X.GLet (X.Decls [X.Defn v (convert tys) (Right (X.Gen [] [] e'))])) $
-                        X.MGuarded (X.GFrom (X.PCon ctor (map X.TyVar tyvars) ps'' vs) v)
+                        X.MGuarded (X.GFrom (X.PCon (X.Inst ctor (map X.TyVar tyvars) (map X.EvVar evs)) vs) v) $
+                        m',
+                        ps' ++ qs ++ rs)
+{-
                          (foldr (\cbinds m -> case cbinds of
                                                 Left cs | all null (map snd cs) -> m
                                                         | otherwise             -> X.MGuarded (X.GLetTypes (Left cs)) m
                                                 Right (args, results, f)        -> X.MGuarded (X.GLetTypes (Right (args, results, f))) m)
-                                (X.MGuarded (X.GSubst evsubst) m')
-                                cbindss),
-                        extPreds ++ qs ++ rs')
+                                m')
+                                cbindss)
+                        ps' ++ qs ++ rs)
+-}
 
              where flattenArrows (TyApp (At _ (TyApp (At _ arr) at)) (At _ rt))
                        | arr == arrTy = let (args', result) = flattenArrows rt
                                         in (at : args', result)
                    flattenArrows t    = ([], t)
-
-                   existentialPredicates extVars determining deferred expected =
-                       do extVars <- concatMap tvs `fmap` mapM (substitute . TyVar) extVars
-                          expected' <- substitute expected
-                          determining' <- mapSndM substitute determining
-                          deferred' <- mapM (substitute . snd) deferred
-                          let vs              = tvs expected' ++ concatMap tvs deferred'
-                              escapingExtVars = filter (`elem` vs) extVars
-                          return (filter (\(id, p) -> any (`elem` escapingExtVars) (tvs p)) determining')
 
          PTyped p tys ->
              do v <- fresh "x"

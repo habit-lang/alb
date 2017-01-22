@@ -202,14 +202,14 @@ instance HasEvidenceVariables Match
     where fevs MFail          = []
           fevs (MCommit e)    = fevs e
           fevs (MElse m m')   = fevs m ++ fevs m'
-          fevs (MGuarded (GFrom (PCon c ts ebinds vs) id) m) =
-              fevs m \\ map fst ebinds
+          fevs (MGuarded (GFrom (PCon inst vs) id) m)
+                              = fevs inst ++ fevs m
           fevs (MGuarded g m) = fevs g ++ fevs m
 
 instance HasTypeVariables Pattern
     where _ # PWild               = PWild
           s # PVar id tys         = PVar id (s # tys)
-          s # PCon c ts ebinds vs = PCon c (s # ts) [(id, s # p) | (id, p) <- ebinds] vs
+          s # PCon inst vs        = PCon (s # inst) vs
 
 instance HasEvidenceVariables Pattern
     where fevs PWild          = []

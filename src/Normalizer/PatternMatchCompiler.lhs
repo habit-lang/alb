@@ -211,7 +211,7 @@ normalized.
 >   normFrom s (X.PVar v t) w m sms
 >     = normMatch (extend [v] [applySubst s w] s) m sms  -- (1)
 
->   normFrom s p@(X.PCon _ _ _ _) w m sms
+>   normFrom s p@(X.PCon _ _) w m sms
 >     = do m' <- rebuild p w m
 >          ((s, m'):) `fmap` normalizeMatches sms                -- case block
 >       where rebuild p e m = return (X.MGuarded (X.GFrom p e) m)
@@ -237,7 +237,7 @@ same variable.
 >           e'  <- pmcMatch s m
 >           ((LC.ELet ds' e'):) `fmap` groupMatches sms
 
->   group s (X.MGuarded (X.GFrom (X.PCon c ts [] vs) w) m) sms
+>   group s (X.MGuarded (X.GFrom (X.PCon (X.Inst c ts []) vs) w) m) sms
 >      = gather (applySubst s w) (insert s (c, ts) vs m []) sms
 
 >   group s m sms
@@ -246,7 +246,7 @@ same variable.
 >   -- Gather matches that are part of a case block for a specific
 >   -- variable into a case table.
 >   gather                     :: Id -> CaseTable -> SMS -> PMC [LC.Expr]
->   gather w tab ((s, X.MGuarded (X.GFrom (X.PCon c ts [] vs) w') m):sms) | applySubst s w'==w
+>   gather w tab ((s, X.MGuarded (X.GFrom (X.PCon (X.Inst c ts []) vs) w') m):sms) | applySubst s w'==w
 >                               = gather w (insert s (c, ts) vs m tab) sms
 >   gather w tab sms            = do expr <- makeCase w tab
 >                                    (expr:) `fmap` groupMatches sms
