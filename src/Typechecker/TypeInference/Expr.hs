@@ -398,9 +398,9 @@ checkTypingGroup (Implicit fs) =
            -- 'retained => t'; otherwise, it complains about ambiguous types.  Again, we've lost the
            -- information to give a good error location here.
            qualify t =
-               let quantifyingVs = nub (tvs t) \\ envvars
-                   determined = close (tvs t ++ envvars) fds
+               let determined = close (tvs t ++ envvars) fds
                    qty = retainedPs :=> introduced t
+                   quantifyingVs = nub (tvs qty) \\ envvars
                    ambiguities = filter (`notElem` determined) quantifyingVs
                in case ambiguities of
                     [] -> return (quantifyingVs, quantify quantifyingVs qty)
