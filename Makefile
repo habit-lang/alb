@@ -6,7 +6,8 @@ else
 	SDEP=
 endif
 OPT=-XOverloadedStrings -O2 -j3 -o $@ -odir obj -hidir obj -isrc src/Driver.hs
-HIDE=-hide-package indentation-parsec-0.0 -hide-package indentation-core-0.0 -hide-package indentation-trifecta-0.0
+# HIDE=-hide-package indentation-parsec-0.0 -hide-package indentation-core-0.0 -hide-package indentation-trifecta-0.0
+HIDE=
 OBJDIR=obj
 TARGETS=ilab alb albp alb-hpc albc
 
