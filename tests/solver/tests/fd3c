@@ -1,0 +1,7 @@
+-- 'G' and 'H' demonstrate the same difference between coherence and consistency, but for non-normal
+-- relations.  For example, the two axioms for 'G' are more obviously non-overlapping, as Int =/=
+-- Float.  However, this is not sufficient to show that the functional dependency is respected.
+
+H t u v | u ~> v.
+H (Maybe t) m n if Double m n, Even n, Ord t.
+H (List t) m P1 if Double m n, Eq t.

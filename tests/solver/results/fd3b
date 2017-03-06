@@ -1,0 +1,2 @@
+Overlapping instances: forall k, k. G Float _0 P1 if Double _0 _1
+overlaps with forall k, k. G Int _0 _1 if Double _0 _1, Even _1

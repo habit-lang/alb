@@ -37,7 +37,7 @@ check (T args resultsFile) =
                   return (Just (T args resultsFile))
     where clear = replicate (length resultsFile) (chr 8) ++ replicate (length resultsFile) ' ' ++ replicate (length resultsFile) (chr 8)
 check (X _ _) =
-    do putStr "X"
+    do putStr "O"
        return Nothing
 
 setup = do tests <- (map read . lines) `fmap` readFile "./tests/solver/catalog"

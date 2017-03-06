@@ -1,5 +1,6 @@
--- Continuing functional dependencies with user-defined classes as hypotheses.  This file tests a
--- number of approaches that are not sufficient to prove cases consistent.
+-- Continuing functional dependencies with user-defined classes as hypotheses.  This file, along
+-- with fd3a-fd3c, demonstrate number of approaches that are not sufficient to prove cases
+-- consistent.
 
 -- As in fd2, we begin with Peano arithmetic
 
@@ -21,26 +22,3 @@ Mult x y z fails.
 
 Double m n | m ~> n, n ~> m.
 Double m n if Mult P2 m n.
-
--- This case demonstrates the flaw with a previous implementation of the functional dependency
--- consistency check.  Note that these instances are not overlapping: the common case is a predicate
--- of the form 'F m P1' such that 'Double m n' and 'Even P1' hold, but the latter never holds.
--- However, this does not mean that the instances are consistent.  In particular, because the latter
--- instance does not constraint 'n', the predicates 'F P4 P2' and 'F P4 P1' would both hold under
--- these axioms, violating the functional dependency on 'F'.
-
-F t u | t ~> u.
-F m n  if Double n m, Even n.
-F m P1 if Double n m.
-
--- 'G' and 'H' demonstrate the same difference between coherence and consistency, but for non-normal
--- relations.  For example, the two axioms for 'G' are more obviously non-overlapping, as Int =/=
--- Float.  However, this is not sufficient to show that the functional dependency is respected.
-
-G t u v | u ~> v.
-G Int m n if Double m n, Even n.
-G Float m P1 if Double m n.
-
-H t u v | u ~> v.
-H (Maybe t) m n if Double m n, Even n, Ord t.
-H (List t) m P1 if Double m n, Eq t.

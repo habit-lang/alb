@@ -1,0 +1,2 @@
+Overlapping instances: forall k, k. F _1 P1 if Double _0 _1
+overlaps with forall k, k. F _1 _0 if Double _0 _1, Even _0

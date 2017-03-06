@@ -20,10 +20,10 @@ UniqueIn f g fails.
 -- Exclusion.  Roughly speaking, 'Without t u v' holds if 'v' contains all the types that 't' does
 -- except for 'u'.
 
-Without t u v | t u ~> v, t v ~> u.
+Without t u v | t u ~> v. -- , t v ~> u.
 Without t t v fails;
 Without (Plus t u) t u;
 Without (Plus t u) u t;
 Without (Plus t u) v (Plus t' u) if Without t v t', In v u fails;
-Without (Plus t u) v (Plus t u') if Without u v u', In v t fails.
---Without t u t.
+Without (Plus t u) v (Plus t u') if Without u v u', In v t fails;
+Without t u t.
