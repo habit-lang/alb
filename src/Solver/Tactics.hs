@@ -116,7 +116,7 @@ data Node = Goal { name     :: PId
                    , spin        :: Spin
                    , axiomName   :: AxId
                    , typeArgs    :: [Type]
-                   , conditions  :: [(Subst, Subst)]
+                   , conditions  :: [([TyId], Subst, Subst)]
                    , subtrees    :: Either [Pred] [Tree] }
 
           | Chain { passed    :: [Tree]     -- in practice, expect all these trees to be Completed (either skips or intersecting cases)
@@ -137,7 +137,7 @@ data Node = Goal { name     :: PId
           | Complete { name        :: PId
                      , goal        :: Pred
                      , spin        :: Spin
-                     , conditions  :: [(Subst, Subst)]
+                     , conditions  :: [([TyId], Subst, Subst)]
                      , proof       :: Proof }
 
           | Exhausted { subtree :: Tree }
@@ -178,8 +178,8 @@ withChildren (Stuck _) [t] =
     Stuck t
 
 showConditionsShort [] = ""
-showConditionsShort [(cond, _)] = " if " ++ ppx cond
-showConditionsShort ((first, _) : rest) = " if " ++ ppx first ++ concat [" or " ++ ppx cond | (cond, _) <- rest]
+showConditionsShort [(tyids, cond, _)] = " if (" ++ ppx tyids ++ ") " ++  ppx cond
+showConditionsShort ((tyids, first, _) : rest) = " if (" ++ ppx tyids ++ ") " ++ ppx first ++ concat [" or " ++ ppx cond | (_, cond, _) <- rest]
 
 showShort                                         :: Node -> String
 showShort (Goal name goal isRoot Nothing)          = concat [if isRoot then "Root goal: " else "Goal: ", ppx name, ": ", ppx goal]
@@ -348,7 +348,7 @@ nodeString (Clause _ _ spin axid typeArgs conditions subgoals) = [ppx spin ++ " 
                                                                  conditionString ++ subgoalsString
     where typeArgsString | null typeArgs = ""
                          | otherwise = "[" ++ intercalate ", " (map ppx typeArgs) ++ "]"
-          conditionString = [" [ if " ++ ppx cond ++ (if isEmpty impr then "" else ", implying " ++ ppx impr) | (cond, impr) <- conditions]
+          conditionString = [" [ if (" ++ ppx tyids ++ ") " ++ ppx cond ++ (if isEmpty impr then "" else ", implying " ++ ppx impr) | (tyids, cond, impr) <- conditions]
           subgoalsString = case subgoals of
                              Left [] -> []
                              Left ps -> [" { " ++ intercalate ", " (map ppx ps)]
@@ -366,7 +366,7 @@ nodeString (Complete name goal spin conditions proof) = [resultString ++ ppx nam
                            Proving -> "Proved "
                            Disproving -> "Disproved "
           proofString = ["    by " ++ ppx proof]
-          conditionString = [" [ if " ++ ppx cond ++ (if isEmpty impr then "" else ", implying " ++ ppx impr) | (cond, impr) <- conditions]
+          conditionString = [" [ if (" ++ ppx tyids ++ ") " ++ ppx cond ++ (if isEmpty impr then "" else ", implying " ++ ppx impr) | (tyids, cond, impr) <- conditions]
 nodeString (Exhausted _) = ["Exhausted"]
 nodeString (Stuck _) = ["Stuck"]
 

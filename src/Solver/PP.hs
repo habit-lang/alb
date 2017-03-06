@@ -51,6 +51,9 @@ instance PP t => PP [t]
 instance (PP a, PP b) => PP (a,b)
     where pp _ (a,b) = '(' : pp 0 a ++ ", " ++ pp 0 b ++ ")"
 
+instance (PP a, PP b, PP c) => PP (a, b, c)
+    where pp _ (a, b, c) = '(' : pp 0 a ++ ", " ++ pp 0 b ++ ", " ++ pp 0 c ++ ")"
+
 --------------------------------------------------------------------------------
 -- AST pretty-printers
 
