@@ -240,15 +240,14 @@ are treated as their singleton case.
 
 This next bit is based on pattern-match compilation...
 
-We begin by splitting groups of alternatives according to their scrutinee variable.  There are a
-couple of assumptions here:
+We begin by splitting groups of alternatives according to their scrutinee variable.  We assume that
+each collection of alternatives includes at least one pattern-guarded match.  This seems likely: we
+only enter pattern match compilation upon finding a pattern-guarded match (see matchTail), and we
+should only start looking for a new group of elses upon finding another pattern-guarded match.  To
+avoid producing collections of matches that will confuse buildCaseStatement, we inline trivial
+guards (either of the form y <- x => m or _ <- x => m) before grouping elses.
 
- - We assume that each collection of alternatives begins with a guarded match;
- - We assume that all of the alternatives within a given collection are all either of the form `p <-
-   e => m` or `^e`
-
-Both assumptions should arguably be relaxed; however, this leads to a question about what to do in
-cases like the following:
+There is a remaining design decisition around what to do with matches like
 
     (p <- x => M | let Ds => p' <- x => M')
 
@@ -258,14 +257,19 @@ the Ds definitions and the second case block, or as one case block in which the 
     (let Ds => p <- x => M)  ==>  (p <- x => let Ds => M)    (x not bound by Ds)
     (let Ds => (M | M'))  ==> (let Ds => M | let Ds => M')
 
-I think the latter approach might be 'better', but as it doesn't seem to correspond to the output of
-the compiler, I'm not terribly concerned about implementing it as yet.
+We currently take the former approach; I think the latter approach might be 'better', but as it
+doesn't seem to correspond to the output of the compiler, I'm not terribly concerned about
+implementing it as yet.
 
 > partitionElses :: [X.Match] -> [(Maybe X.Decls, [X.Match])]
 > partitionElses [] = []
 > partitionElses (m@(X.MGuarded (X.GFrom _ y) _) : ms) = (Nothing, m : these) : partitionElses rest
 >     where (these, rest) = loop y ms
 >           loop x [] = ([], [])
+>           loop x (X.MGuarded (X.GFrom (X.PVar z _) y) m : ms) =
+>               loop x (rename [(z, y)] m : ms)
+>           loop x (X.MGuarded (X.GFrom X.PWild y) m : ms) =
+>               loop x (m : ms)
 >           loop x ms'@(m@(X.MGuarded (X.GFrom _ y) _) : ms)
 >               | x == y = let (these, rest) = loop x ms
 >                          in (m : these, rest)
@@ -318,8 +322,7 @@ guards at all.
 Combine branches with the same constructor.
 
 >           coalesceBranches [] = ([], Nothing)
->           coalesceBranches (Left m : _) = ([], Just m)
->           coalesceBranches [Right b] = ([b], Nothing)
+>           coalesceBranches (Left m : bs) = ([], Just m)
 >           coalesceBranches (Right (ctor, vs, m) : Right (ctor', vs', m') : rest)
 >               | ctor == ctor' = coalesceBranches (Right (ctor, vs, X.MElse m (rename (zip vs vs') m')) : rest)
 >           coalesceBranches (Right b : bs) = (b : alts, def)
@@ -689,7 +692,7 @@ corresponding to tail calls in the interpreter.
 > runTail :: Tail -> (Val -> RunM Val) -> RunM Val
 > runTail (Return (Var v)) k = var v >>= k
 > runTail (Return (Const b)) k = k (U b)
-> runTail (BlockCall "abort" _) _ = error "Pattern match failure"
+> runTail (BlockCall "abort" _) _ = error "In Mon6a: Executing abort (probably a pattern match failure)"
 > runTail (BlockCall b xs) k =
 >     do vs <- mapM var xs
 >        (ys, body) <- asks (fromMaybe (error ("Unbound block: " ++ show (ppr b))) . Map.lookup b . blocks)
