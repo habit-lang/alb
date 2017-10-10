@@ -1,4 +1,3 @@
-
 {-# LANGUAGE CPP, FlexibleContexts, FlexibleInstances, TypeSynonymInstances, UndecidableInstances, DeriveDataTypeable, StandaloneDeriving, TemplateHaskell, ScopedTypeVariables #-}
 module Syntax.IMPEG (module Syntax.Common, module Syntax.IMPEG) where
 
