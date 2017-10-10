@@ -1,18 +1,11 @@
-{-# LANGUAGE CPP                  #-}
-{-# LANGUAGE DeriveDataTypeable   #-}
-{-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE StandaloneDeriving   #-}
-{-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE UndecidableInstances #-}
+
+{-# LANGUAGE CPP, FlexibleContexts, FlexibleInstances, TypeSynonymInstances, UndecidableInstances, DeriveDataTypeable, StandaloneDeriving, TemplateHaskell, ScopedTypeVariables #-}
 module Syntax.IMPEG (module Syntax.Common, module Syntax.IMPEG) where
 
-import           Data.Generics       hiding (Fixity)
-import           Data.List
-import           Language.Haskell.TH hiding (Guard, Kind, Match, Type)
-import           Syntax.Common
+import Language.Haskell.TH hiding (Match, Type, Guard, Kind)
+import Data.Generics hiding (Fixity)
+import Data.List
+import Syntax.Common
 
 --------------------------------------------------------------------------------
 -- Kinds and types
@@ -336,7 +329,12 @@ instance (Typeable1 p, Data (p (Located (Type tyid))), Data tyid, Data typaram) 
          Data (Program p tyid typaram) where
   gfoldl k z (Program x1 x2 x3) = z Program `k` x1 `k` x2 `k` x3
 
+
+
 -- Rather than manually defining these instances, we use Template Haskell to do it for us.
+
+#if __GLASGOW_HASKELL__ >= 821
+
 $(let types = [''Scheme, ''Decls, ''Primitive, ''Signature, ''TypingGroup, ''Pattern, ''Match, ''Guard, ''Expr]
       mkClause k z (RecC name args) = mkClause k z (NormalC name (map undefined args))
       mkClause k z (NormalC name args) = do
@@ -350,3 +348,21 @@ $(let types = [''Scheme, ''Decls, ''Primitive, ''Signature, ''TypingGroup, ''Pat
                  DataD [] name typarams _ cons _  ->
                    [d|instance (Typeable1 p, Data (p (Located (Type tyid))), Data tyid) => Data ($(conT name) p tyid) where gfoldl k z x = $(caseE (varE 'x) (map (mkClause 'k 'z) cons)) |]
   in (return . concat) =<< mapM mkInstance types)
+
+#else
+
+$(let types = [''Scheme, ''Decls, ''Primitive, ''Signature, ''TypingGroup, ''Pattern, ''Match, ''Guard, ''Expr]
+      mkClause k z (RecC name args) = mkClause k z (NormalC name (map undefined args))
+      mkClause k z (NormalC name args) = do
+        args' <- mapM (newName . const "y") args
+        let body :: ExpQ
+            body = foldl (\c x -> varE k `appE` c `appE` varE x) (appE (varE z) (conE name)) args'
+        match (conP name (map varP args')) (normalB body) []
+      mkInstance x = do
+               TyConI dec <- reify x
+               case dec of
+                 DataD [] name typarams cons _ ->
+                   [d|instance (Typeable1 p, Data (p (Located (Type tyid))), Data tyid) => Data ($(conT name) p tyid) where gfoldl k z x = $(caseE (varE 'x) (map (mkClause 'k 'z) cons)) |]
+  in (return . concat) =<< mapM mkInstance types)
+
+#endif
