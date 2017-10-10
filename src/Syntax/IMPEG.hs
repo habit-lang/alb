@@ -332,7 +332,7 @@ instance (Typeable1 p, Data (p (Located (Type tyid))), Data tyid, Data typaram) 
 
 -- Rather than manually defining these instances, we use Template Haskell to do it for us.
 
-#if __GLASGOW_HASKELL__ >= 821
+#ifdef MIN_VERSION_GLASGOW_HASKELL && MIN_VERSION_GLASGOW_HASKELL(8,2,1,0)
 
 $(let types = [''Scheme, ''Decls, ''Primitive, ''Signature, ''TypingGroup, ''Pattern, ''Match, ''Guard, ''Expr]
       mkClause k z (RecC name args) = mkClause k z (NormalC name (map undefined args))
