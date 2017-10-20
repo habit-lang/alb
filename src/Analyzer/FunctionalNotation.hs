@@ -189,7 +189,11 @@ instance HasTypeFunctions (TypingGroup PredFN Id) (TypingGroup Pred Id)
 instance HasTypeFunctions (Decls PredFN Id) (Decls Pred Id)
     where rewrite (Decls groups) = liftM Decls (mapM rewrite groups)
 
-rewriteCtor :: (HasTypeVariables t Id, HasTypeVariables u Id) => ([Located t] -> M ([Located u], [(Located (PredType Pred Id), Id)])) -> Ctor Id (PredType PredFN Id) t -> M (Ctor Id (PredType Pred Id) u)
+rewriteCtor :: (HasTypeVariables t Id, HasTypeVariables u Id) -- [ANI] any changes here?
+  => ([Located t]
+  -> M ([Located u], [(Located (PredType Pred Id), Id)]))
+  -> Ctor Id (PredType PredFN Id) t
+  -> M (Ctor Id (PredType Pred Id) u)
 rewriteCtor f (Ctor name qvars preds fields) =
     do let tyvars  = map TyVar qvars
            preds'  = inst tyvars preds

@@ -10,7 +10,7 @@ import qualified Data.Map as Map
 import Data.Maybe (isJust, fromMaybe)
 import Text.Parsec
 import Text.Parsec.Indentation
-
+import Text.Parsec.Indentation.Char(mkCharIndentStream)
 import Syntax.Surface hiding (decls, kind)
 import qualified Syntax.Surface as AST
 import Parser.Lexer
@@ -50,7 +50,6 @@ varid    = (aVarid  <|> try (parens aVarsym)) <?> "variable name"
 
 varsym  :: ParseM Id           -- variable name in infix position
 varsym   = (aVarsym <|> try (ticks aVarid))   <?> "variable symbol"
-
 
 intLiteral :: ParseM Integer
 intLiteral = lexeme (choice [octalLiteral, hexLiteral, binaryLiteral, decimalLiteral]) <?> "integer literal"
@@ -498,35 +497,51 @@ synonymDecl = do opaque <- option False (reserved "opaque" >> return True)
                               then Just `fmap` option emptyDecls (reserved "where" >> decls)
                               else return Nothing
                  return (Synonym lhs rhs interface)
+-- parses a datatype declaration
+-- for testing use:
+-- import 
+-- parse dataDecl  "" (Text.Parsec.Indentation.mkIndentStream 1 80 True Any $ mkCharIndentStream ("data T t = Mk1 a | Mk2 a b"::String))
+--
+parseTest :: (ParseM d) -> String -> Either ParseError d
+parseTest p t = parse p  "" (Text.Parsec.Indentation.mkIndentStream 1 80 True Any $ Text.Parsec.Indentation.Char.mkCharIndentStream t)
 
 dataDecl :: ParseM Datatype
 dataDecl = do opaque <- option False (reserved "opaque" >> return True)
               reserved "data"
               lhs <- qual type_
               ctors <- option [] $ do reservedOp "="
-                                      ctor `sepBy` reservedOp "|"
+                                      dataCtor `sepBy` reservedOp "|"
               drvlist <- deriveList
               interface <- if opaque
                            then Just `fmap` option emptyDecls (reserved "where" >> decls)
                            else return Nothing
               return (Datatype lhs ctors drvlist interface)
-    where ctor = choice [ try $ do lhs <- located atype
-                                   name <- located consym
-                                   rhs <- located atype
-                                   preds <- option [] $ reserved "if" >> commaSep1 (located predicate)
-                                   return (Ctor name [] preds [at lhs (DataField Nothing lhs), at rhs (DataField Nothing rhs)])
-                        , try $ do name <- located conid
-                                   fields <- brackets (field `sepBy` reservedOp "|")
-                                   preds <- option [] $ reserved "if" >> commaSep1 (located predicate)
-                                   return (Ctor name [] preds (concat fields))
-                        , do name <- located conid
-                             ftypes <- many (located atype)
-                             preds <- option [] $ reserved "if" >> commaSep1 (located predicate)
-                             return (Ctor name [] preds [at t (DataField Nothing t) | t <- ftypes]) ]
-          field = try (do labels <- commaSep1 (located varid)
-                          reservedOp "::"
-                          t <- located atype
-                          return [At loc (DataField (Just lab) t) | At loc lab <- labels])
+  -- where
+  -- ctor :: ParseM Ctor a b c
+dataCtor :: ParseM (Ctor Id Pred Type)
+dataCtor = choice [ try $ do lhs <- located atype
+                             name <- located consym
+                             rhs <- located atype
+                             preds <- option []
+                               $ reserved "if"
+                               >> commaSep1 (located predicate)
+                             universals <- option []
+                               $ reserved "forall"
+                               >> spaceSep1 (aVarid)
+                             return (Ctor name universals preds [lhs, rhs])
+                             -- return (Ctor name [] preds [lhs, rhs])
+                             -- [ANI] FIXME: 2nd args should return the ctorParams
+                  , do name <- located conid
+                       fields <- many (located atype)
+                       preds <- option []
+                         $ reserved "if"
+                         >> commaSep1 (located predicate)
+                       universals <- option []
+                         $ reserved "forall"
+                         >> spaceSep1 (aVarid)
+                       return (Ctor name universals preds fields) ]
+                       --return (Ctor name [] preds fields) ]
+                       -- [ANI] FIXME: 2nd args should returns the ctorParams
 
 deriveList :: ParseM [Id]
 deriveList  = option []
@@ -542,8 +557,9 @@ bitdataDecl = do reserved "bitdata"
                  Bitdatatype id width ctors `fmap` deriveList
     where  ctor = do name <- located conid
                      fields <- concat `fmap` brackets (field `sepBy` reservedOp "|")
-                     preds <- option [] $ reserved "if" >> commaSep1 (located predicate)
-                     return (Ctor name [] preds fields)
+                     preds <- option [] $
+                       reserved "if" >> commaSep1 (located predicate)
+                     return (Ctor name [] preds fields) -- [ANI] FIXME: 2nd args should return the ctorParams
            field = try (do labels <- commaSep1 (located label)
                            reservedOp "::"
                            typ <- located type_
@@ -656,11 +672,13 @@ chain operand operator ctor =
     where one p = p +++ return []
           combine (first, rest) op (new, []) = (first, rest ++ [(op, new)])
 
+located :: ParseM t -> ParseM (Located t)
 located p = do start <- getPosition
                v <- p
                end <- getPosition
                return (At (Location start end) v)
 
+unlocated :: Monad m => m (Located b) -> m b
 unlocated p = do At _ x <- p
                  return x
 

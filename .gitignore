@@ -1,15 +1,20 @@
+# Haskell specific directories
+dist/*
+dist-newstyle/*
+
+*.hi
+*.o
+
 # Log files
 *.log
 *.err
 
-# Haskell specific directories
-dist/*
-dist-newstyle/*
-*.hi
-*.o
-
 # Build artifacts/executables
 obj/*
+alb
+ilab
+albc
+alb-hpc
 *.exe
 *.out
 *.bat

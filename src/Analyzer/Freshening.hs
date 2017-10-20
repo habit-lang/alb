@@ -12,8 +12,8 @@ module Analyzer.Freshening (freshenProgram, ScopeEnv) where
 -- little cleaner.
 
 -- It may make sense to have checks to be sure that type and
--- constructor names are in scope.  For now I'm leaving that to the
--- future.
+-- constructor names are in scope.
+-- FIXME: For now I'm leaving that to the future
 
 import Control.Monad.Reader
 import Control.Monad.State
@@ -47,6 +47,7 @@ type M a = ReaderT (Map.Map Id Id) Base a
 --    f x = let x$1 = 5 in x$1
 -- We don't do any kind of renaming on types, as there's currently no notion of scoping for types or
 -- type variables.
+-- _TODO_: Will we need type scoping in firstclass polimorphism?
 --
 -- By mapping to a "Located Id" we store where the Id was defined for when
 -- we issue redefinition errors.
@@ -198,8 +199,8 @@ instance (WithFresh a) => WithFresh (Located a) where
 -- The first is 'rec located_pattern'.  This does a recursion over the
 -- 'located_pattern' object that has type 'Located Pattern'.
 --
--- The second is 'gmapM rec rhs'.  This does a recursion over the
--- *children* of the 'rhs' object that has type 'Rhs'.  Recurring over
+-- The second is 'gmapM rec rhs'.  This does a recursion over the *children*
+-- of the 'rhs' object that has type 'Rhs'.  Recurring over
 -- children instead of the object itself is often important to avoid
 -- an infinite loop that just keeps recurring over the same object
 -- over and over again.

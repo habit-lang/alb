@@ -211,7 +211,7 @@ initial s p x = PassM (StateT (\s' -> do (r, _) <- runStateT (unPass (p x)) s
 class Has s s'
     where up :: Pass s' t u -> Pass s t u
 
-instance Has s s
+instance  {-# OVERLAPPING #-} Has s s
     where up = id
 
 instance {-# Overlapping #-} Has (t, s) s

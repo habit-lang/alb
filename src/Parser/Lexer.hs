@@ -34,7 +34,7 @@ languageDef  = T.LanguageDef {
                , T.opLetter      = oneOf ":!#$%&*+./<=>?@\\^|-~"
                , T.reservedNames = [ "area", "aligned", "bitdata","case", "class"
                                    , "data", "deriving", "do", "else"
-                                   , "extends", "fails", "if", "in"
+                                   , "extends", "fails", "forall", "if", "in"
                                    , "infix", "infixl", "infixr"
                                    , "instance", "let", "of", "struct"
                                    , "then", "type", "where"
@@ -69,6 +69,8 @@ sepiSep1       = T.semiSep1 lexer
 commaSep       = T.commaSep lexer
 commaSep1      = T.commaSep1 lexer
 
+type ParseM = Parsec (IndentStream (CharIndentStream String)) ()
+nullState = ()
 
 identifier :: (Char -> Bool) -> ParseM Id
 identifier pred =
@@ -109,8 +111,7 @@ binary          = number 2 (oneOf "01")
 
 dotSep1 p = sepBy1 p dot
 
+spaceSep1 p = sepBy1 p whiteSpace
+
 layout p = T.braces lexer (T.semiSep1 lexer p) <|>
            localIndentation Gt (concat `fmap` many (absoluteIndentation (T.semiSep1 lexer p)))
-
-type ParseM = Parsec (IndentStream (CharIndentStream String)) ()
-nullState = ()

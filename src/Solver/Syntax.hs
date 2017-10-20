@@ -316,7 +316,7 @@ instance {-# OVERLAPPING #-} ModFD a => ModFD (a -> b)
           f `atDetermined`  fd = \a -> f (a `atDetermined` fd)
           f `atDetermining` fd = \a -> f (a `atDetermining` fd)
 
-instance {-# OVERLAPPING #-} (ModFD a, ModFD b) => ModFD (a -> b -> c)
+instance  {-# OVERLAPPING #-} (ModFD a, ModFD b) => ModFD (a -> b -> c)
     where f `modFD`         fd = \a b -> f (a `modFD` fd) (b `modFD` fd)
           f `atDetermined`  fd = \a b -> f (a `atDetermined` fd) (b `atDetermined` fd)
           f `atDetermining` fd = \a b -> f (a `atDetermining` fd) (b `atDetermining` fd)

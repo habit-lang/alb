@@ -1,3 +1,4 @@
+{-# LANGUAGE DoAndIfThenElse #-}
 module CompCert (CompCertOptions(..), compile, defaultCompCertOptions) where
 
 import Data.List

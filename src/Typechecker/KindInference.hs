@@ -442,6 +442,12 @@ checkTopDecl (At loc tdecl) =
                         xs'    <- mapM (f . inst qvars') xs
                         let kids = zipWith Kinded qvars (map KVar knames)
                         return (Ctor name kids (map (gen 0 kids) preds') (map (gen 0 kids) xs'))
+{-  Type of top level declaration
+     
+
+
+
+-}
 
 ----------------------------------------------------------------------------------------------------
 -- Kind annotation for expressions and local declarations.

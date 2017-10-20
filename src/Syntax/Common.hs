@@ -142,8 +142,8 @@ data Flag = Holds | Fails
           deriving (Eq, Show, Typeable, Data)
 
 data Ctor tyid p t = Ctor { ctorName       :: Located Id
-                          , ctorParams     :: [tyid]
-                          , ctorQualifiers :: [Located p]
+                          , ctorParams     :: [tyid] -- it is now polulated with all variables put after forall
+                          , ctorQualifiers :: [Located p] 
                           , ctorFields     :: [Located t] }
             deriving (Eq, Show, Typeable, Data)
 

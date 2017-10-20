@@ -1,3 +1,4 @@
+{-# LANGUAGE DoAndIfThenElse #-}
 module Solver.Trace where
 
 import Control.Monad
@@ -44,9 +45,8 @@ checkTrailLength = unsafePerformIO (newIORef (1000 :: Int))
 check :: IORef t -> (t -> Bool) -> String -> a -> a
 check ref pred failMsg success =
     unsafePerformIO (do b <- readIORef doCheck
-                        if b
-                        then do v <- readIORef ref
-                                if pred v then fail else return success
+                        if b then do v <- readIORef ref
+                                     if pred v then fail else return success
                         else return success)
     where fail = do hPutStr stderr ("=== SOLVER CHECK FAILED ===\n" ++ failMsg)
                     hFlush stderr
