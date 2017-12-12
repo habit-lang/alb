@@ -516,8 +516,7 @@ dataDecl = do opaque <- option False (reserved "opaque" >> return True)
                            then Just `fmap` option emptyDecls (reserved "where" >> decls)
                            else return Nothing
               return (Datatype lhs ctors drvlist interface)
-  -- where
-  -- ctor :: ParseM Ctor a b c
+
 dataCtor :: ParseM (Ctor Id Pred Type)
 dataCtor = choice [ try $ do lhs <- located atype
                              name <- located consym
