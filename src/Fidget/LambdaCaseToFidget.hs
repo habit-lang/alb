@@ -101,15 +101,15 @@ type StructEnv = Env Id StructBind
 data ConBind = ConBind {fields::[F.Ftyp],
                         tcon::F.Tcon,
                         tag::Integer}
-	     | BitdataConBind {tagmask:: Integer,
-			       tagbits:: Integer,
-			       bfields::[(Id,Int,Int)] -- field name, width, offset in bits
-			      }
+             | BitdataConBind {tagmask:: Integer,
+                               tagbits:: Integer,
+                               bfields::[(Id,Int,Int)] -- field name, width, offset in bits
+                              }
 
 type ConEnv = Env (Id,[Type]) ConBind
 
 data VarBind = VarBind {transl :: F.Atom,
-			known :: Maybe Bool}  -- known function: istoplevel?
+                        known :: Maybe Bool}  -- known function: istoplevel?
 
 type VarEnv = Env Id VarBind
 
@@ -137,7 +137,7 @@ trans_type_star :: Type -> F.Ftyp
 trans_type_star ty =
   case ty of
     TyApp (TyApp(TyCon (Kinded "->" _)) ty1) ty2 ->
-	F.Ffun [trans_type_star ty1] (trans_type_star ty2)
+        F.Ffun [trans_type_star ty1] (trans_type_star ty2)
     TyCon (Kinded "NonZero" _) -> F.Fnzero
     TyApp (TyCon (Kinded "Nat" _)) ty_n -> F.Funit
     TyApp (TyCon (Kinded "Ix" _)) ty_n -> F.Fix (trans_type_machint ty_n) -- always in range
@@ -163,7 +163,7 @@ build_con_env tds = foldr build empty_env tds
         build (Datatype tc ts cs) env =
              foldr (\(tag,(c,cts)) env ->
                       extend_env env (c,ts) (ConBind (map trans_type_star cts) tc tag))
-	             env (zip [0..] cs)
+                     env (zip [0..] cs)
         build (Bitdatatype _ _ dcs) env =
           foldr (\(c,flds) env -> extend_env env (c,[]) (build_bitdata_bind flds)) env dcs
         build _ env = env -- for now
@@ -172,9 +172,9 @@ build_bitdata_bind :: [BitdataField] -> ConBind
 build_bitdata_bind flds = BitdataConBind tagmask tagbits lfields
   where (lfields,cfields) =
          foldr (\f (lfs,cfs) ->
-		     case f of
-		      LabeledField x _ width offset -> ((x,width,offset):lfs,cfs)
-  		      ConstantField v width offset -> (lfs,(v,width,offset):cfs)) ([],[]) flds
+                     case f of
+                      LabeledField x _ width offset -> ((x,width,offset):lfs,cfs)
+                      ConstantField v width offset -> (lfs,(v,width,offset):cfs)) ([],[]) flds
         tagmask = foldr (\(_,width,offset) m -> ((2^width - 1) `shift` offset) .|. m) 0 cfields
         tagbits = foldr (\(v,width,offset) b -> (v .&. (2^width - 1) `shift` offset) .|. b) 0 cfields
 
@@ -191,15 +191,15 @@ trans_areas tds = foldl trans [] tds
            (x, trans_type_area a, volatility, size) : l where
              volatility = if v then F.Volatile else F.Nonvolatile
          trans l (Area _ _ _ _ _ _) = error "trans_area bad area type"
-	 trans l _ = l
+         trans l _ = l
 
 trans_structs :: [TopDecl] -> [(F.Id,F.StructDesc)]
 trans_structs tds = foldr trans [] tds
    where trans :: TopDecl -> [(F.Id,F.StructDesc)] -> [(F.Id,F.StructDesc)]
          trans (Struct sid width sfields) l =
-	     let sfields' = map (\(StructField _ ft _ fo) ->
+             let sfields' = map (\(StructField _ ft _ fo) ->
                                    (fromIntegral fo, trans_type_area ft)) sfields in
-	     (sid,F.StructDesc (fromIntegral width) sfields'):l
+             (sid,F.StructDesc (fromIntegral width) sfields'):l
          trans _ l = l
 
 curry_Ftype :: [F.Ftyp] -> F.Ftyp -> F.Ftyp
@@ -255,7 +255,7 @@ trans_prog_decls senv cenv readEnv writeEnv decls = trans_top_decls decls where
         body <- trans_alts lab a alts
         return $ F.Eletlabel [(lab, F.Function [(x,t')] returnTyp kx)] body)
    where trans_alts lab a (Alt c [] [x] earm:rest) =
-	     do let test = F.Abinop (F.Ocmp F.Ceq) (F.Abinop F.Oand a (int_const tagmask)) (int_const tagbits)
+             do let test = F.Abinop (F.Ocmp F.Ceq) (F.Abinop F.Oand a (int_const tagmask)) (int_const tagbits)
                 earma <- withVarBinds' [(x, VarBind a Nothing)] $
                          atomize earm (gotoLabel lab)
                 restm <- trans_alts lab a rest
@@ -274,7 +274,7 @@ trans_prog_decls senv cenv readEnv writeEnv decls = trans_top_decls decls where
           let t' = ftype_of e0
           kx <- k (F.Satom (F.Avar x t'))
           return $ F.Eletlabel (lab,[(x,t')],kx)
-		        (F.Eifthenelse (F.Abinop F.Oand a (int_const 1)) tarma farma))
+                        (F.Eifthenelse (F.Abinop F.Oand a (int_const 1)) tarma farma))
   trans_expr (ECase e [Alt "False" [] [] ef,Alt "True" [] [] et]) k =
       trans_expr (ECase e [Alt "True" [] [] et, Alt "False" [] [] ef]) k
 -}
@@ -292,9 +292,9 @@ trans_prog_decls senv cenv readEnv writeEnv decls = trans_top_decls decls where
 
         (_, returnTyp) <- ask
         return $ F.Eletlabel [(lab, F.Function [(x,t')] returnTyp k')]
-	         (F.Ecase a alts' (Just (dummy, defaultExpr))))
+                 (F.Ecase a alts' (Just (dummy, defaultExpr))))
    where trans_alt lab (Alt c ts xs earm) =
-	     do aa <- fresh "d$"
+             do aa <- fresh "d$"
                 earma <- withVarBinds' [
                           (x, VarBind (F.Aload (F.Avar aa (F.Frecordt tcon tag)) ofs t') Nothing)
                             | x <- xs | ofs <- [0..] | t' <- ts'] $
@@ -337,7 +337,7 @@ trans_prog_decls senv cenv readEnv writeEnv decls = trans_top_decls decls where
         (Just toplevel, F.Ffun ts' t') {- | (length ts' > 1) -} ->
           eta_or_app ts' t' estk [] f k
             where f as' k' | toplevel = let F.Avar x' _ = a'
-		                        in k' $ F.Scall (F.Fsignature ts' t') x' as'
+                                        in k' $ F.Scall (F.Fsignature ts' t') x' as'
                            | otherwise = k' $ F.Sapp (F.Fsignature ts' t') a' as'
         _ -> eta_or_app [] (type_of_atom a') estk [] (\([]) k' -> k' (F.Satom a')) k
   trans_expr' estk (ECon c ts _) k | ConBind ts' tcon tag <- lookup_env cenv (c,ts) =
@@ -424,7 +424,7 @@ trans_prog_decls senv cenv readEnv writeEnv decls = trans_top_decls decls where
       fs' <- mapM fresh fs -- new function names
       let ucs = map uncurry_lam (map (\(Defn _ _ (Right e)) -> e) ds)
       {- the following is a bit ugly, because trans_lam is going to translate the
-	 types again in a moment anyway... -}
+         types again in a moment anyway... -}
       let varBinds = [funBind f f' xts e False | f <- fs | f' <- fs' | (xts, e) <- ucs]
       ucs' <- withVarBinds' varBinds $ mapM (\(xts, e) -> lift $ trans_lam xts e) ucs
       k' <- withVarBinds' varBinds $ k
@@ -478,7 +478,7 @@ trans_prog_decls senv cenv readEnv writeEnv decls = trans_top_decls decls where
    do let fs = map (\(Defn f _ _) -> f) ds -- original function names
       let ucs = map uncurry_lam (map (\(Defn _ _ (Right e)) -> e) ds)
       {- the following is a bit ugly, because trans_lam is going to translate the
-	 types again in a moment anyway... -}
+         types again in a moment anyway... -}
       let varBinds = [funBind f f xts e True | f <- fs | (xts, e) <- ucs]
       ucs' <- withVarBinds varBinds $ mapM (uncurry trans_lam) ucs
       return (varBinds, zip fs (map (Right . F.Internal) ucs'))

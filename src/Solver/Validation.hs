@@ -2,7 +2,7 @@
 module Solver.Validation where
 
 import Control.Arrow (first)
-import Control.Monad.Error
+import Control.Monad.Except
 import Control.Monad.State
 import Control.Monad.Writer
 import Data.Either

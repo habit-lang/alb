@@ -1,7 +1,6 @@
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, GeneralizedNewtypeDeriving, UndecidableInstances #-}
 module Syntax.IMPEG.KSubst where
 
-import Control.Monad.Error -- for the Monad (Either String) instance
 import Control.Monad.State
 import Data.List
 import Data.Map (Map)

@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, TypeSynonymInstances, OverlappingInstances, TupleSections, PatternGuards, Rank2Types #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, TypeSynonymInstances, TupleSections, PatternGuards, Rank2Types #-}
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 module Fidget.SpecialTypes (specialTypes) where
 
@@ -52,9 +52,12 @@ data Translation = Translation {
 unit = Translation { typ = typ', ctor = ctor', load = load', cas = cas' } where
   typ' = return Funit
   ctor' 0 [] = return $ Satom (Aconst Ounit)
+  ctor' _ _ = undefined
   load' var tag 0 = error "Internal error: impossible Fload from Unit type"
+  load' _ _ _ = error "Internal error: impossible Fload from Unit type"
   cas' atom [(var, 0, e)] _ = return e
   cas' atom [] (Just (_, def)) = return def
+  cas' _ _ _  = error "This should not happen"
 
 maybeIx ix = maybeType (Fix ix) (Fint) (Oixunsigned ix) (Ointconst ix) (flip Eixcase ix)
 maybeNzero = maybeType (Fnzero) (Fint) (Onzunsigned) (Ointconst 0) (Enzcase)
@@ -66,7 +69,9 @@ maybeType absType repType justOp nothingConst caseOp nothingTag justTag =
   typ' = return repType
   ctor' tag [arg] | tag == justTag = return $ Satom (Aunop justOp arg)
   ctor' tag [] | tag == nothingTag = return $ Satom (Aconst nothingConst)
+  ctor' _ _ = error "ctor This should not happen"
   load' var tag 0 | tag == justTag = return $ (Avar var absType)
+  load' _ _ _ = error "Load error: This should not happen"
   -- Note: clauses may be missing and in any order
   cas' atom alts def = do
     (_, nothingBody) <- getTag nothingTag alts -- hack: assumes argument isn't used

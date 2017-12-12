@@ -93,6 +93,7 @@ instance HasVariables Expr
           freeVariables (EMatch m)              = freeVariables m
           freeVariables (EApp e e')             = freeVariables e ++ freeVariables e'
           freeVariables (EBind _ _ _ _ id e e') = freeVariables e ++ filter (id /=) (freeVariables e')
+          rename _ = id
 
 flattenApp :: Expr -> (Expr, [Expr])
 flattenApp (EApp lhs rhs) = (op, args ++ [rhs])
@@ -146,6 +147,7 @@ instance HasVariables Match
           freeVariables (MCommit e)    = freeVariables e
           freeVariables (MElse m m')   = freeVariables m ++ freeVariables m'
           freeVariables (MGuarded g m) = freeVariables g ++ withoutBound g (freeVariables m)
+          rename _ = id
 
 flattenElses :: Match -> [Match]
 flattenElses (MElse m m') = ms ++ ms'
@@ -163,13 +165,14 @@ flattenGuards m = ([], m)
 --------------------------------------------------------------------------------
 
 data Pattern = PWild
-             | PVar Id Type                           -- TODO: Why is there a type annotation here?
+             | PVar Id Type     -- TODO: Why is there a type annotation here?
              | PCon Inst [Id]
 
 instance HasVariables Pattern
     where freeVariables PWild          = []
           freeVariables (PVar {})      = []
           freeVariables (PCon {})      = []
+          rename _ = id
 
 instance Binder Pattern
     where bound PWild           = []
@@ -196,6 +199,7 @@ instance HasVariables Guard
           freeVariables (GLet ds)     = freeVariables ds
           freeVariables (GSubst _)    = []
           freeVariables (GLetTypes _) = []
+          rename _ = id
 
 --------------------------------------------------------------------------------
 -- Declarations
@@ -211,6 +215,7 @@ instance HasVariables Defn
     where freeVariables (Defn name _ (Right (Gen _ _ body))) =
             filter (name /=) (freeVariables body)
           freeVariables (Defn name _ (Left _)) = []
+          rename _ = id
 
 instance Binder Defn
     where bound (Defn name _ _) = [name]
@@ -234,6 +239,7 @@ concatDecls ds           = Decls (concat [defns | Decls defns <- ds])
 instance HasVariables Decls
     where freeVariables (Decls []) = []
           freeVariables (Decls (d:ds)) = freeVariables d ++ withoutBound d (freeVariables (Decls ds))
+          rename _ = id
 
 instance Binder Decls
     where bound (Decls ds) = concatMap bound ds

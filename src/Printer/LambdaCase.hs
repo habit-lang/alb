@@ -58,7 +58,7 @@ instance Printable Expr
 instance Printable Alt
     where ppr (Alt c [] [] e)   = ppr c <+> text "->" <+> (align (ppr e))
           ppr (Alt c tys ids e) = ppr c <> (commaBraces (map (withPrecedence 0 . ppr) tys))
-				  <+> (cat (punctuate comma (map ppr ids)))
+                                  <+> (cat (punctuate comma (map ppr ids)))
                                   </> text "->" <+> (align (ppr e))
 
 instance Printable Defn

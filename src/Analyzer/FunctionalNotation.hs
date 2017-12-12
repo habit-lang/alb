@@ -4,7 +4,6 @@
 module Analyzer.FunctionalNotation (rewriteFunctionalNotation, emptyFunctionalNotationState, TConEnv(..), Arity(..)) where
 
 import Common
-import Control.Monad.Error
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Writer

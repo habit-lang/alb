@@ -1,7 +1,6 @@
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, FunctionalDependencies, MultiParamTypeClasses, UndecidableInstances, GeneralizedNewtypeDeriving #-}
 module Syntax.IMPEG.TSubst where
 
-import Control.Monad.Error
 import Control.Monad.State
 import Data.List
 import Data.Map (Map)
@@ -174,10 +173,11 @@ data UnificationFailure = TypesFail UnificationMode (Type KId) (Type KId)
                         | KindsDontMatch Kind Kind
                         | TypeNotGeneral
                         | StructuralFail
+                        | QualFail
 
-instance Error UnificationFailure
-    where noMsg = StructuralFail
-          strMsg _ = StructuralFail
+-- instance Error UnificationFailure
+--     where noMsg = StructuralFail
+--           strMsg _ = StructuralFail
 
 typesFail m a b     = Left (TypesFail m a b)
 predsFail m a b     = Left (PredsFail m a b)
@@ -208,8 +208,9 @@ instance Unifies t => Unifies [t]
           match _ [] []             = return emptyUnifier
           match gvars (t:ts) (u:us) = do u <- match gvars t u
                                          u' <- match gvars ts us
-                                         guard (consistentU u u')
-                                         return (composeU u' u)
+                                         if (consistentU u u')
+                                           then (return (composeU u' u)) 
+                                           else Left StructuralFail
           match _ _ _               = Left StructuralFail
 
 varBind :: ([KId], [Id]) -> KId -> Type KId -> Either UnificationFailure Unifier
@@ -259,8 +260,9 @@ instance Unifies (Type KId)
           match gvars (TyApp t u) (TyApp t' u') =
               do s <- match gvars t t'
                  s' <- match gvars u u'
-                 guard (consistentU s s')
-                 return (composeU s' s)
+                 if (consistentU s s')
+                   then (return (composeU s' s))
+                   else (return emptyUnifier)
           match _ (TyCon s) (TyCon s')     | s == s' = return emptyUnifier
           match gvars t (TyVar v)                    = varBind gvars v t
           match _ (TyNat n) (TyNat m)      | n == m  = return emptyUnifier
@@ -279,11 +281,14 @@ instance (Unifies p, Unifies t) => Unifies (Qual p t)
     where unify gvars (ps :=> t) (ps' :=> t') =
               do s <- unify gvars ps ps'
                  s' <- unify gvars (s ## t) (s ## t')
-                 return (composeU s' s)
+                 if (consistentU s s')
+                   then (return (composeU s' s))
+                   else (Left QualFail)
           match gvars (ps :=> t) (ps' :=> t') =
               do s <- match gvars ps ps'
                  s' <- match gvars t t'
-                 guard (consistentU s s')
-                 return (composeU s' s)
+                 if (consistentU s s')
+                   then (return (composeU s' s))
+                   else (Left QualFail)
 
 

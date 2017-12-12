@@ -8,7 +8,7 @@ import Text.PrettyPrint.HughesPJ
 
 import Data.Int
 
-data Token = SIMPLEE | ALLOCE | LETE | LETRECE | IFE | CASEE 
+data Token = SIMPLEE | ALLOCE | LETE | LETRECE | IFE | CASEE
   | ERRORE | GOTOE | GVARA | VARA | CONSTA | INTCONST | AREACONST | LOADA | INT32
   | RELAXA | MODA | IXLEQA | ATA | SELA | IXUNSIGNEDA | NZUNSIGNED | PTR | UNOPA | BINOPA
   | ATOME | CALLE | MINUS | PLUS |  AMPERSAND | APPE
@@ -16,11 +16,11 @@ data Token = SIMPLEE | ALLOCE | LETE | LETRECE | IFE | CASEE
   | BANGEQUAL | STAR | SLASH | PERCENT | SLASHU | PERCENTU | CARET
   | LESSLESS | GREATERGREATER | GREATERGREATERU | EQUALEQUAL | ARRAYA
   | LESS | LESSEQUAL | GREATER | GREATEREQUAL | EQUALEQUALU | BANGEQUALU
-  | LESSU | LESSEQUALU | GREATERU | GREATEREQUALU   
+  | LESSU | LESSEQUALU | GREATERU | GREATEREQUALU
   | INT8U | INT8S | INT16U | INT16S | BANG | TILDE
   | TUNIT | TRECORDT
-  | TFUNT | TIXT | TREFT | F | IXCASEE | TCONT 
-  | STOREDA | STRUCTA | REFC | INTC | IXC 
+  | TFUNT | TIXT | TREFT | F | IXCASEE | TCONT
+  | STOREDA | STRUCTA | REFC | INTC | IXC
   | LETLABELE  | EXTERN | INLINE | INT | FLOAT
   | VOLATILE | NONVOLATILE
   | EXTERNAL | BUILTIN | VLOAD | VSTORE | MEMCPY
@@ -34,16 +34,16 @@ instance Show Expr where
 
 instance Show Token where
    showsPrec _ t = shows (tok t)
-   
+
 instance Show Ftyp where
   showsPrec _ ty = shows (pty ty)
 
 instance Show Function where
   showsPrec _ f = shows (pfunct f)
-  
+
 instance Show SimplExpr where
   showsPrec _ se = shows (psimpleexp se)
-   
+
 instance Show Atom where
   showsPrec _ a = shows (patom a)
 
@@ -125,7 +125,7 @@ toks t = case t of
   TIXT         -> "ix"
   TRECORDT     -> "record"
   TREFT        -> "ref"
-  TUNIT        -> "unit"  
+  TUNIT        -> "unit"
   TNZERO       -> "nzero"
   TPTR         -> "ptr"
   UNOPA        -> "unop"
@@ -260,7 +260,7 @@ pparams = slist . map one
 pbinds :: [(Id, Function)] -> Doc
 pbinds b = vslist (map pbind b)
 
-pbind :: (Id,Function) -> Doc 
+pbind :: (Id,Function) -> Doc
 pbind (v, Function params t body) = slist [pvar v, pparams params, pty t, pexp body]
 
 palts :: [(Id, Nat, Expr)] -> Doc
@@ -281,6 +281,8 @@ pexp (Eixcase a i v b c) = sexp IXCASEE [patom a, pmachint i, pvar v, pexp b, pe
 pexp (Eerror t)          = sexp ERRORE [pty t]
 pexp (Eletlabel functs e)= sexp LETLABELE [pbinds functs, pexp e]
 pexp (Egoto l args t)    = sexp GOTOE [pvar l, patomlist args, pty t]
+pexp (Enzcase _ _ _ _ )  = undefined
+pexp (Erefcase _ _ _ _ _)  = undefined
 
 ptcons :: [(Id, [[Ftyp]])] -> Doc
 ptcons tcs = vslist (map pconstr tcs)
@@ -296,7 +298,7 @@ pvolatility Nonvolatile = tok NONVOLATILE
 
 pstructDecls :: [(Id, StructDesc)] -> Doc
 pstructDecls ss = vslist (map pSd ss)
-  where pSd (sName, StructDesc width ofsMap) = 
+  where pSd (sName, StructDesc width ofsMap) =
           slist [pvar sName, integer width, parens (pstructoffsets ofsMap)]
 
 pstructoffsets :: [(Nat, Area)] -> Doc
@@ -310,7 +312,7 @@ pcmtyp (CMFloat) = tok FLOAT
 pcmsig :: CMSignature -> Doc
 pcmsig (CMSig args res) = slist [slist (map pcmtyp args), opt res]
    where opt Nothing =  empty
-         opt (Just cmt) = pcmtyp cmt 			  
+         opt (Just cmt) = pcmtyp cmt
 
 pfunct :: Function -> Doc
 pfunct (Function params res body) = vslist [pparams params, pty res, pexp body]
@@ -323,8 +325,8 @@ pglobal :: (Id, Global) -> Doc
 pglobal (g, Global t e) = slist $ [pvar g, pty t, pexp e]
 
 pexternalfunc :: ExternalFunction -> Doc
-pexternalfunc (EFexternal id cmsig) = slist $ [tok EXTERNAL, pid (fromString id), pcmsig cmsig]
-pexternalfunc (EFbuiltin id cmsig) = slist $ [tok BUILTIN, pid (fromString id), pcmsig cmsig]
+pexternalfunc (EFexternal iden cmsig) = slist $ [tok EXTERNAL, pid (fromString iden), pcmsig cmsig]
+pexternalfunc (EFbuiltin iden cmsig) = slist $ [tok BUILTIN, pid (fromString iden), pcmsig cmsig]
 pexternalfunc (EFvload memchunk) = slist $ [tok VLOAD, pmemchunk memchunk]
 pexternalfunc (EFvstore memchunk) = slist $ [tok VSTORE, pmemchunk memchunk]
 pexternalfunc (EFmemcpy size alignment) = slist $ [tok MEMCPY, int size, int alignment]
@@ -346,7 +348,7 @@ pfundecs = parens . vcat . (map pfundec)
 
 pprogram :: Program -> Doc
 pprogram (Program globals funs mainId initFun tconEnv areaDecls structDecls) =
-  vslist 
+  vslist
        [pvar initFun,
         pvar mainId,
         ptcons tconEnv,

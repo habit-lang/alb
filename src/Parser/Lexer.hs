@@ -29,9 +29,9 @@ languageDef  = T.LanguageDef {
                , T.commentLine    = "--"
                , T.nestedComments = True
                , T.identStart     = letter
-               , T.identLetter	 = alphaNum <|> oneOf "_'"
-               , T.opStart	 = T.opLetter languageDef
-               , T.opLetter	 = oneOf ":!#$%&*+./<=>?@\\^|-~"
+               , T.identLetter   = alphaNum <|> oneOf "_'"
+               , T.opStart       = T.opLetter languageDef
+               , T.opLetter      = oneOf ":!#$%&*+./<=>?@\\^|-~"
                , T.reservedNames = [ "area","bitdata","case", "class"
                                    , "data", "deriving", "do", "else"
                                    , "extends", "fails", "if", "in"

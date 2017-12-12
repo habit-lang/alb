@@ -292,11 +292,11 @@ deriving instance Typeable Program
 #else
 
 #define INSTANCE_TYPEABLE_P(tycon,str) \
-instance (Typeable1 p, Typeable tyid) => Typeable (tycon p tyid) where \
+instance (Typeable p, Typeable tyid) => Typeable (tycon p tyid) where \
   typeOf (_ :: tycon p tyid) = mkTyConApp (mkTyCon str) [typeOf1 (undefined :: p ()), typeOf (undefined :: tyid)]
 
 #define INSTANCE_TYPEABLE_P2(tycon,str) \
-instance (Typeable1 p, Typeable tyid, Typeable typaram) => Typeable (tycon p tyid typaram) where \
+instance (Typeable p, Typeable tyid, Typeable typaram) => Typeable (tycon p tyid typaram) where \
   typeOf (_ :: tycon p tyid typaram) = mkTyConApp (mkTyCon str) [typeOf1 (undefined :: p ()), typeOf (undefined :: tyid), typeOf (undefined :: typaram)]
 
 INSTANCE_TYPEABLE_P(Scheme,"Scheme")
@@ -313,7 +313,7 @@ INSTANCE_TYPEABLE_P2(Program,"Program")
 
 #endif
 
-instance (Typeable1 p, Data (p (Located (Type tyid))), Data tyid, Data typaram) =>
+instance (Typeable p, Data (p (Located (Type tyid))), Data tyid, Data typaram) =>
          Data (TopDecl p tyid typaram) where
   gfoldl k z (Datatype x1 x2 x3 x4) = z Datatype `k` x1 `k` x2 `k` x3 `k` x4
   gfoldl k z (Bitdatatype x1 x2 x3 x4) = z Bitdatatype `k` x1 `k` x2 `k` x3 `k` x4
@@ -322,13 +322,16 @@ instance (Typeable1 p, Data (p (Located (Type tyid))), Data tyid, Data typaram) 
   gfoldl k z (Class x1 x2 x3 x4 x5) = z Class `k` x1 `k` x2 `k` x3 `k` x4 `k` x5
   gfoldl k z (Instance x1 x2 x3) = z Instance `k` x1 `k` x2 `k` x3
   gfoldl k z (Require x1 x2) = z Require `k` x1 `k` x2
+  gunfold k z _ = undefined
+  toConstr = undefined
+  dataTypeOf = undefined
 
-
-instance (Typeable1 p, Data (p (Located (Type tyid))), Data tyid, Data typaram) =>
+instance (Typeable p, Data (p (Located (Type tyid))), Data tyid, Data typaram) =>
          Data (Program p tyid typaram) where
   gfoldl k z (Program x1 x2 x3) = z Program `k` x1 `k` x2 `k` x3
-
-
+  gunfold k z _ = undefined
+  toConstr = undefined
+  dataTypeOf = undefined
 
 -- Rather than manually defining these instances, we use Template Haskell to do it for us.
 
@@ -345,7 +348,11 @@ $(let types = [''Scheme, ''Decls, ''Primitive, ''Signature, ''TypingGroup, ''Pat
                TyConI dec <- reify x
                case dec of
                  DataD [] name typarams _ cons _  ->
-                   [d|instance (Typeable1 p, Data (p (Located (Type tyid))), Data tyid) => Data ($(conT name) p tyid) where gfoldl k z x = $(caseE (varE 'x) (map (mkClause 'k 'z) cons)) |]
+                   [d|instance (Typeable p, Data (p (Located (Type tyid))), Data tyid) => Data ($(conT name) p tyid)
+                         where gfoldl k z x = $(caseE (varE 'x) (map (mkClause 'k 'z) cons))
+                               gunfold k z _ = undefined
+                               toConstr = undefined
+                               dataTypeOf = undefined|]
   in (return . concat) =<< mapM mkInstance types)
 
 #else
@@ -360,8 +367,12 @@ $(let types = [''Scheme, ''Decls, ''Primitive, ''Signature, ''TypingGroup, ''Pat
       mkInstance x = do
                TyConI dec <- reify x
                case dec of
-                 DataD [] name typarams cons _ ->
-                   [d|instance (Typeable1 p, Data (p (Located (Type tyid))), Data tyid) => Data ($(conT name) p tyid) where gfoldl k z x = $(caseE (varE 'x) (map (mkClause 'k 'z) cons)) |]
+                 DataD [] name typarams _ cons _  ->
+                   [d|instance (Typeable p, Data (p (Located (Type tyid))), Data tyid) => Data ($(conT name) p tyid)
+                        where gfoldl k z x = $(caseE (varE 'x) (map (mkClause 'k 'z) cons))
+                              gunfold k z _ = undefined
+                              toConstr = undefined
+                              dataTypeOf = undefined|]
   in (return . concat) =<< mapM mkInstance types)
 
 #endif

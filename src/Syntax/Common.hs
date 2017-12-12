@@ -1,7 +1,6 @@
 {-# LANGUAGE FlexibleInstances, TypeSynonymInstances, MultiParamTypeClasses, DeriveDataTypeable #-}
 module Syntax.Common (module Syntax.Common, SourcePos, newPos, fromString) where
 
-import Control.Monad.Error
 import Data.Char
 import Data.Generics hiding (Fixity)
 import Data.List
@@ -31,7 +30,9 @@ instance Ord Id
 
 instance Data Id where
   gfoldl k z id = z id
-
+  gunfold k z id = undefined
+  toConstr = undefined
+  dataTypeOf = undefined
 
 instance IsString Id
     where fromString = toId
@@ -130,13 +131,6 @@ introducedPosition = newPos "<introduced>" 0 0
 introduced :: t -> Located t
 introduced = At (Location introducedPosition introducedPosition)
 
--- We use pairs of a possible source position and string as errors
-
-instance Error (Maybe SourcePos, String)
-    where strMsg s = (Nothing, s)
-          noMsg    = (Nothing, "")
-
---
 
 data PredFN ty = PredFN Id [ty] (Maybe ty) Flag
                  deriving (Eq, Show, Typeable, Data)

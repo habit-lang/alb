@@ -3,7 +3,6 @@
 module Typechecker.KindInference (inferKinds, emptyKindInferenceState, KindEnv) where
 
 import Common
-import Control.Monad.Error
 import Control.Monad.State
 import Data.Graph (SCC, flattenSCC, stronglyConnComp)
 import Data.List ((\\), intercalate, nub)

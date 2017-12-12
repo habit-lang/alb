@@ -39,7 +39,7 @@ combination of ts and es that is required in a particular program.
 > {-# NOINLINE trace #-}
 > doTrace = unsafePerformIO (newIORef False)
 > trace s x = unsafePerformIO (do b <- readIORef doTrace
->                                 when b (Trace.putTraceMsg s)
+>                                 when b (Trace.traceIO s)
 >                                 return x)
 
 We implement a pass suitable for combining with other portions of the front end.

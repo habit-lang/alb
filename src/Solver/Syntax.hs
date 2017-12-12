@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, OverlappingInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Solver.Syntax (module Solver.Syntax, Kind(..), Kinded(..), Id(..), Location(..), toId, fromId, freshPrefix, fromString, kind) where
 
 import Data.Maybe (fromMaybe)
@@ -311,12 +311,12 @@ instance ModFD Pred
           Pred cl ts fl loc `atDetermined` (_ :~> determined)   = Pred cl (keepIdxs determined ts) fl loc
           Pred cl ts fl loc `atDetermining` (determining :~> _) = Pred cl (keepIdxs determining ts) fl loc
 
-instance ModFD a => ModFD (a -> b)
+instance {-# OVERLAPPING #-} ModFD a => ModFD (a -> b)
     where f `modFD`         fd = \a -> f (a `modFD` fd)
           f `atDetermined`  fd = \a -> f (a `atDetermined` fd)
           f `atDetermining` fd = \a -> f (a `atDetermining` fd)
 
-instance (ModFD a, ModFD b) => ModFD (a -> b -> c)
+instance {-# OVERLAPPING #-} (ModFD a, ModFD b) => ModFD (a -> b -> c)
     where f `modFD`         fd = \a b -> f (a `modFD` fd) (b `modFD` fd)
           f `atDetermined`  fd = \a b -> f (a `atDetermined` fd) (b `atDetermined` fd)
           f `atDetermining` fd = \a b -> f (a `atDetermining` fd) (b `atDetermining` fd)
