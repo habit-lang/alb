@@ -526,10 +526,8 @@ dataCtor = choice [ try $ do lhs <- located atype
                                >> commaSep1 (located predicate)
                              universals <- option []
                                $ reserved "forall"
-                               >> spaceSep1 (aVarid)
+                               >> spaceSep1 aVarid
                              return (Ctor name universals preds [lhs, rhs])
-                             -- return (Ctor name [] preds [lhs, rhs])
-                             -- [ANI] FIXME: 2nd args should return the ctorParams
                   , do name <- located conid
                        fields <- many (located atype)
                        preds <- option []
@@ -537,10 +535,8 @@ dataCtor = choice [ try $ do lhs <- located atype
                          >> commaSep1 (located predicate)
                        universals <- option []
                          $ reserved "forall"
-                         >> spaceSep1 (aVarid)
+                         >> spaceSep1 aVarid
                        return (Ctor name universals preds fields) ]
-                       --return (Ctor name [] preds fields) ]
-                       -- [ANI] FIXME: 2nd args should returns the ctorParams
 
 deriveList :: ParseM [Id]
 deriveList  = option []
