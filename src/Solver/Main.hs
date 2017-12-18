@@ -1094,7 +1094,7 @@ solve (Q axioms fds rqs ops (gvs0, gkvs0) tvs0 uniformVariables hypotheses concl
                                                     , improvement = untag (substitution (_trail st))
                                                     , exFalso     = False
                                                     , nodes       = nodeCount st }
-                        where (proofs, []) = concatEntrails (map (entrails . nodeFrom) (ascend (here st)))
+                        where (proofs, [], _) = concatEntrails (map (entrails . nodeFrom) (ascend (here st)))
                     answer (Done True) = AnsProved { evidence    = [ (pid, PExFalso) | pid <- pids ]
                                                    , improvement = untag (substitution (_trail st))
                                                    , exFalso     = True
@@ -1102,31 +1102,43 @@ solve (Q axioms fds rqs ops (gvs0, gkvs0) tvs0 uniformVariables hypotheses concl
                         where pids = [ name | Tree (Goal name _ _ _) _ <- ascend (here st) ]
                     answer CantProgress = AnsStuck { evidence    = proofs
                                                    , remaining   = remaining
-                                                   , improvement = untag (substitution (_trail st))
+                                                   , improvement = impr
                                                    , nodes       = nodeCount st }
-                        where (proofs, remaining) = concatEntrails (map (entrails . nodeFrom) (ascend (here st)))
+                        where (proofs, remaining, entrailsImpr) = concatEntrails (map (entrails . nodeFrom) (ascend (here st)))
+                              impr = case concatSubsts [s, entrailsImpr] of
+                                       Nothing -> s
+                                       Just s' -> s'
+                                  where s = untag (substitution (_trail st))
                     answer Failed = AnsFailed { contradicted = p, nodes = nodeCount st }
                         where Cursor _ t = here st
                               Just p     = contradiction (nodeFrom t)
 
-                    concatEntrails es = (concat evss, concat remainings)
-                        where (_, evss, remainings) = unzip3 (map fromJust es)
+                    concatEntrails es = (concat evss, concat remainings, fromMaybe empty (concatSubsts imprs))
+                        where (_, evss, remainings, imprs) = unzip4 (map fromJust es)
 
                     ascend (Cursor (Forest left right) here) =
                         reverse left ++ here : right
                     ascend (Cursor (NodeP node left up right meta) here) =
                         ascend (Cursor up (Tree (withChildren node (reverse left ++ here : right)) meta))
 
-                    entrails :: Node -> Maybe (Proof, [(PId, Proof)], [(PId, Pred)])
-                    entrails (Goal id p _ Nothing) = Just (PAssump id id, [], [(id, p)])
+
+                    -- The entrails of a node are (p, evs, remaining, impr) where:
+                    --   p          is the proof being constructed at this node
+                    --   evs        is any proofs constructed below the current node
+                    --   remaining  is the goals remaining to be proved in this node
+                    --   subst      is the improvement required at this node.
+
+                    entrails :: Node -> Maybe (Proof, [(PId, Proof)], [(PId, Pred)], Subst)
+                    entrails (Goal id p _ Nothing) = Just (PAssump id id, [], [(id, p)], empty)
                     entrails (Goal id p _ (Just t)) =
                         case entrails (nodeFrom t) of
-                          Nothing -> Just (PAssump id id, [], [(id, p)])
-                          Just (pr, evs, remaining) -> Just (pr, (id, pr) : evs, remaining)
+                          Nothing -> Just (PAssump id id, [], [(id, p)], empty)
+                          Just (pr, evs, remaining, impr) -> Just (pr, (id, pr) : evs, remaining, impr)
                     entrails (Clause name goal spin axid typs conditions (Right subtrees))
                         | null conditions || any (\(_, cond, _) -> isEmpty cond) conditions =
-                            do (prs, evs, remaining) <- unzip3 `fmap` mapM (entrails . nodeFrom) subtrees
-                               return (PClause name axid typs prs, concat evs, concat remaining)
+                            let clauseImprs = [impr | (_, cond, impr) <- conditions, isEmpty cond] in
+                            do (prs, evs, remaining, imprs) <- unzip4 `fmap` mapM (entrails . nodeFrom) subtrees
+                               return (PClause name axid typs prs, concat evs, concat remaining, fromMaybe empty (concatSubsts (imprs ++ clauseImprs)))
                         | otherwise = Nothing
                     entrails (Computed {}) = Nothing
                     entrails (Chain passed current remaining) =
@@ -1144,7 +1156,7 @@ solve (Q axioms fds rqs ops (gvs0, gkvs0) tvs0 uniformVariables hypotheses concl
                               skipped (Complete { proof = PInapplicable }) = True
                               skipped (Complete { proof = PSkip _ _ })     = True
                               skipped _                                    = False
-                    entrails (Complete name _ Proving [] pr) = Just (pr, [(name, pr)], [])
+                    entrails (Complete name _ Proving [] pr) = Just (pr, [(name, pr)], [], empty)
                     entrails (Exhausted t) = entrails (nodeFrom t)
                     entrails (Stuck t) = entrails (nodeFrom t)
                     entrails t = Nothing
