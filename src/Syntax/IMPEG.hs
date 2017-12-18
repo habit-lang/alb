@@ -1,10 +1,18 @@
-{-# LANGUAGE CPP, FlexibleContexts, FlexibleInstances, TypeSynonymInstances, UndecidableInstances, DeriveDataTypeable, StandaloneDeriving, TemplateHaskell, ScopedTypeVariables #-}
+{-# LANGUAGE CPP                  #-}
+{-# LANGUAGE DeriveDataTypeable   #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE StandaloneDeriving   #-}
+{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Syntax.IMPEG (module Syntax.Common, module Syntax.IMPEG) where
 
-import Language.Haskell.TH hiding (Match, Type, Guard, Kind)
-import Data.Generics hiding (Fixity)
-import Data.List
-import Syntax.Common
+import           Data.Generics       hiding (Fixity)
+import           Data.List
+import           Language.Haskell.TH hiding (Guard, Kind, Match, Type)
+import           Syntax.Common
 
 --------------------------------------------------------------------------------
 -- Kinds and types
