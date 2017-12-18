@@ -44,7 +44,7 @@ setup = do tests <- (map read . lines) `fmap` readFile "./tests/solver/catalog"
            mapM_ setup' tests
            putStrLn ""
     where setup' (X _ _) =
-              putStr "X"
+              putStr "O"
           setup' (T args resultsFile) =
               do putStr resultsFile
                  (_, Just stdout, _, _) <- createProcess (proc "./ilab" args) { std_out = CreatePipe }
