@@ -126,11 +126,8 @@ braceList xs      = braces (align (cat (punctuate (comma <> line) (map ppr xs)))
 instance Printable Pattern
     where ppr PWild                 = text "_"
           ppr (PVar id ty)          = atPrecedence 9 (varName id <::> ppr ty)
-          ppr (PCon c ts ebinds vs) = atPrecedence 9 (group (hang 4 (vsep [ ppr c <> align (group (vcat [ pprTyArgs, pprEvBinds ]))
+          ppr (PCon inst vs)        = atPrecedence 9 (group (hang 4 (vsep [ ppr inst
                                                                           , hsep (map varName vs)])))
-              where pprTyArgs = withPrecedence 0 (braceList ts)
-                    pprEvBinds = withPrecedence 0 (commaBraces [ppr v <::> ppr e | (v, e) <- ebinds])
-
 
 ----------------------------------------------------------------------------------------------------
 

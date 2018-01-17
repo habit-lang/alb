@@ -9,21 +9,19 @@ Name:                alb
 Version:             0.1
 
 -- A short (one-line) description of the package.
-Synopsis:            A Habit Compiler
+Synopsis:            A Habit compiler
 
 -- A longer description of the package.
-Description:      A compiler for the functional language called Habit, targetting
-                  the Fidget intermediate language (for which there is a
-                  Fidget to [x86,PPC,ARM] backend based on compcert).
+Description:      A compiler for the functional language Habit.
 
 -- The license under which the package is released.
 License:             BSD3
 
 -- The file containing the license text.
-License-file:        LICENSE
+-- License-file:        LICENSE
 
 -- The package author(s).
-Author:              HASP
+Author:              The Alb contributors
 
 -- An email address to which users can send suggestions, bug reports,
 -- and patches.
@@ -43,35 +41,6 @@ Build-type:          Simple
 -- Constraint on the version of Cabal needed to build this package.
 Cabal-version:       >=1.2
 
-Library
-  Build-Depends:  base >= 4 && < 5, parsec >= 3.1.1, mtl >= 2, strict >= 0.3, indentation >= 0.2.1
-  exposed-modules: Common, Delayed, Literate, Parser
-                 , Solver, Specializer, Typechecker
-                 , Analyzer.Desugaring, Analyzer.Fixity, Analyzer.Freshening
-                 , Analyzer.FunctionalNotation, Analyzer.Tuples
-                 , Fidget.AST, Fidget.CollectExterns, Fidget.Env, Fidget.FidgetCleanup
-                 , Fidget.LambdaCaseToFidget, Fidget.Mangle, Fidget.Pretty
-                 , Fidget.RenameTypes, Fidget.RenameVars, Fidget.SpecialTypes
-                 , Fidget.Thunkify, Fidget.Utils
-                 , Normalizer.EtaInit, Normalizer.Inliner, Normalizer.PatternMatchCompiler
-                 , Parser.Lexer, Parser.Main, Parser.Monad
-                 , Printer.Common, Printer.IMPEG
-                 , Printer.LambdaCase, Printer.Specialized
-                 , Printer.Surface, Printer.WadlerLeijen, Printer.XMPEG
-                 , Solver.All, Solver.Cycles, Solver.Main, Solver.Oracles
-                 , Solver.Parser, Solver.PP, Solver.REPL, Solver.Subst
-                 , Solver.Syntax, Solver.Tactics, Solver.Trace, Solver.Validation
-                 , Syntax.Common, Syntax.IMPEG, Syntax.LambdaCase, Syntax.Surface
-                 , Syntax.XMPEG, Syntax.Specialized, Syntax.IMPEG.KSubst
-                 , Syntax.IMPEG.TSubst, Syntax.LambdaCase.SCC, Syntax.XMPEG.TSubst
-                 , Typechecker.Cleanup, Typechecker.KindInference, Typechecker.LambdaCase
-                 , Typechecker.LambdaCasePrims, Typechecker.LambdaCasePropagation
-                 , Typechecker.LambdaCaseTyping, Typechecker.TypeInference
-  other-modules:
-  Hs-Source-Dirs: src
-
--- Junk modules: Printer.PrettyMPEG, Solver.RunTests, Printer.LambdaCaseAbstract
-
 Executable alb
   -- .hs or .lhs file containing the Main module.
   Main-is:  Driver.hs
@@ -80,8 +49,26 @@ Executable alb
   Build-depends:    base >= 4 && < 6, parsec >= 3.1.1, mtl >= 2, strict >= 0.3
                   , template-haskell >= 2.4, containers >= 0.3, filepath >= 1.1
                   , directory >= 1.0, pretty >= 1.1, process >= 1.0
-                  , syb >= 0.1, array >= 0.3, transformers >= 0.2, TYB
+                  , syb >= 0.1, transformers >= 0.2
                   , indentation >= 0.2.1
+                  , indentation-core >= 0.0, indentation-parsec >= 0.0
+  Extensions: DoAndIfThenElse, OverloadedStrings
+  Build-tools:
+  Hs-Source-Dirs: src
+
+Executable albc
+  -- .hs or .lhs file containing the Main module.
+  Main-is:  Driver.hs
+
+  -- Packages needed in order to build this package.
+  Build-depends:    base >= 4 && < 6, parsec >= 3.1.1, mtl >= 2, strict >= 0.3
+                  , template-haskell >= 2.4, containers >= 0.3, filepath >= 1.1
+                  , directory >= 1.0, pretty >= 1.1, process >= 1.0
+                  , syb >= 0.1, transformers >= 0.2
+                  , indentation >= 0.2.1
+                  , cmdargs >= 0.10
+                  , temporary >= 1.2.0
+                  , configurator >= 0.3
 
   -- Modules not exported by this package.
   Other-modules:

@@ -1,0 +1,9 @@
+resolver: lts-6.6
+packages:
+  - '.'
+extra-deps: 
+  - indentation-0.3.0.1
+  - indentation-core-0.0
+  - indentation-parsec-0.0 
+  - indentation-trifecta-0.0
+  - trifecta-1.5.2

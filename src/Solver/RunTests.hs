@@ -37,14 +37,14 @@ check (T args resultsFile) =
                   return (Just (T args resultsFile))
     where clear = replicate (length resultsFile) (chr 8) ++ replicate (length resultsFile) ' ' ++ replicate (length resultsFile) (chr 8)
 check (X _ _) =
-    do putStr "X"
+    do putStr "O"
        return Nothing
 
 setup = do tests <- (map read . lines) `fmap` readFile "./tests/solver/catalog"
            mapM_ setup' tests
            putStrLn ""
     where setup' (X _ _) =
-              putStr "X"
+              putStr "O"
           setup' (T args resultsFile) =
               do putStr resultsFile
                  (_, Just stdout, _, _) <- createProcess (proc "./ilab" args) { std_out = CreatePipe }

@@ -1,0 +1,11 @@
+Eq t u | t ~> u, u ~> t.
+Eq t t.
+
+F t u, F t v requires Eq u v.
+
+F Int Bool.
+F t Char if Eq t Int fails.
+
+F Int t?
+F Bool t?
+F t u?

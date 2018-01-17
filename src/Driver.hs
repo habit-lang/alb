@@ -31,6 +31,9 @@ import Fidget.RenameIds
 import Fidget.SpecialTypes
 import Fidget.AddExports
 import Fidget.TailCalls
+import LC.LambdaCaseToLC
+import LC.RenameTypes
+import LCC
 import Normalizer.EtaInit
 import Normalizer.Inliner
 import Normalizer.PatternMatchCompiler
@@ -38,15 +41,16 @@ import Parser
 import Printer.Common hiding (defaultOptions, showKinds, (</>))
 import Printer.IMPEG
 import Printer.LambdaCase
+import Printer.LC
 import Solver.Trace as Solver
 import qualified Syntax.Surface as S
+import Syntax.LC
 import Syntax.XMPEG
 import Specializer
 import Typechecker
 import qualified Typechecker.TypeInference as Inference (doTrace)
 import Typechecker.LambdaCase (checkLCProgram)
 import Typechecker.LambdaCasePropagation (propagateLCTypes)
-import qualified Typechecker.TypeInferenceNew as InferenceNew
 
 import qualified Debug.Trace as Trace
 
@@ -55,13 +59,14 @@ import qualified Debug.Trace as Trace
 data Stage = Desugared
            | KindsInferred
            | TypesInferred
-           | NewTypesInferred
            | Specialized
            | Normalized
            | Annotated
            | Thunkified
+           | LCed
            | Fidgetted
            | Compiled
+           | LCCompiled
 
 data Input = Quiet { filename :: String}
            | Loud  { filename :: String }
@@ -83,6 +88,7 @@ data Options = Options { stage                :: Stage
                        , dotFiles             :: Bool
                        , simplifyNames        :: Bool
                        , compCertOptions      :: CompCertOptions
+                       , lccOptions           :: LCCOptions
                        , populateEnvironments :: Bool
                        , traceSolver          :: Bool
                        , traceSolverInputs    :: Bool
@@ -112,6 +118,7 @@ defaultOptions = Options { stage                = Compiled
                          , dotFiles             = True
                          , simplifyNames        = False
                          , compCertOptions      = defaultCompCertOptions
+                         , lccOptions           = defaultLCCOptions
                          , populateEnvironments = False
                          , traceSolver          = False
                          , traceSolverInputs    = False
@@ -138,9 +145,6 @@ options =
     , Option ['t'] ["St"] (NoArg (\opt -> opt { stage = TypesInferred }))
         "Stop after type inference"
 
-    , Option [] ["ST"] (NoArg (\opt -> opt { stage = NewTypesInferred }))
-        "Stop after type inference (new algorithm)"
-
     , Option [] ["Ss"] (NoArg (\opt -> opt { stage = Specialized }))
         "Stop after specialization"
 
@@ -153,8 +157,14 @@ options =
     , Option [] ["Sh"] (NoArg (\opt -> opt { stage = Thunkified }))
         "Stop after thunkifying lambda_case"
 
+    , Option [] ["Sc"] (NoArg (\opt -> opt { stage = LCed }))
+        "Stop after generating LC"
+
     , Option ['f'] ["Sf"] (NoArg (\opt -> opt { stage = Fidgetted }))
         "Stop after generating Fidget"
+
+    , Option [] ["lcc"] (NoArg (\opt -> opt { stage = LCCompiled }))
+        "Compile using lcc rather than ccomp"
 
     , Option ['O'] [] (ReqArg (\p opt -> opt { optimize = Full (read p) }) "PASSES")
         "Perform PASSES passes of full optimization in Fidget"
@@ -236,7 +246,7 @@ options =
     , Option [] ["simplify-names"] (NoArg (\opt -> opt { simplifyNames = True }))
          "Simplify the resulting Fidget names"
 
-    , Option [] ["compcert-root"] (ReqArg (\x opt -> opt { compCertOptions = (compCertOptions opt) { root = x } }) "PATH")
+    , Option [] ["compcert-root"] (ReqArg (\x opt -> opt { compCertOptions = (compCertOptions opt) { CompCert.root = x } }) "PATH")
          "Root of the CompCert installation"
 
     , Option [] ["ccomp-name"] (ReqArg (\x opt -> opt { compCertOptions = (compCertOptions opt) { ccompExe = x } }) "PATH")
@@ -248,11 +258,20 @@ options =
     , Option [] ["compcert-gc"] (ReqArg (\x opt -> opt { compCertOptions = (compCertOptions opt) { gc = x } }) "PATH")
           "Name of the garbage collector object file"
 
-    , Option [] ["compcert-other"] (ReqArg (\x opt -> opt { compCertOptions = (compCertOptions opt) { otherOptions = x } }) "STRING")
+    , Option [] ["compcert-other"] (ReqArg (\x opt -> opt { compCertOptions = (compCertOptions opt) { CompCert.otherOptions = x } }) "STRING")
           "Other options to ccomp"
 
-    , Option [] ["fake-compcert"] (NoArg (\opt -> opt { compCertOptions = (compCertOptions opt) { fake = True } }))
-          "Gemerate fidget output and ccomp command, but do not actually invoke ccomp"
+    , Option [] ["fake-compcert"] (NoArg (\opt -> opt { compCertOptions = (compCertOptions opt) { CompCert.fake = True } }))
+          "Generate fidget output and ccomp command, but do not actually invoke ccomp"
+
+    , Option [] ["lcc-root"] (ReqArg (\x opt -> opt { lccOptions = (lccOptions opt) { LCC.root = Just x } }) "PATH")
+         "Root of the lcc installation"
+
+    , Option [] ["lcc-other"] (ReqArg (\x opt -> opt { lccOptions = (lccOptions opt) { LCC.otherOptions = x } }) "STRING")
+          "Other options to lcc"
+
+    , Option [] ["fake-lcc"] (NoArg (\opt -> opt { lccOptions = (lccOptions opt) { LCC.fake = True } }))
+          "Generate LC output and lcc command, but do not actually invoke lcc"
 
     , Option [] ["verbose"] (NoArg (\opt -> opt { verbose = True }))
          "Be verbose"
@@ -326,15 +345,19 @@ buildPipeline options =
       Desugared        -> filePipe $ \s q -> toDesugar
       KindsInferred    -> filePipe $ \s q -> toInferKinds
       TypesInferred    -> filePipe $ \s q -> toInferTypes s >=> pure fst
-      NewTypesInferred -> filePipe $ \s q -> toInferTypesNew s >=> pure fst
       Specialized      -> codePipe toSpecialized
       Normalized       -> codePipe toNormalized
       Annotated        -> codePipe toAnnotated
       Thunkified       -> codePipe toThunkified
+      LCed             -> codePipe toLCed
       Fidgetted        -> toFidgetted >=> pure (text . show . pprogram) >=> writeIntermediate
       Compiled         -> case output options of
                             Nothing -> pure (const (hPutStrLn stderr "Cannot compile program without output name"))
                             Just s  -> toFidgetted >=> pure (compile (compCertOptions options) s)
+      LCCompiled       -> case output options of
+                            Nothing -> pure (const (hPutStrLn stderr "Cannot compile program without output name"))
+                            Just s  -> toLCed >=> pure (lccompile (lccOptions options) s)
+
 
     where --filePipe' :: (s -> q -> Pass _ x y) -> (Pass () [(s, (q, x))] [y])
           filePipe' = initial initialState . mapM . (\f -> \(s, (q, p)) -> f s q p)
@@ -360,10 +383,6 @@ buildPipeline options =
             = toInferKinds >=> inferTypes s >=>
               first cleanupProgram
 
-          toInferTypesNew s
-            = toInferKinds >=> up (InferenceNew.inferTypes s) >=>
-              first cleanupProgram
-
           toSpecialized
             = filePipe' (\s q -> toInferTypes s) >=> pure concat' >=> specializeProgram exported
 
@@ -375,7 +394,15 @@ buildPipeline options =
 
           toThunkified
             = toAnnotated >=> thunkifyLC (initialize options) >=> pure etaInit >=>
-              pure (inlineProgram exported) >=> renameProgramCtors >=> renameProgramTypes
+              pure (inlineProgram exported) >=> Fidget.RenameTypes.renameProgramCtors >=> 
+              Fidget.RenameTypes.renameProgramTypes
+
+          toLCed
+            | Nothing <- mainId options = error "Unable to generate LC without main"
+            | Just main <- mainId options = 
+                toAnnotated >=> pure etaInit >=> pure (inlineProgram exported) >=> 
+                LC.RenameTypes.renameProgramCtors >=> LC.RenameTypes.renameProgramTypes >=> 
+                lambdaCaseToLC (Entrypoints exported)
 
           toFidgetted
             | Nothing <- mainId options = error "Unable to generate fidget without main"
@@ -384,7 +411,7 @@ buildPipeline options =
                 optFidget (map fst (exports options)) (optimize options) >=>
                 tailCallOpt exported >=>
                 optFidget (map fst (exports options)) (optimize options) >=>
-	        renameVars (prefix options) >=>
+                renameVars (prefix options) >=>
                 addExports (prefix options) (exports options) (printExportSignatures options) >=>
                 mangleProgram >=> fixIds (map snd (exports options)) (simplifyNames options)
 

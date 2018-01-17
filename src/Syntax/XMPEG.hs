@@ -19,7 +19,7 @@ data Type = TyCon (Kinded Id)
           | TyTuple [Type]
           | TyNat Integer
           | TyLabel Id
-            deriving Eq
+            deriving (Eq, Show)
 
 flattenType :: Type -> (Type, [Type])
 flattenType (TyApp lhs rhs) = (op, ts ++ [rhs])
@@ -169,8 +169,8 @@ flattenGuards m = ([], m)
 --------------------------------------------------------------------------------
 
 data Pattern = PWild
-             | PVar Id Type
-             | PCon Id [Type] [(Id, Pred Type)] [Id]
+             | PVar Id Type                           -- TODO: Why is there a type annotation here?
+             | PCon Inst [Id]
 
 instance HasVariables Pattern
     where freeVariables PWild          = []
@@ -180,13 +180,13 @@ instance HasVariables Pattern
 instance Binder Pattern
     where bound PWild           = []
           bound (PVar v _)      = [v]
-          bound (PCon _ _ _ vs) = vs
+          bound (PCon _ vs)     = vs
 
 --------------------------------------------------------------------------------
 -- Guards
 --------------------------------------------------------------------------------
 
-data Guard = GFrom Pattern Expr
+data Guard = GFrom Pattern Id
            | GLet Decls
            | GSubst EvSubst
            | GLetTypes TypeBinding
@@ -198,7 +198,7 @@ instance Binder Guard
           bound (GLetTypes _) = []
 
 instance HasVariables Guard
-    where freeVariables (GFrom p e)   = freeVariables p ++ freeVariables e
+    where freeVariables (GFrom p id)  = id : freeVariables p
           freeVariables (GLet ds)     = freeVariables ds
           freeVariables (GSubst _)    = []
           freeVariables (GLetTypes _) = []

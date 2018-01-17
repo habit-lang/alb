@@ -1,4 +1,4 @@
-{-# LANGUAGE PatternGuards, OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, PatternGuards, OverloadedStrings #-}
 module Solver.Main where
 
 import Control.Monad (liftM2, replicateM)
@@ -122,32 +122,49 @@ applyRequirement ops pr p (vs, qs, pcon)
 -- either:
 --
 -- * Irrelevant, if the goal and conclusion do not match on the determining parameters;
--- * Intersecting, if the goal and conclusion unify, but do not match, on the determining parameters;
 -- * Confirming, if the goal matches the conclusion on the determining parameters and the conclusion
 --   matches the goal on the the determined parameters; or,
 -- * Contradicting, if the goal matches the conclusion on the determining parameters, but the
 --   conclusion does not match the goal on the determined parameters, or the flags of the goal and
 --   conclusion do not agree.
+-- * Intersecting, if the goal and conclusion unify, but do not match, on the determining parameters.
 --
 -- The payloads and uses of the various states differ between the two uses of the type.
 
-data Restricted t u v w = Irrelevant | IntersectingConfirming t | IntersectingContradicting u | Confirming v | Contradicting w deriving Show
+-- NOTES: restrict is used both in applyAxiom and in improvementFromAxioms/necessaryFromAssumptions.
+-- These usages differ in their treatment of the positions outside the functional dependency.  In
+-- the former case, if the goal differs from the conclusion at one of these positions, the
+-- conclusions is irrelevant, whereas in the latter case they play no role at all.
+--
+--   The treatment of Contradicting is currently broken.  Suppose that we have
+--
+--    C a b c | a ~> b
+--    C Int Float Bool.
+--
+-- And then we provide the query C Int Bool t.  The instance above is being treated as Intersecting,
+-- depending on the additional condition [t :-> Bool].  But this is not the case: contradiction can
+-- be established on the basis of the functional dependency alone.
 
-restrictClause :: ((Pred -> Pred -> Tactic Subst) -> FunDep -> (Pred -> Pred -> Tactic Subst)) ->
-                  FunDep -> Pred -> (AxId, [Type], Qual Pred) ->
-                  Tactic (Restricted Subst [Pred] (AxId, [Type], Subst, [Pred]) [Pred])
-restrictClause mod fd goal (name, ts, hypotheses :=> conclusion) =
-    do r <- restrict mod goal conclusion fd
-       return (case r of
-                 Irrelevant -> Irrelevant
-                 IntersectingConfirming (subst, cond, impr) -> IntersectingConfirming impr
-                 IntersectingContradicting (subst, cond) -> IntersectingContradicting (subst ## hypotheses)
-                 Confirming (subst, impr)
-                     | any (`elem` (vars hypotheses)) (vars (goal `atDetermining` fd)) ->
-                         IntersectingConfirming impr
-                     | otherwise ->
-                         Confirming (name, subst ## ts, impr, subst ## hypotheses)
-                 Contradicting subst -> Contradicting (subst ## hypotheses))
+data Restricted t u v w = Irrelevant | IntersectingConfirming t | IntersectingContradicting u | Confirming v | Contradicting w
+
+----------------------------------------------------------------------------------------------------
+-- Debugging nonsense:
+
+instance (PP t, PP u, PP v, PP w) => PP (Restricted t u v w)
+    where pp _ (Irrelevant) = "Irr"
+          pp _ (IntersectingConfirming x) = "IsectConfirm " ++ ppx x
+          pp _ (IntersectingContradicting x) = "IsectContra " ++ ppx x
+          pp _ (Confirming x) = "Confirm " ++ ppx x
+          pp _ (Contradicting x) = "Contra " ++ ppx x
+
+instance PP (AxId, [Type], Subst, [Pred])
+    where pp _ (_, _, s, ps) = ppx s ++ " if " ++ ppx ps
+
+instance PP t => PP (Maybe t)
+    where pp _ Nothing  = "Nothing"
+          pp _ (Just x) = "Just " ++ ppx x
+
+----------------------------------------------------------------------------------------------------
 
 restrict :: ((Pred -> Pred -> Tactic Subst) -> FunDep -> (Pred -> Pred -> Tactic Subst)) ->
             Pred -> Pred -> FunDep ->
@@ -181,6 +198,21 @@ restrict mod goal conclusion fd
                                         in  return (IntersectingContradicting (subst, cond)))
                                  (return Irrelevant))
 
+restrictClause :: ((Pred -> Pred -> Tactic Subst) -> FunDep -> (Pred -> Pred -> Tactic Subst)) ->
+                  FunDep -> Pred -> (AxId, [Type], Qual Pred) ->
+                  Tactic (Restricted Subst [Pred] (AxId, [Type], Subst, [Pred]) [Pred])
+restrictClause mod fd goal (name, ts, hypotheses :=> conclusion) =
+    do r <- restrict mod goal conclusion fd
+       return (case r of
+                 Irrelevant -> Irrelevant
+                 IntersectingConfirming (subst, cond, impr) -> IntersectingConfirming impr
+                 IntersectingContradicting (subst, cond) -> IntersectingContradicting (subst ## hypotheses)
+                 Confirming (subst, impr)
+                     | any (`elem` (vars hypotheses)) (vars (goal `atDetermining` fd)) ->
+                         IntersectingConfirming impr
+                     | otherwise ->
+                         Confirming (name, subst ## ts, impr, subst ## hypotheses)
+                 Contradicting subst -> Contradicting (subst ## hypotheses))
 
 ----------------------------------------------------------------------------------------------------
 -- Given a set of assumptions ps, necessaryFromAssumptions ... ps returns the improvements and other
@@ -239,7 +271,8 @@ necessaryFromAssumptions axioms fds ops ps = loop ps [] (empty, [])
                           [Confirming (axid, ts, s, ps), Contradicting []] ->
                               let patFor i pid = PFrom (Pat axid ts [nameFor i | i <- [0..length ps - 1]]) (pcon "_") (PAssump pid (nameFor i))
                               in Just (s, [(patFor i, p) | (i, p) <- zip [0..] ps])
-                          _                                                -> trace (show filtered) Nothing
+                          _ ->
+                              trace (unlines (map ppx filtered)) Nothing
                         where filtered = [t | t <- tries, relevant t]
                               relevant Irrelevant = False
                               relevant _          = True
@@ -282,7 +315,7 @@ improvementFromAxioms axioms fds ops goal@(Pred className ts _ _) =
     do axioms' <- mapM (instantiateAxiom ops) (filter (\(Ax _ (Forall _ (_ :=> Pred className' _ _ _) : _)) -> className == className') axioms)
        improvementFrom axioms'
 
-    where classFDs  = fromMaybe [] (lookup className fds)
+    where classFDs = fromMaybe [] (lookup className fds)
 
           -- improvementFrom fds collects the improvements from the given functional dependencies
           -- and instantiated axioms.  For a given functional dependency, we return an improvement
@@ -345,7 +378,7 @@ improvementFromAxioms axioms fds ops goal@(Pred className ts _ _) =
 
                     -- In some cases, it's possible to find "improvements" that don't actually
                     -- provide any new information.  Consider the axioms
-                    -- > Mult t u v | t ~> u v.
+                    -- > Mult t u v | t u ~> v.
                     -- > Mult Z b b.
                     -- > Mult (S a) b d if Mult a b c, Add a c d.
                     -- and the query
@@ -393,9 +426,9 @@ applyAxiom axioms fds ops = node applyAxiom'
                    -- alternatives (as the present clause cannot be isDisproved).
                    ((ax, ts, [], spin, conditions) : _)
                        | trivial conditions ->
-                           case filter (not . isEmpty . snd) conditions of
-                             (_, impr) : _ -> do trace ("Computed improvement in applyAxiom from axiom " ++ ppx ax ++ " applied to " ++ ppx goal) (bind impr)
-                                                 update (Complete name goal spin [] (PAx name ax ts [] []))
+                           case [impr | (_, _, impr) <- conditions, not (isEmpty impr)] of
+                             impr : _ -> do trace ("Computed improvement in applyAxiom from axiom " ++ ppx ax ++ " applied to " ++ ppx goal) (bind impr)
+                                            update (Complete name goal spin [] (PAx name ax ts [] []))
                              _ -> update (Complete name goal spin [] (PAx name ax ts [] []))
                    _ -> do checkDepth
                            (cnode : cnodes) <- mapM new [Clause name goal spin ax ts conditions (Left (map setLocation hypotheses)) |
@@ -408,7 +441,8 @@ applyAxiom axioms fds ops = node applyAxiom'
 
                     setLocation (Pred cl ts f _) = Pred cl ts f loc
 
-                    trivial = null .||. any (isEmpty . fst)
+                    trivial = null .||. any (isEmpty . snd3)
+                        where snd3 (_, x, _) = x
 
                     -- As we know that axioms do not overlap, we can treat all the axioms that match
                     -- a given predicate as one long instance chain: should any clause solve the
@@ -425,19 +459,27 @@ applyAxiom axioms fds ops = node applyAxiom'
                                      Irrelevant ->
                                          Nothing
                                      IntersectingConfirming (subst, conditions) ->
-                                         Just (ax, subst ## typeArgs, subst ## hypotheses, Proving, conditions)
+                                         Just (ax, subst ## typeArgs, subst ## hypotheses, Proving, [(vs, cond, impr) | (cond, impr) <- conditions])
                                      IntersectingContradicting (subst, conditions) ->
-                                         Just (ax, subst ## typeArgs, subst ## hypotheses, Disproving, zip conditions (repeat empty))
+                                         Just (ax, subst ## typeArgs, subst ## hypotheses, Disproving, [(vs, cond, empty) | cond <- conditions])
                                      Confirming (subst, impr) ->
-                                         Just (ax, subst ## typeArgs, subst ## hypotheses, Proving, [(empty, impr)])
+                                         Just (ax, subst ## typeArgs, subst ## hypotheses, Proving, [(vs, empty, impr)])
                                      Contradicting subst ->
                                          Just (ax, subst ## typeArgs, subst ## hypotheses, Disproving, []))
 
-                        where restricted = case flag conclusion of
+                        where vs = [v | TyVar v <- typeArgs]
+
+                              restricted = case flag conclusion of
                                         Exc -> do t <- restrict modFD goal conclusion defaultFD
                                                   return (concatTries [t])
                                         Inc -> do ts <- mapM (restrict modFD goal conclusion) classFDs
-                                                  return (concatTries ts)
+                                                  let r = concatTries ts
+                                                  trace (unlines (["In applyAxiom:",
+                                                                   "    Comparing " ++ ppx (hypotheses :=> conclusion) ++ " to " ++ ppx goal] ++
+                                                                  ["    " ++ ppx (className, [fd]) ++ ":" ++ ppx restricted | (fd, restricted) <- zip classFDs ts] ++
+                                                                  ["    Giving " ++ ppx r]))
+                                                        (return r)
+                                                  -- return (concatTries ts)
 
                               -- Combining tries works differently than combining candidates: as
                               -- long as a clause contradicts or matches under one functional
@@ -450,39 +492,59 @@ applyAxiom axioms fds ops = node applyAxiom'
                               -- > C t Int?
                               -- the goal intersects the query when considered under the first
                               -- functional dependency, but matches under the second.
+
+                              -- TODO: I suspect the above comment is misguided; it's also out of date (what is a candidate?).
+
                               concatTries :: [Restricted (Subst, Subst, Subst) (Subst, Subst) (Subst, Subst) Subst] ->
                                              (Restricted (Subst, [(Subst, Subst)]) (Subst, [Subst]) (Subst, Subst) Subst)
-                              concatTries [Irrelevant] =
-                                  Irrelevant
-                              concatTries [IntersectingConfirming (subst, cond, impr)] =
-                                  IntersectingConfirming (subst, [(cond, impr)])
-                              concatTries [IntersectingContradicting (subst, cond)] =
-                                  IntersectingContradicting (subst, [cond])
-                              concatTries [Confirming (subst, impr)] =
-                                  Confirming (subst, impr)
-                              concatTries [Contradicting subst] =
-                                  Contradicting subst
-                              concatTries (Irrelevant : rest) = Irrelevant
-                              concatTries (IntersectingConfirming (subst, cond, impr) : rest) =
-                                  case concatTries rest of
-                                    IntersectingConfirming (subst', isections) ->
-                                        IntersectingConfirming (subst `compose` subst', (cond, impr) : isections)
-                                    t -> t
-                              concatTries (IntersectingContradicting (subst, cond) : rest) =
-                                  case concatTries rest of
-                                    Irrelevant                                -> Irrelevant
-                                    Contradicting s                           -> Contradicting s
-                                    IntersectingContradicting (subst', conds) -> IntersectingContradicting (subst `compose` subst', cond : conds)
-                                    _                                         -> IntersectingContradicting (subst, [cond])
-                              concatTries (Contradicting subst : rest) =
-                                  case concatTries rest of
-                                    Irrelevant -> Irrelevant
-                                    _          -> Contradicting subst
-                              concatTries (Confirming (subst, impr) : rest) =
-                                  case concatTries rest of
-                                    IntersectingConfirming (subst', conditions) -> IntersectingConfirming (subst `compose` subst', (empty, impr) : conditions)
-                                    Confirming (subst', impr') -> Confirming (subst `compose` subst', impr `compose` impr')
-                                    r                          -> r
+                              concatTries ts
+                                  | null ts' = Irrelevant
+                                  | otherwise = merge ts'
+                                  where ts' = filter notIrrelevant ts
+                                        notIrrelevant Irrelevant = False
+                                        notIrrelevant _          = True
+
+                                        merge [IntersectingConfirming (subst, cond, impr)] =
+                                            IntersectingConfirming (subst, [(cond, impr)])
+                                        merge [IntersectingContradicting (subst, cond)] =
+                                            IntersectingContradicting (subst, [cond])
+                                        merge [Confirming (subst, impr)] =
+                                            Confirming (subst, impr)
+                                        merge [Contradicting subst] =
+                                            Contradicting subst
+                                        merge (IntersectingConfirming (subst, cond, impr) : rest) =
+                                            case merge rest of
+                                              IntersectingConfirming (subst', conditions) ->
+                                                  IntersectingConfirming (subst `compose` subst', (cond, impr) : conditions)
+                                              Confirming (subst', impr') ->
+                                                  IntersectingConfirming (subst `compose` subst', [(cond, impr), (empty, impr')])
+                                                  -- case cond `under` impr' of
+                                                  --   Right cond' | isEmpty cond' -> Confirming (subst', impr')
+                                                  --   _                           -> IntersectingConfirming (subst `compose` subst', [(cond, impr), (empty, impr')])
+                                              -- TODO: should there be a case parallel to the
+                                              -- Confirming/IntersectConfirming case below?  Does the ordering of
+                                              -- instance chains come in?
+                                              -- NOW: there is.
+                                              t -> t
+                                        merge (IntersectingContradicting (subst, cond) : rest) =
+                                            case merge rest of
+                                              Contradicting s                           -> Contradicting s
+                                              IntersectingContradicting (subst', conds) -> IntersectingContradicting (subst `compose` subst', cond : conds)
+                                              _                                         -> IntersectingContradicting (subst, [cond])
+                                        merge (Contradicting subst : rest) =
+                                            Contradicting subst
+                                        merge (Confirming (subst, impr) : rest) =
+                                            case merge rest of
+                                              IntersectingConfirming (subst', conditions) ->
+                                                  IntersectingConfirming (subst `compose` subst', (empty, impr) : conditions)
+                                                  -- let first f (x, y) = (f x, y)
+                                                  --     fromRight (Right x) = x
+                                                  --     conditions' = filter (not . isEmpty . fst) $ map (first (fromRight . (`under` impr))) conditions in
+                                                  -- if null conditions'
+                                                  -- then Confirming (subst, impr)
+                                                  -- else IntersectingConfirming (subst `compose` subst', (empty, impr) : conditions)
+                                              Confirming (subst', impr') -> Confirming (subst `compose` subst', impr `compose` impr')
+                                              r                          -> r
 
 
 -- 'checkCondition cond' returns 'Nothing' if 'cond' is inconsistent with the current substitution,
@@ -491,8 +553,8 @@ applyAxiom axioms fds ops = node applyAxiom'
 -- 'checkCondition [t :-> S u, v :-> S w]' with current substitution [t :-> 4, v :-> x].  In this
 -- case, we would expect checkCondition to return the remaining condition [x :-> S w], and the
 -- binding [u :-> 3].
-checkCondition :: Subst -> Tactic (Maybe (Subst, Subst))
-checkCondition (S ks cond) =
+checkCondition :: [TyId] -> Subst -> Tactic (Maybe (Subst, Subst))     -- RETURN VALUE: (condition, binding)
+checkCondition ws (S ks cond) =
     do checked <- mapM (trail . check) cond
        case unzip `fmap` sequence checked of
          Nothing -> return Nothing
@@ -508,22 +570,22 @@ checkCondition (S ks cond) =
                 Just mu ->
                     let u = plain mu
                     in  conditional (matches u (substitution tr ## t))
-                                    (\bindings -> return (Just (empty, bindings)))
+                                    (\s -> return (Just (partitionSubst (filter (`notElem` ws) (domain s)) s)))
                                     (conditional (unifies u (substitution tr ## t))
-                                                 (\s -> return (Just (partitionSubst (vars u) s)))
+                                                 (\s -> return (Just (partitionSubst (filter (`notElem` ws) (vars u)) s)))
                                                  (return Nothing))
 
 -- Conditions are now stored in (condition, improvement) pairs; given a list l of such pairs, this
 -- checkConditions returns Just l' if all of the conditions are consistent with the current
 -- hypotheses, or Nothing if any of them not.
-checkConditions :: [(Subst, Subst)] -> Tactic (Maybe (Subst, [(Subst, Subst)]))
+checkConditions :: [([TyId], Subst, Subst)] -> Tactic (Maybe (Subst, [([TyId], Subst, Subst)]))  -- RETURN VALUE: (binding, conditions)
 checkConditions ps =
-    do cs <- mapM (checkCondition . fst) ps
+    do cs <- mapM (\(tyids, cond, _) -> checkCondition tyids cond) ps
        case sequence cs of
          Nothing -> return Nothing
          Just cs' -> case concatSubsts (map snd cs') of
                        Nothing -> return Nothing
-                       Just binding -> return (Just (binding, zip (map fst cs') (map snd ps)))
+                       Just binding -> return (Just (binding, [(tyids, cond, impr) | ((cond, _), (tyids, _, impr)) <- zip cs' ps]))
 
 -- Collapses subtrees, if possible.  This can be either because all the subgoals have been proven
 -- (in which case the original goal is proven), because one subgoal is disproven (in which case the
@@ -551,7 +613,7 @@ collapse = explainHeader "collapse" (node collapse')
                                      trace ("Backtracking at " ++ showShort node)
                                            (update (Complete name goal spin
                                                              []                                          -- Conditions are irrelevant to a PSkip: even if the condition
-                                                                                                         -- were satisfied, the clause would still not apply.x
+                                                                                                         -- were satisfied, the clause would still not apply.
                                                              (PSkip axid (i, proof (subgoals !! i)))))   -- TODO: PSkip is not actually a proof of the goal either way.
               where subgoals = map nodeFrom subtrees
                     childDependencies = map (dependsOn . metaFrom) subtrees
@@ -568,49 +630,66 @@ collapse = explainHeader "collapse" (node collapse')
                  solved uvars (current' : passed') `orElse` nextBranch passed' current' rest
               where updateCondition (Tree (Complete name goal spin conditions p) meta) =
                         do updatedCond <- checkConditions conditions
-                           updatedImpr <- sequence `fmap` trail (\tr -> return [impr `under` substitution tr | (_, impr) <- conditions])
+                           updatedImpr <- sequence `fmap` trail (\tr -> return [impr `under` substitution tr | (_, _, impr) <- conditions])
                            case (updatedCond, updatedImpr) of
-                             (Nothing, _) -> return (Tree (Complete name goal Proving [] PInapplicable) meta)
+                             (Nothing, _) -> return (Tree (Complete name goal spin [] PInapplicable) meta)
                              (Just (binding, conditions'), Left _) ->
                                  do bind binding
-                                    return (Tree (Complete name goal Disproving (zip (map fst conditions') (repeat empty)) p) meta)
+                                    return (Tree (Complete name goal Disproving [(tyids, cond, empty) | (tyids, cond, _) <- conditions'] p) meta)
                              (Just (binding, conditions'), Right improvements') ->
                                  (do bind binding
-                                     return (Tree (Complete name goal spin (zip (map fst conditions') improvements') p) meta)) `orElse`
+                                     return (Tree (Complete name goal spin [(tyids, cond, impr) | ((tyids, cond, _), impr) <- zip conditions' improvements'] p) meta)) `orElse`
                                  trace ("Unable to add binding " ++ ppx binding ++ "\nupdating conditions " ++
-                                        intercalate ", " [ppx condition ++ " -> " ++ ppx impr | (condition, impr) <- conditions])
+                                        intercalate ", " [ppx condition ++ " -> " ++ ppx impr | (_, condition, impr) <- conditions])
                                        noProgress
                     updateCondition t = return t
 
                     solved uvars cs = loop [] [] []  (reverse (map nodeFrom cs))
                         where loop skips casesProving casesDisproving (Complete { proof = PInapplicable } : rest) =
                                   loop skips casesProving casesDisproving rest
+
                               loop skips casesProving casesDisproving (t@(Complete { proof = PSkip{} }) : rest) =
                                   loop (t:skips) casesProving casesDisproving rest
+
                               loop skips casesProving casesDisproving ((Complete name goal Proving conditions pr@(PClause _ axid typs ps)) : rest)
-                                  | not (null casesDisproving) = noProgress
-                                  | not (null conditions) && all (not . isEmpty . fst) conditions =
-                                      let (cond, impr) = head conditions
-                                      in  loop skips ((cond, impr, pr) : casesProving) casesDisproving rest
-                                  | null casesProving = let impr = snd (head (filter (isEmpty . fst) conditions))
-                                                        in  (do bind impr
-                                                                update (Complete name goal Proving [] (PAx name axid typs (skipsFrom axid skips) ps))) `orElse`
-                                                            update (Complete name goal Disproving [] (PAx name axid typs (skipsFrom axid skips) ps))
-                                  | all respectsUniformity casesProving =
+                                  | not (null casesDisproving') = trace ("Stuck! Disproving cases: " ++ unlines["    " ++ ppx condition ++ " => " ++ ppx p | (_, condition, _, p) <- casesDisproving']) $
+                                                                  noProgress
+                                  | not (null conditions) && all (\(_, cond, _) -> not (isEmpty cond)) conditions =
+                                      let (tyids, cond, impr) = head conditions
+                                      in  loop skips ((tyids, cond, impr, pr) : casesProving) casesDisproving rest
+                                  | null casesProving' = let impr = head [impr | (_, cond, impr) <- conditions, isEmpty cond]
+                                                         in  (do bind impr
+                                                                 update (Complete name goal Proving [] (PAx name axid typs (skipsFrom axid skips) ps))) `orElse`
+                                                             update (Complete name goal Disproving [] (PAx name axid typs (skipsFrom axid skips) ps))
+                                  | all respectsUniformity casesProving' =
                                       let impr | null conditions = empty
-                                               | otherwise = snd (head (filter (isEmpty . fst) conditions))
-                                      in  update (Complete name goal Proving [] (PCases name (reverse ((empty, impr, PClause name axid typs ps) : casesProving))))
+                                               | otherwise = head [impr | (_, cond, impr) <- conditions, isEmpty cond]
+                                      in  update (Complete name goal Proving [] (PCases name (reverse ((empty, impr, PClause name axid typs ps) : [(cond, impr, p) | (_, cond, impr, p) <- casesProving']))))
+
+                                  where casesProving' = filter (not . excluded) casesProving
+                                        casesDisproving' = filter (not . excluded) casesDisproving
+                                        conditions' | not (null trivial) = trivial
+                                                    | otherwise          = conditions
+                                            where trivial = filter (\(_, cond, _) -> isEmpty cond) conditions
+                                        excluded (_, cond', _, _) =
+                                            all (\(_, cond, impr) -> succeeded (cond' `under` cond) && failed (cond' `under` impr)) conditions'
+                                            where succeeded (Right _) = True
+                                                  succeeded _         = False
+                                                  failed (Left _)     = True
+                                                  failed _            = False
+
                               loop skips casesProving casesDisproving (Complete name goal Disproving conditions pr@(PClause _ axid typs ps) : rest)
                                   | not (null casesProving) = noProgress
-                                  | not (null conditions) && all (not . isEmpty . fst) conditions =
-                                      let (cond, _) = head conditions
-                                      in  loop skips casesProving ((cond, empty, pr) : casesDisproving) rest
+                                  | not (null conditions) && all (\(_, cond, _) -> not (isEmpty cond)) conditions =
+                                      let (tyids, cond, _) = head conditions
+                                      in  loop skips casesProving ((tyids, cond, empty, pr) : casesDisproving) rest
                                   | null casesDisproving = update (Complete name goal Disproving [] (PAx name axid typs (skipsFrom axid skips) ps))
                                   | otherwise = update (Complete name goal Disproving []
-                                                          (PCases name (reverse ((empty, empty, PClause name axid typs ps) : casesDisproving))))
+                                                          (PCases name (reverse ((empty, empty, PClause name axid typs ps) : [(cond, impr, p) | (_, cond, impr, p) <- casesDisproving]))))
+
                               loop _ _ _ _ = noProgress
 
-                              respectsUniformity (cond, impr, p) = all (`notElem` uvars) (domain impr)
+                              respectsUniformity (_, _, impr, _) = all (`notElem` uvars) (domain impr)
 
                               skipsFrom (AxId name _) = go []
                                   where go ss [] = ss
@@ -1020,7 +1099,7 @@ solve (Q axioms fds rqs ops (gvs0, gkvs0) tvs0 uniformVariables hypotheses concl
                                                     , improvement = untag (substitution (_trail st))
                                                     , exFalso     = False
                                                     , nodes       = nodeCount st }
-                        where (proofs, []) = concatEntrails (map (entrails . nodeFrom) (ascend (here st)))
+                        where (proofs, [], _) = concatEntrails (map (entrails . nodeFrom) (ascend (here st)))
                     answer (Done True) = AnsProved { evidence    = [ (pid, PExFalso) | pid <- pids ]
                                                    , improvement = untag (substitution (_trail st))
                                                    , exFalso     = True
@@ -1028,31 +1107,43 @@ solve (Q axioms fds rqs ops (gvs0, gkvs0) tvs0 uniformVariables hypotheses concl
                         where pids = [ name | Tree (Goal name _ _ _) _ <- ascend (here st) ]
                     answer CantProgress = AnsStuck { evidence    = proofs
                                                    , remaining   = remaining
-                                                   , improvement = untag (substitution (_trail st))
+                                                   , improvement = impr
                                                    , nodes       = nodeCount st }
-                        where (proofs, remaining) = concatEntrails (map (entrails . nodeFrom) (ascend (here st)))
+                        where (proofs, remaining, entrailsImpr) = concatEntrails (map (entrails . nodeFrom) (ascend (here st)))
+                              impr = case concatSubsts [s, entrailsImpr] of
+                                       Nothing -> s
+                                       Just s' -> s'
+                                  where s = untag (substitution (_trail st))
                     answer Failed = AnsFailed { contradicted = p, nodes = nodeCount st }
                         where Cursor _ t = here st
                               Just p     = contradiction (nodeFrom t)
 
-                    concatEntrails es = (concat evss, concat remainings)
-                        where (_, evss, remainings) = unzip3 (map fromJust es)
+                    concatEntrails es = (concat evss, concat remainings, fromMaybe empty (concatSubsts imprs))
+                        where (_, evss, remainings, imprs) = unzip4 (map fromJust es)
 
                     ascend (Cursor (Forest left right) here) =
                         reverse left ++ here : right
                     ascend (Cursor (NodeP node left up right meta) here) =
                         ascend (Cursor up (Tree (withChildren node (reverse left ++ here : right)) meta))
 
-                    entrails :: Node -> Maybe (Proof, [(PId, Proof)], [(PId, Pred)])
-                    entrails (Goal id p _ Nothing) = Just (PAssump id id, [], [(id, p)])
+
+                    -- The entrails of a node are (p, evs, remaining, impr) where:
+                    --   p          is the proof being constructed at this node
+                    --   evs        is any proofs constructed below the current node
+                    --   remaining  is the goals remaining to be proved in this node
+                    --   subst      is the improvement required at this node.
+
+                    entrails :: Node -> Maybe (Proof, [(PId, Proof)], [(PId, Pred)], Subst)
+                    entrails (Goal id p _ Nothing) = Just (PAssump id id, [], [(id, p)], empty)
                     entrails (Goal id p _ (Just t)) =
                         case entrails (nodeFrom t) of
-                          Nothing -> Just (PAssump id id, [], [(id, p)])
-                          Just (pr, evs, remaining) -> Just (pr, (id, pr) : evs, remaining)
+                          Nothing -> Just (PAssump id id, [], [(id, p)], empty)
+                          Just (pr, evs, remaining, impr) -> Just (pr, (id, pr) : evs, remaining, impr)
                     entrails (Clause name goal spin axid typs conditions (Right subtrees))
-                        | null conditions || any (isEmpty . fst) conditions =
-                            do (prs, evs, remaining) <- unzip3 `fmap` mapM (entrails . nodeFrom) subtrees
-                               return (PClause name axid typs prs, concat evs, concat remaining)
+                        | null conditions || any (\(_, cond, _) -> isEmpty cond) conditions =
+                            let clauseImprs = [impr | (_, cond, impr) <- conditions, isEmpty cond] in
+                            do (prs, evs, remaining, imprs) <- unzip4 `fmap` mapM (entrails . nodeFrom) subtrees
+                               return (PClause name axid typs prs, concat evs, concat remaining, fromMaybe empty (concatSubsts (imprs ++ clauseImprs)))
                         | otherwise = Nothing
                     entrails (Computed {}) = Nothing
                     entrails (Chain passed current remaining) =
@@ -1070,7 +1161,7 @@ solve (Q axioms fds rqs ops (gvs0, gkvs0) tvs0 uniformVariables hypotheses concl
                               skipped (Complete { proof = PInapplicable }) = True
                               skipped (Complete { proof = PSkip _ _ })     = True
                               skipped _                                    = False
-                    entrails (Complete name _ Proving [] pr) = Just (pr, [(name, pr)], [])
+                    entrails (Complete name _ Proving [] pr) = Just (pr, [(name, pr)], [], empty)
                     entrails (Exhausted t) = entrails (nodeFrom t)
                     entrails (Stuck t) = entrails (nodeFrom t)
                     entrails t = Nothing

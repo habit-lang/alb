@@ -136,17 +136,16 @@ instance Cleanup Match
 --------------------------------------------------------------------------------
 
 instance Cleanup Pattern
-  where cleanup vs exs evs PWild                 = PWild
-        cleanup vs exs evs (PVar i s)            = PVar i (cleanType vs s)
-        cleanup vs exs evs (PCon c ts ebinds is) = PCon c (map (cleanType vs) ts) [(e, cleanType vs p) | (e, p) <- ebinds] is
+  where cleanup vs exs evs PWild          = PWild
+        cleanup vs exs evs (PVar i s)     = PVar i (cleanType vs s)
+        cleanup vs exs evs (PCon inst is) = PCon (cleanup vs exs evs inst) is
 
 --------------------------------------------------------------------------------
 -- Guards
 --------------------------------------------------------------------------------
 
 instance Cleanup Guard
-  where cleanup vs exs evs (GFrom p e)    = GFrom (cleanup vs exs evs p)
-                                                   (cleanup vs exs evs e)
+  where cleanup vs exs evs (GFrom p id)   = GFrom (cleanup vs exs evs p) id
         cleanup vs exs evs (GLet ds)      = GLet (cleanup vs exs evs ds)
 
 --------------------------------------------------------------------------------

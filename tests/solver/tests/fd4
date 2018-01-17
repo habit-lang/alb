@@ -1,0 +1,11 @@
+-- This tests that functional dependencies properly exclude predicates from relations.
+
+C t u | t ~> u, u ~> t.
+
+C T U.
+
+-- Answers should be: Yes [U/u], Yes [T/t], No (on account of the u ~> t dependency).
+
+C T u?
+C t U?
+C U U?

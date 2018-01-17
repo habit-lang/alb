@@ -267,16 +267,22 @@ checkMatch (MGuarded (GFrom (At l p) e) m) expected =
          PWild ->
              do rExpr <- checkExpr e t -- (e', ps)
                 rBody <- checkMatch m expected -- (m', qs)
+                v <- fresh "v"
                 (assumedC, goalsC, used) <- contract introducedLocation (used rExpr) (used rBody)
-                return R{ payload = X.MGuarded (X.GFrom X.PWild (payload rExpr)) (payload rBody)
+                let tys :: TyS
+                    tys = Forall [] ([] :=> introduced t)
+                return R{ payload = X.MGuarded (X.GLet (X.Decls [(X.Defn v (convert tys) (X.Gen [] [] (payload rExpr)))]))
+                                               (X.MGuarded (X.GFrom X.PWild v) (payload rBody))
                         , assumed = assumedC ++ assumed rExpr ++ assumed rBody
                         , goals = goalsC ++ goals rExpr ++ goals rBody
                         , used = used }
          PVar id ->
              do rExpr <- checkExpr e t
                 rBody <- bind introducedLocation id (LamBound t) (checkMatch m expected)
+                let tys :: TyS
+                    tys = Forall [] ([] :=> introduced t)
                 (assumedC, goalsC, used) <- contract introducedLocation (used rExpr) (used rBody)
-                return R{ payload = X.MGuarded (X.GFrom (X.PVar id (convert t)) (payload rExpr)) (payload rBody)
+                return R{ payload = X.MGuarded (X.GLet (X.Decls [(X.Defn id (convert tys) (X.Gen [] [] (payload rExpr)))])) (payload rBody)
                         , assumed = assumedC ++ assumed rExpr ++ assumed rBody
                         , goals = goalsC ++ goals rExpr ++ goals rBody
                         , used = used }
@@ -290,12 +296,15 @@ checkMatch (MGuarded (GFrom (At l p) e) m) expected =
                   failWithS (fromId ctor ++ " requires " ++ multiple arity "argument" "arguments")
 
                 rExpr <- checkExpr e result
+                v <- fresh "v"
+                let tys :: TyS
+                    tys = Forall [] ([] :=> introduced result)
 
                 evs <- freshFor "e" ps
                 envvars <- freeEnvironmentVariables
                 let ps'          = zip evs ps
                     transparents = tvs expected ++ tvs valEnv ++ envvars
-                    ps''         = [(id, convert (dislocate p)) | (id, p) <- ps']
+--                     ps''         = [(id, convert (dislocate p)) | (id, p) <- ps']
                     extVars      = take n tyvars
 
                 rBody <- binds introducedLocation valEnv (checkMatch m expected)
@@ -307,13 +316,18 @@ checkMatch (MGuarded (GFrom (At l p) e) m) expected =
 
                 (assumedC, goalsC, used) <- contract introducedLocation (used rExpr) (used rBody)
 
-                return R{ payload = X.MGuarded (X.GFrom (X.PCon ctor (map X.TyVar tyvars) ps'' vs) (payload rExpr))
+                return R{ payload = X.MGuarded (X.GLet (X.Decls [X.Defn v (convert tys) (X.Gen [] [] (payload rExpr))])) $
+                                    X.MGuarded (X.GFrom (X.PCon (X.Inst ctor (map X.TyVar tyvars) (map X.EvVar evs)) vs) v) $
+                                    payload rBody
+{-
+                                    X.MGuarded (X.GFrom (X.PCon ctor (map X.TyVar tyvars) ps' vs) (payload rExpr))
                                                (foldr (\cbinds m -> case cbinds of
                                                                       Left cs | all null (map snd cs) -> m
                                                                               | otherwise             -> X.MGuarded (X.GLetTypes (Left cs)) m
                                                                       Right (args, results, f)        -> X.MGuarded (X.GLetTypes (Right (args, results, f))) m)
                                                       (X.MGuarded (X.GSubst evsubst) (payload rBody))
                                                       cbindss)
+-}
                         , assumed = assumedC ++ assumed rExpr ++ assumed rBody
                         , goals = goalsC ++ goals rExpr ++ rs
                         , used = used }
@@ -531,9 +545,7 @@ checkTypingGroup (Implicit fs) =
        qs <- mapM (substitute . snd) theGoals'
        ts'' <- mapM substitute ts'
        fds <- inducedDependencies qs
-       let rvs = nub (tvs retainedPs)
-           quantifyingVs = nub (rvs ++ tvs ts'') \\ envvars -- hyper-efficient
-           -- 'qualify t' begins by computing the determined variables given the type t and the
+       let -- 'qualify t' begins by computing the determined variables given the type t and the
            -- functional dependencies from retained.  If all the variables in retained are
            -- determined, it generates a type scheme by quantifying over all the variables in
            -- 'retained => t'; otherwise, it complains about ambiguous types.  Again, we've lost the
@@ -541,17 +553,19 @@ checkTypingGroup (Implicit fs) =
            qualify t =
                let determined = close (tvs t ++ envvars) fds
                    qty = retainedPs :=> introduced t
+                   quantifyingVs = nub (tvs qty) \\ envvars
                    ambiguities = filter (`notElem` determined) quantifyingVs
                in case ambiguities of
-                    [] -> return (quantify quantifyingVs qty)
+                    [] -> return (quantifyingVs, quantify quantifyingVs qty)
                     vs -> failWith (ambiguousTypeError vs qty)
 
-       tyss <- trace (show (hang 4 ("From predicates" <+> cat (punctuate ", " (map ppr qs)) <$>
-                                   "induced dependencies" <+> cat (punctuate ", " (map ppr fds))))) $
-               mapM qualify ts''
+       tyss <- mapM qualify ts'
 
-       let functions    = [X.Defn id (convert tys)
-                                     (X.Gen quantifyingVs
+       let replacements = [(id, X.ELetVar (X.Inst id (map X.TyVar quantifyingVs) (map X.EvVar retainedVs)))
+                          | (id, (quantifyingVs, _)) <- zip ids tyss]
+
+           functions    = [X.Defn id (convert tys)
+                                     (X.Gen vs
                                             retainedVs
                                             (foldr (\cbinds e ->
                                                         case cbinds of
@@ -560,14 +574,12 @@ checkTypingGroup (Implicit fs) =
                                                           Right (args, results, f)        -> X.ELetTypes (Right (args, results, f)) e)
                                                    (X.ESubst replacements evsubst f)
                                                    cbindss))
-                          | (id, tys, f) <- zip3 ids tyss fs']
-           replacements = [(id, X.ELetVar (X.Inst id (map X.TyVar quantifyingVs) (map X.EvVar retainedVs)))
-                          | id <- ids]
+                          | (id, (vs, tys), f) <- zip3 ids tyss fs']
 
        trace (show (hang 4 ("Inferred types" <$>
-                            vcat [ppr id <::> ppr tys <+> "(generalized from" <+> ppr t <> ")" | (id, tys, t) <- zip3 ids tyss ts']) <$>
+                            vcat [ppr id <::> ppr tys <+> "(generalized from" <+> ppr t <> ")" | (id, (_, tys), t) <- zip3 ids tyss ts']) <$>
                     "With free environment variables" <+> cat (punctuate (comma <> space) (map ppr envvars))))
-             (return R{ payload = (functions, Map.fromList (zip ids (map LetBound tyss)))
+             (return R{ payload = (functions, Map.fromList (zip ids (map (LetBound . snd) tyss)))
                       , assumed = deferredAssumptions
                       , goals = deferred
                       , used = used })

@@ -1,0 +1,4 @@
+F t u | t ~> u.
+F t (S t) if O t; F t u fails.
+
+F t u, C u?

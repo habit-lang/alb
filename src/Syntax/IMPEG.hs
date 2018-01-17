@@ -151,11 +151,11 @@ data Pattern p tyid = PWild
                     | PGuarded (Pattern p tyid) (Guard p tyid)
 
 instance Binder (Pattern p t)
-    where bound PWild              = []
-          bound (PVar id)          = [id]
-          bound (PCon _ ids)       = ids
-          bound (PTyped p _)       = bound p
-          bound (PGuarded p g)     = bound p ++ bound g
+    where bound PWild          = []
+          bound (PVar id)      = [id]
+          bound (PCon _ ids)   = ids
+          bound (PTyped p _)   = bound p
+          bound (PGuarded p g) = bound p ++ bound g
 
 instance HasVariables (Pattern p t)
     where freeVariables PWild          = []
@@ -259,8 +259,8 @@ type Primitives p tyid = [Located (Primitive p tyid)]
 -- Programs
 --------------------------------------------------------------------------------
 
-data Program p tyid typaram = Program { decls    :: Decls p tyid
-                                      , topDecls :: TopDecls p tyid typaram
+data Program p tyid typaram = Program { decls      :: Decls p tyid
+                                      , topDecls   :: TopDecls p tyid typaram
                                       , primitives :: Primitives p tyid }
 
 emptyProgram = Program { decls      = emptyDecls
@@ -328,7 +328,28 @@ instance (Typeable1 p, Data (p (Located (Type tyid))), Data tyid, Data typaram) 
          Data (Program p tyid typaram) where
   gfoldl k z (Program x1 x2 x3) = z Program `k` x1 `k` x2 `k` x3
 
+
+
 -- Rather than manually defining these instances, we use Template Haskell to do it for us.
+
+#if defined(MIN_VERSION_GLASGOW_HASKELL) && MIN_VERSION_GLASGOW_HASKELL(8,0,1,0)
+
+$(let types = [''Scheme, ''Decls, ''Primitive, ''Signature, ''TypingGroup, ''Pattern, ''Match, ''Guard, ''Expr]
+      mkClause k z (RecC name args) = mkClause k z (NormalC name (map undefined args))
+      mkClause k z (NormalC name args) = do
+        args' <- mapM (newName . const "y") args
+        let body :: ExpQ
+            body = foldl (\c x -> varE k `appE` c `appE` varE x) (appE (varE z) (conE name)) args'
+        match (conP name (map varP args')) (normalB body) []
+      mkInstance x = do
+               TyConI dec <- reify x
+               case dec of
+                 DataD [] name typarams _ cons _  ->
+                   [d|instance (Typeable1 p, Data (p (Located (Type tyid))), Data tyid) => Data ($(conT name) p tyid) where gfoldl k z x = $(caseE (varE 'x) (map (mkClause 'k 'z) cons)) |]
+  in (return . concat) =<< mapM mkInstance types)
+
+#else
+
 $(let types = [''Scheme, ''Decls, ''Primitive, ''Signature, ''TypingGroup, ''Pattern, ''Match, ''Guard, ''Expr]
       mkClause k z (RecC name args) = mkClause k z (NormalC name (map undefined args))
       mkClause k z (NormalC name args) = do
@@ -342,3 +363,5 @@ $(let types = [''Scheme, ''Decls, ''Primitive, ''Signature, ''TypingGroup, ''Pat
                  DataD [] name typarams cons _ ->
                    [d|instance (Typeable1 p, Data (p (Located (Type tyid))), Data tyid) => Data ($(conT name) p tyid) where gfoldl k z x = $(caseE (varE 'x) (map (mkClause 'k 'z) cons)) |]
   in (return . concat) =<< mapM mkInstance types)
+
+#endif

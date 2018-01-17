@@ -164,7 +164,7 @@ expression.  Our implementation proceeds in three steps:
 >                   (normalizeMatches sms >>= groupMatches)
 
 The normalizeMatches function implements Step 1 described above.  This task
-is easied by the fact that some of the transformations that we might need to
+is eased by the fact that some of the transformations that we might need to
 make here have already been performed in earlier stages of the front end.  In
 particular:
 
@@ -204,31 +204,17 @@ normalized.
 
 
 >   -- Normalize a match of the form s ((p <- e) => m) | sms
->   normFrom :: Subst -> X.Pattern -> X.Expr -> X.Match -> SMS -> PMC SMS
->   normFrom s X.PWild e m sms
+>   normFrom :: Subst -> X.Pattern -> X.Id -> X.Match -> SMS -> PMC SMS
+>   normFrom s X.PWild w m sms
 >     = normMatch s m sms                         -- ((_ <-e) => m) == m
 
->   normFrom s (X.PVar v t) e m sms
->     = case e of
->         X.ELamVar w
->            -> normMatch (extend [v] [applySubst s w] s) m sms  -- (1)
->         _  -> ((s, X.MGuarded (simpleLet v t e) m):)           -- (16)
->                 `fmap` normalizeMatches sms
+>   normFrom s (X.PVar v t) w m sms
+>     = normMatch (extend [v] [applySubst s w] s) m sms  -- (1)
 
->   normFrom s p@(X.PCon _ _ _ _) e m sms
->     = do m' <- target e
+>   normFrom s p@(X.PCon _ _) w m sms
+>     = do m' <- rebuild p w m
 >          ((s, m'):) `fmap` normalizeMatches sms                -- case block
->       where target e
->              = case e of
->                  X.ELamVar w -> rebuild p e m
->                  _           -> error "non variable on right of <-"
-> {-
-> -- Can't use the following because we need an additional type arg for simpleLet:
->                                 do w <- fresh
->                                    n <- rebuild p (ELamVar w) m
->                                    return (X.MGuarded (simpleLet w e) n)
-> -}
->             rebuild p e m = return (X.MGuarded (X.GFrom p e) m)
+>       where rebuild p e m = return (X.MGuarded (X.GFrom p e) m)
 
 Step 2 converts a sequence of XMPEG matches into LambdaCase expressions by
 grouping together adjacent matches of the form  (C vs <- w) => m that use the
@@ -251,7 +237,7 @@ same variable.
 >           e'  <- pmcMatch s m
 >           ((LC.ELet ds' e'):) `fmap` groupMatches sms
 
->   group s (X.MGuarded (X.GFrom (X.PCon c ts [] vs) (X.ELamVar w)) m) sms
+>   group s (X.MGuarded (X.GFrom (X.PCon (X.Inst c ts []) vs) w) m) sms
 >      = gather (applySubst s w) (insert s (c, ts) vs m []) sms
 
 >   group s m sms
@@ -260,7 +246,7 @@ same variable.
 >   -- Gather matches that are part of a case block for a specific
 >   -- variable into a case table.
 >   gather                     :: Id -> CaseTable -> SMS -> PMC [LC.Expr]
->   gather w tab ((s, X.MGuarded (X.GFrom (X.PCon c ts [] vs) (X.ELamVar w')) m):sms) | applySubst s w'==w
+>   gather w tab ((s, X.MGuarded (X.GFrom (X.PCon (X.Inst c ts []) vs) w') m):sms) | applySubst s w'==w
 >                               = gather w (insert s (c, ts) vs m tab) sms
 >   gather w tab sms            = do expr <- makeCase w tab
 >                                    (expr:) `fmap` groupMatches sms

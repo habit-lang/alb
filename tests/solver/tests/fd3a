@@ -1,0 +1,10 @@
+-- This case demonstrates the flaw with a previous implementation of the functional dependency
+-- consistency check.  Note that these instances are not overlapping: the common case is a predicate
+-- of the form 'F m P1' such that 'Double m n' and 'Even P1' hold, but the latter never holds.
+-- However, this does not mean that the instances are consistent.  In particular, because the latter
+-- instance does not constraint 'n', the predicates 'F P4 P2' and 'F P4 P1' would both hold under
+-- these axioms, violating the functional dependency on 'F'.
+
+F t u | t ~> u.
+F m n  if Double n m, Even n.
+F m P1 if Double n m.

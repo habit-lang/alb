@@ -358,7 +358,7 @@ assertClass (Class name params constraints methods defaults) =
               assert (Solver.newOpacity name i)
 
           defaultImpl sigs (mname@(Ident mname' _ _), ps, m) =
-            do implName <- fresh (fromString (mname' ++ "_def"))
+            do implName <- fresh (fromString (mname' ++ "$def"))
                tys      <- case lookup mname sigs of
                              Just tys -> return tys
                              Nothing  -> error "defaultImpl fails to find matching signature"
