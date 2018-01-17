@@ -1,8 +1,6 @@
-data Foo a b = MkFoo1 a
-             | MkFoo2 b
+data Either a b = Left a | Right b
 
-
-data T t =   MkT t u forall u
+data T t =   MkT1 t u forall u
             | MkT2 (v t) forall v
 
 

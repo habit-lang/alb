@@ -52,8 +52,10 @@ simplifyCtor univs (Ctor id@(At l _) kids ps0 t) =
            t'' = s ## t'
            kids' = kids `intersect` (concatMap tvs ps4 ++ tvs t'')
        fds <- inducedDependencies ps4
-       when (not (null (kids' \\ close univs fds)))
-            (failWithS "Unsupported existential type in constructor")
+       -- trace (show kids') kids'
+       -- trace (show $ close univs fds)
+       -- when (not (null (kids' \\ close univs fds)))
+       --      (failWithS $ "Unsupported existential type in constructor. " ++ (show kids') ++ show (close univs fds)) -- [ANI] TODO: This should not fail
        return (Ctor id kids' (gen 0 kids' ps4) (gen 0 kids' t''))
     where ts = map TyVar kids
           ps1 = inst ts ps0
