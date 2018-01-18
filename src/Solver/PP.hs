@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, TypeSynonymInstances, OverlappingInstances, OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, TypeSynonymInstances, OverloadedStrings #-}
 module Solver.PP where
 
 import Data.Char
@@ -45,10 +45,10 @@ parens s = '(' : s ++ ")"
 --------------------------------------------------------------------------------
 -- Standard containers
 
-instance PP t => PP [t]
+instance {-# OVERLAPPING #-} PP t => PP [t]
     where pp _ ts = '[' : intercalate ", " (map (pp 0) ts) ++ "]"
 
-instance (PP a, PP b) => PP (a,b)
+instance {-# OVERLAPPING #-} (PP a, PP b) => PP (a,b)
     where pp _ (a,b) = '(' : pp 0 a ++ ", " ++ pp 0 b ++ ")"
 
 instance (PP a, PP b, PP c) => PP (a, b, c)
@@ -120,14 +120,14 @@ instance PP Axioms
 names = tail loop
     where loop = "" : [l : s | s <- loop, l <- ['a'..'z']]
 
-instance PP (Id, [FunDep])
+instance {-# OVERLAPPING #-} PP (Id, [FunDep])
     where pp _ (clName, fds) = intercalate " " (ppx clName:vars) ++ " | " ++ intercalate ", " (map ppFd fds)
               where ppFd ([] :~> determined) = "~> " ++ intercalate " " (map (vars !!) determined)
                     ppFd (determining :~> determined) = intercalate " " (map (vars !!) determining) ++ " ~> " ++ intercalate " " (map (vars !!) determined)
                     highIdx = maximum (concatMap (\(ts :~> us) -> ts ++ us) fds)
                     vars = take (highIdx + 1) names
 
-instance PP FunDeps
+instance {-# OVERLAPPING #-} PP FunDeps
     where pp _ fds = intercalate "\n" (map ((++ ".") . ppx) fds)
 
 instance PP Requirement
@@ -136,13 +136,13 @@ instance PP Requirement
 instance PP Requirements
     where pp _ rqs = intercalate "\n" (map ((++ ".") . ppx) rqs)
 
-instance PP (Id, [Int])
+instance {-# OVERLAPPING #-} PP (Id, [Int])
     where pp _ (clName, ops) = intercalate " " (ppx clName : vars)  ++ " | " ++ intercalate ", " (map ppOp ops)
               where ppOp n = "opaque " ++ (vars !! n)
                     highIdx = maximum ops
                     vars = take (highIdx + 1) names
 
-instance PP Opacities
+instance {-# OVERLAPPING #-} PP Opacities
     where pp _ ops = intercalate "\n" (map ((++ ".") . ppx) ops)
 
 instance PP AxId

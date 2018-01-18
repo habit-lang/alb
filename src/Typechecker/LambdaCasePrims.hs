@@ -124,8 +124,8 @@ maybeT = tapply1 maybeCon
 
 -- declarations should always match
 -- maybeDecl t = Datatype "Maybe" [t]
---		 [("Nothing", []), 
---		  ("Just", [t])]
+--               [("Nothing", []), 
+--                ("Just", [t])]
 
 ------------------------------------------------------------------------
 -- Booleans:
@@ -143,8 +143,8 @@ bool = TyCon (Kinded "Bool" KStar)
 
 bitdatacase :: Id -> Id -> Type
 bitdatacase tcon dcon = bitdatacase' 
-		        (TyCon (Kinded tcon KStar)) 
-			(TyLabel dcon)
+                        (TyCon (Kinded tcon KStar)) 
+                        (TyLabel dcon)
 
 bitdatacase' :: Type -> Type -> Type
-bitdatacase' = tapply2 (TyCon (Kinded "BitdataCase" (KFun KStar (KFun KLabel KStar)))) 
+bitdatacase' = tapply2 (TyCon (Kinded "BitdataCase" (KFun KStar (KFun KLabel KStar))))

@@ -274,7 +274,7 @@ build_ctor t its gamma (i, tys) = update (update gamma (Term i its) t') (CaseAlt
 bitdata :: Type -> Id -> Type
 bitdata tcon dcon = tapply2 (TyCon (Kinded "BitdataCase" (KFun KStar (KFun KLabel KStar))))
                     tcon
-		    (TyLabel dcon)
+                    (TyLabel dcon)
 
 build_bit_ctor :: Type -> [Type] -> Context -> (Id, [BitdataField]) -> Context
 build_bit_ctor t its gamma (i, _) = update (update gamma (CaseAlt i its) t) (Term i []) conTy

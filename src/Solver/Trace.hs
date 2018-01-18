@@ -19,7 +19,7 @@ doTrace      = unsafePerformIO (newIORef False)
 doTraceInput = unsafePerformIO (newIORef False)
 
 trace_ bref s x = unsafePerformIO (do b <- readIORef bref
-                                      when b (Trace.putTraceMsg s)
+                                      when b (Trace.traceIO s)
                                       return x)
 
 trace      = trace_ doTrace

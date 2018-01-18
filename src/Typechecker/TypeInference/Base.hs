@@ -33,7 +33,7 @@ traceSubst msg (ks, s) = trace (msg ++ "\n" ++ substStr s)
 traceIf b s x = if b then trace s x else x
 doTrace = unsafePerformIO (newIORef False)
 trace s x = unsafePerformIO (do b <- readIORef doTrace
-                                when b (Trace.putTraceMsg s)
+                                when b (Trace.traceIO s)
                                 return x)
 
 ----------------------------------------------------------------------------------------------------

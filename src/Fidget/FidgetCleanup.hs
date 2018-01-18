@@ -8,7 +8,7 @@ import Common (fresh, initial, localState, Pass, PassM(..))
 import Fidget.AST
 import Fidget.Typing
 
-import Control.Monad.Error
+import Control.Monad.Except
 import Control.Monad.State
 import Control.Monad.Reader
 import Data.Bits ((.&.), (.|.), xor)
@@ -69,9 +69,9 @@ everywhereButM' q f x
 runSomewhere :: (a -> Maybe a) -> a -> a
 runSomewhere f e = maybe e id (f e)
 
-runSomewhereM :: (Monad m) => (a -> ErrorT String m a) -> a -> m a
+runSomewhereM :: (Monad m) => (a -> ExceptT String m a) -> a -> m a
 runSomewhereM f e = do
-  e' <- runErrorT (f e)
+  e' <- runExceptT (f e)
   case e' of
     Left _ -> return e
     Right e'' -> return e''
@@ -438,8 +438,8 @@ inline_expr (Eletrec bindings body) = do
 inline_expr (Eletlabel bindings body) = inline_letlabel id bindings body
 inline_expr e = gmapM (runSomewhereM (somewhere
                                         (const mzero `extM`
-                                         (return :: Id -> ErrorT String M Id) `extM`
-                                         (return :: Ftyp -> ErrorT String M Ftyp) `extM`
+                                         (return :: Id -> ExceptT String M Id) `extM`
+                                         (return :: Ftyp -> ExceptT String M Ftyp) `extM`
                                          (lift . inline_expr) `extM`
                                          (lift . inline_atom)))) e
 

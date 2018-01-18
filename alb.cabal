@@ -46,32 +46,199 @@ Executable alb
   Main-is:  Driver.hs
 
   -- Packages needed in order to build this package.
-  Build-depends:    base >= 4 && < 6, parsec >= 3.1.1, mtl >= 2, strict >= 0.3
-                  , template-haskell >= 2.4, containers >= 0.3, filepath >= 1.1
-                  , directory >= 1.0, pretty >= 1.1, process >= 1.0
-                  , syb >= 0.1, transformers >= 0.2
-                  , indentation >= 0.2.1
-                  , indentation-core >= 0.0, indentation-parsec >= 0.0
-  Extensions: DoAndIfThenElse, OverloadedStrings
+  Build-depends:    base >= 4 && < 6
+                  , parsec >= 3.1.1
+                  , mtl >= 2
+                  , strict >= 0.3
+                  , template-haskell >= 2.4
+                  , containers >= 0.3
+                  , filepath >= 1.1
+                  , directory >= 1.0
+                  , pretty >= 1.1
+                  , process >= 1.0
+                  , syb >= 0.1
+                  , transformers >= 0.2
+                  -- , indentation >= 0.2.1
+                  , indentation-core >= 0.0
+                  , indentation-parsec >= 0.0
+  Extensions:       DoAndIfThenElse
+                  , OverloadedStrings
   Build-tools:
   Hs-Source-Dirs: src
+  other-modules:   Analyzer
+                 , Analyzer.Desugaring
+                 , Analyzer.Fixity
+                 , Analyzer.Freshening
+                 , Analyzer.FunctionalNotation
+                 , Analyzer.Tuples
+                 , Common
+                 , CompCert
+                 , Fidget.AST
+                 , Fidget.AddExports
+                 , Fidget.Env
+                 , Fidget.FidgetCleanup
+                 , Fidget.LambdaCaseToFidget
+                 , Fidget.Mangle
+                 , Fidget.Pretty
+                 , Fidget.RenameIds
+                 , Fidget.RenameTypes
+                 , Fidget.RenameVars
+                 , Fidget.SpecialTypes
+                 , Fidget.TailCalls
+                 , Fidget.Thunkify
+                 , Fidget.Typing
+                 , LC.LambdaCaseToLC
+                 , LC.RenameTypes
+                 , LCC
+                 , Literate
+                 , Normalizer.EtaInit
+                 , Normalizer.Inliner
+                 , Normalizer.PatternMatchCompiler
+                 , Parser
+                 , Parser.Lexer
+                 , Parser.Main
+                 , Printer.Common
+                 , Printer.IMPEG
+                 , Printer.LC
+                 , Printer.LambdaCase
+                 , Printer.Specialized
+                 , Printer.Surface
+                 , Printer.WadlerLeijen
+                 , Printer.XMPEG
+                 , Solver
+                 , Solver.Cycles
+                 , Solver.Main
+                 , Solver.Oracles
+                 , Solver.PP
+                 , Solver.Subst
+                 , Solver.Syntax
+                 , Solver.Tactics
+                 , Solver.Trace
+                 , Solver.Validation
+                 , Specializer
+                 , Syntax.Common
+                 , Syntax.IMPEG
+                 , Syntax.IMPEG.KSubst
+                 , Syntax.IMPEG.TSubst
+                 , Syntax.LC
+                 , Syntax.LambdaCase
+                 , Syntax.LambdaCase.SCC
+                 , Syntax.Specialized
+                 , Syntax.Surface
+                 , Syntax.XMPEG
+                 , Syntax.XMPEG.TSubst
+                 , Typechecker
+                 , Typechecker.Cleanup
+                 , Typechecker.KindInference
+                 , Typechecker.LambdaCase
+                 , Typechecker.LambdaCasePrims
+                 , Typechecker.LambdaCasePropagation
+                 , Typechecker.LambdaCaseTyping
+                 , Typechecker.TypeInference
+                 , Typechecker.TypeInference.Base
+                 , Typechecker.TypeInference.Expr
+                 , Typechecker.TypeInference.Instances
+                 , Typechecker.TypeInference.TopDecl
+                 , Utils.BDD
 
 Executable albc
   -- .hs or .lhs file containing the Main module.
   Main-is:  Driver.hs
 
   -- Packages needed in order to build this package.
-  Build-depends:    base >= 4 && < 6, parsec >= 3.1.1, mtl >= 2, strict >= 0.3
-                  , template-haskell >= 2.4, containers >= 0.3, filepath >= 1.1
-                  , directory >= 1.0, pretty >= 1.1, process >= 1.0
-                  , syb >= 0.1, transformers >= 0.2
-                  , indentation >= 0.2.1
+  Build-depends:    base >= 4 && < 6
+                  , parsec >= 3.1.1
+                  , mtl >= 2
+                  , strict >= 0.3
+                  , template-haskell >= 2.4
+                  , containers >= 0.3
+                  , filepath >= 1.1
+                  , directory >= 1.0
+                  , pretty >= 1.1
+                  , process >= 1.0
+                  , syb >= 0.1
+                  , transformers >= 0.2
+                  -- , indentation >= 0.2.1
                   , cmdargs >= 0.10
                   , temporary >= 1.2.0
                   , configurator >= 0.3
 
   -- Modules not exported by this package.
-  Other-modules:
+  Other-modules:  Analyzer
+                , Analyzer.Desugaring
+                , Analyzer.Fixity
+                , Analyzer.Freshening
+                , Analyzer.FunctionalNotation
+                , Analyzer.Tuples
+                , Common
+                , CompCert
+                , Fidget.AST
+                , Fidget.AddExports
+                , Fidget.Env
+                , Fidget.FidgetCleanup
+                , Fidget.LambdaCaseToFidget
+                , Fidget.Mangle
+                , Fidget.Pretty
+                , Fidget.RenameIds
+                , Fidget.RenameTypes
+                , Fidget.RenameVars
+                , Fidget.SpecialTypes
+                , Fidget.TailCalls
+                , Fidget.Thunkify
+                , Fidget.Typing
+                , LC.LambdaCaseToLC
+                , LC.RenameTypes
+                , LCC
+                , Literate
+                , Normalizer.EtaInit
+                , Normalizer.Inliner
+                , Normalizer.PatternMatchCompiler
+                , Parser
+                , Parser.Lexer
+                , Parser.Main
+                , Printer.Common
+                , Printer.IMPEG
+                , Printer.LC
+                , Printer.LambdaCase
+                , Printer.Specialized
+                , Printer.Surface
+                , Printer.WadlerLeijen
+                , Printer.XMPEG
+                , Solver
+                , Solver.Cycles
+                , Solver.Main
+                , Solver.Oracles
+                , Solver.PP
+                , Solver.Subst
+                , Solver.Syntax
+                , Solver.Tactics
+                , Solver.Trace
+                , Solver.Validation
+                , Specializer
+                , Syntax.Common
+                , Syntax.IMPEG
+                , Syntax.IMPEG.KSubst
+                , Syntax.IMPEG.TSubst
+                , Syntax.LC
+                , Syntax.LambdaCase
+                , Syntax.LambdaCase.SCC
+                , Syntax.Specialized
+                , Syntax.Surface
+                , Syntax.XMPEG
+                , Syntax.XMPEG.TSubst
+                , Typechecker
+                , Typechecker.Cleanup
+                , Typechecker.KindInference
+                , Typechecker.LambdaCase
+                , Typechecker.LambdaCasePrims
+                , Typechecker.LambdaCasePropagation
+                , Typechecker.LambdaCaseTyping
+                , Typechecker.TypeInference
+                , Typechecker.TypeInference.Base
+                , Typechecker.TypeInference.Expr
+                , Typechecker.TypeInference.Instances
+                , Typechecker.TypeInference.TopDecl
+                , Utils.BDD
 
   -- Extra tools (e.g. alex, hsc2hs, ...) needed to build the source.
   Build-tools:
