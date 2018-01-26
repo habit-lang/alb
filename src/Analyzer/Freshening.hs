@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 {-# LANGUAGE FlexibleContexts #-}
-module Analyzer.Freshening (freshenProgram, ScopeEnv) where
+module Analyzer.Freshening (freshenProgram
+                           , ScopeEnv) where
 
 -- This module freshens variable bindings by uniquely renaming each
 -- one.  It does not touch type names, constructor names or field
@@ -117,6 +118,8 @@ withFreshVars vars m = do
   local (\_ -> foldr (\ (old, new) env -> Map.insert old new env) env $ zip xs xs') $ m
 
 -- "freshenId" replaces an "Id" with it's binding in the environment.
+freshenId
+  :: Common.MonadBase m => Map.Map Id Id -> Id -> m Id
 freshenId env id | Just id' <- Map.lookup id env = return (maybe id' (flip setFixity id') (getFixity id))
                  | otherwise = failWithS ("Unbound variable " ++ fromId id)
 
@@ -261,6 +264,8 @@ freshenProgram' = rec where
   expr e@(EIf (ScFrom (Just x) _) _ _) = withFreshVars [x] $ gmapM rec e
   expr e@(ECase (ScFrom (Just x) _) _) = withFreshVars [x] $ gmapM rec e
   expr e@(ELam pats _) = withFresh pats $ gmapM rec e
+  expr e@(ELamStr pats _) = withFresh pats $ gmapM rec e
+  expr e@(ELamAmp pats _) = withFresh pats $ gmapM rec e
   expr e@(EBind (Just x) _ _) = withFreshVars [x] $ gmapM rec e
   expr e@(ECon _) = return e
   expr (ESelect e f) = return ESelect `ap` rec e `ap` return f

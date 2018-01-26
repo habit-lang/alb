@@ -72,6 +72,8 @@ data Expr      = ELamVar Id
                | ECon Inst
                | ETuple [Expr]
                | ELam Id Type Expr
+               | ELamStr Id Type Expr
+               | ELamAmp Id Type Expr
                | EMethod Ev Int [Type] [Ev]  -- dictionary method typarams evparams
                | ELet Decls Expr
                | ELetTypes TypeBinding Expr
@@ -106,6 +108,10 @@ flattenApp e = (e, [])
 
 flattenLambda :: Expr -> ([(Id, Type)], Expr)
 flattenLambda (ELam v t e) = ((v, t) : params, body)
+    where (params, body) = flattenLambda e
+flattenLambda (ELamStr v t e) = ((v, t) : params, body)
+    where (params, body) = flattenLambda e
+flattenLambda (ELamAmp v t e) = ((v, t) : params, body)
     where (params, body) = flattenLambda e
 flattenLambda e = ([], e)
 

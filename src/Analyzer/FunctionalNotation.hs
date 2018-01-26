@@ -143,6 +143,8 @@ instance HasTypeFunctions t u => HasTypeFunctions (Maybe t) (Maybe u)
 instance HasTypeFunctions (Expr PredFN Id) (Expr Pred Id)
     where rewrite (ELet decls body)         = liftM2 ELet (rewrite decls) (rewrite body)
           rewrite (ELam var body)           = liftM (ELam var) (rewrite body)
+          rewrite (ELamStr var body)        = liftM (ELamStr var) (rewrite body)
+          rewrite (ELamAmp var body)        = liftM (ELamAmp var) (rewrite body)
           rewrite (EVar id)                 = return (EVar id)
           rewrite (ECon id)                 = return (ECon id)
           rewrite (EBitCon id es)           = EBitCon id `fmap` mapSndM rewrite es

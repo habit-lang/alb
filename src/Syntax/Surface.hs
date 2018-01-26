@@ -48,7 +48,9 @@ data Qual t = [Located Pred] :=> Located t
 data Expr = ELet Decls (Located Expr)
           | EIf Scrutinee (Located Expr) (Located Expr) -- Parser will inject magical "return ()" in if statements
           | ECase Scrutinee [Alt]
-          | ELam [Located Pattern] (Located Expr)
+          | ELam [Located Pattern] (Located Expr)    -- \x  -> ...
+          | ELamStr [Located Pattern] (Located Expr) -- \*x -> ...
+          | ELamAmp [Located Pattern] (Located Expr) -- \&x -> ...
           | EVar Id
           | ECon Id
           | ELit Literal

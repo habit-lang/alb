@@ -15,6 +15,8 @@ import Syntax.Surface hiding (decls, kind)
 import qualified Syntax.Surface as AST
 import Parser.Lexer
 
+import Debug.Trace
+
 {- Section 3.2: Identifiers, symbols, and literals -}
 -- FIXME: the names of the functions here don't quite match the names used
 -- in the language report.
@@ -257,6 +259,14 @@ applic = choice [ do reservedOp "\\"
                      patterns <- many1 (located aPattern)
                      reservedOp "->"
                      ELam patterns `fmap` located expr
+                , do reservedOp "\\*"
+                     patterns <- many1 (located aPattern)
+                     reservedOp "->"
+                     ELamStr patterns `fmap` located expr
+                , do reservedOp "\\&"
+                     patterns <- many1 (located aPattern)
+                     reservedOp "->"
+                     ELamAmp patterns `fmap` located expr
                 , do reserved "do"
                      requireBind =<< block
                 , exprApp

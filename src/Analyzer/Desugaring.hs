@@ -28,6 +28,8 @@ import Syntax.IMPEG hiding (replacement)
 import qualified Syntax.IMPEG.KSubst as K
 import Syntax.IMPEG.TSubst
 
+-- import Debug.Trace
+
 -- DONE: factor out tuples
 -- DONE: factor out isBound
 -- DONE: duplicate name checking (leaving it in for now)
@@ -39,6 +41,7 @@ import Syntax.IMPEG.TSubst
 -- TODO: why can't we have variables in instances? (warn on non-function instance method?)
 -- TODO: gen??
 -- TODO: rejectDuplicates
+-- TODO: how to handle ELamStr/ELamAnd
 
 ----------------------------------------------------------------------------------------------------
 -- Translation monad
@@ -201,6 +204,17 @@ instance Sugared S.Expr (Expr PredFN Id)
                  return (dislocate (foldr elam (introduced (EMatch body')) args'))
               where elam v body = introduced (ELam v body)
 
+          desugar (S.ELamStr patterns body) =
+              do (args', body') <- desugarParameterList patterns (MCommit `fmap` desugar body)
+                 -- traceM ("DEBUG: " ++ args')
+                 return (dislocate (foldr elamStr (introduced (EMatch body')) args'))
+              where elamStr v body = introduced (ELamStr v body)
+
+          desugar (S.ELamAmp patterns body) =
+              do (args', body') <- desugarParameterList patterns (MCommit `fmap` desugar body)
+                 return (dislocate (foldr elamAmp (introduced (EMatch body')) args'))
+              where elamAmp v body = introduced (ELamAmp v body)
+
           desugar e@(S.EVar id) = return (EVar id)
           desugar (S.ECon id) =
               do (bitCtors, structCtors) <- ask
@@ -270,6 +284,7 @@ instance Sugared S.Expr (Expr PredFN Id)
                         introduced (S.EVar "update") @@ e @@ sfield p id @@ val
 
           -- Sections are uniformly rewritten to lambdas
+          -- [ANI] TODO what are sections? will sections produce linear lambdas? if yes when, if now why not?
           desugar (S.ELeftSection lhs (At p opname)) =
               do rhs <- fresh "rhs"
                  desugar (S.ELam [introduced (S.PVar rhs)] (At p (S.EVar opname) @@ lhs @@ introduced (S.EVar rhs)))
@@ -400,6 +415,7 @@ buildGuardedPattern name ps =
 -- below) we need to split a list of patterns into a list of parameters and a match, so we define a
 -- helper function that desugars a list of patterns and an expression into (a) a list of variables
 -- and (b) a match.  The final assembly of these parts is different in the two cases above.
+-- [ANI] Will any of this have to change for ELamStr ELamAmp
 desugarParameterList :: [Located S.Pattern] -> M (Match PredFN Id) -> M ([Id], Match PredFN Id)
 desugarParameterList ps c =
     do body <- c
@@ -526,11 +542,17 @@ instance Sugared S.Decls (Decls PredFN Id)
                     --   f = {^ \x -> m}
                     -- Note that we won't commute a lambda past a let guard or a pattern match
                     -- against anything besides the variable in the outermost lambda.
+                    -- [ANI] TODO: How do we commute Lambdas for \&x \*x?
                     commuteLambdas :: Match PredFN Id -> ([Id], Match PredFN Id)
                     commuteLambdas (MCommit (At _ (ELam v (At _ (EMatch (MGuarded (GFrom p (At l (EVar v'))) body))))))
                         | v == v' = (v:ps, MGuarded (GFrom p (At l (EVar v))) body')
                         where (ps, body') = commuteLambdas body
                     commuteLambdas (MCommit (At _ (ELam v (At _ (EMatch body))))) = (v:ps, body')
+                        where (ps, body') = commuteLambdas body
+                    commuteLambdas (MCommit (At _ (ELamStr v (At _ (EMatch (MGuarded (GFrom p (At l (EVar v'))) body))))))
+                        | v == v' = (v:ps, MGuarded (GFrom p (At l (EVar v))) body')
+                        where (ps, body') = commuteLambdas body
+                    commuteLambdas (MCommit (At _ (ELamStr v (At _ (EMatch body))))) = (v:ps, body')
                         where (ps, body') = commuteLambdas body
                     commuteLambdas m = ([], m)
 

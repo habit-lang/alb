@@ -38,7 +38,9 @@ data Scheme p tyid      = Forall [tyid] (Qual (PredType p tyid) (Type tyid))
 --------------------------------------------------------------------------------
 
 data Expr p tyid = ELet (Decls p tyid) (Located (Expr p tyid))
-                 | ELam Id (Located (Expr p tyid))
+                 | ELam Id (Located (Expr p tyid))    -- \x  -> ...
+                 | ELamStr Id (Located (Expr p tyid)) -- \*x -> ...
+                 | ELamAmp Id (Located (Expr p tyid)) -- \&x -> ...
                  | EVar Id
                  | ECon Id
                  | EBitCon Id [(Id, Located (Expr p tyid))]
@@ -56,6 +58,10 @@ flattenApp t = (t, [])
 flattenLambda :: Expr p t -> ([Id], Expr p t)
 flattenLambda (ELam v (At _ e)) = (v:vs, body)
     where (vs, body) = flattenLambda e
+flattenLambda (ELamStr v (At _ e)) = (v:vs, body)
+    where (vs, body) = flattenLambda e
+flattenLambda (ELamAmp v (At _ e)) = (v:vs, body)
+    where (vs, body) = flattenLambda e
 flattenLambda e = ([], e)
 
 flattenDo :: Expr p t -> ([(Id, Expr p t)], Expr p t)
@@ -72,6 +78,10 @@ instance HasVariables (Expr p t)
               freeVariables ds ++ withoutBound ds (freeVariables body)
           freeVariables (ELam v body) =
               filter (v /=) (freeVariables body)
+          freeVariables (ELamStr v body) =
+              filter (v /=) (freeVariables body)
+          freeVariables (ELamAmp v body) =
+              filter (v /=) (freeVariables body)
           freeVariables (EVar id) = [id]
           freeVariables (ECon id) = []
           freeVariables (EBitCon _ es) = concatMap (freeVariables . snd) es
@@ -86,6 +96,8 @@ instance HasVariables (Expr p t)
 
           rename m (ELet ds e)         = ELet (rename m ds) (rename m e)
           rename m (ELam v e)          = ELam (replacement m v) (rename m e)
+          rename m (ELamStr v e)       = ELamStr (replacement m v) (rename m e)
+          rename m (ELamAmp v e)       = ELamAmp (replacement m v) (rename m e)
           rename m (EVar id)           = EVar (replacement m id)
           rename m (ECon id)           = ECon id
           rename m (EBitCon id fs)     = EBitCon id [(f, rename m e) | (f,e) <- fs]

@@ -123,6 +123,14 @@ instance (TyId tyid, Printable (PredType p tyid), HasTypeVariables (PredType p t
               where (params, body) = flattenLambda e
                     iter [] vs     = group (atPrecedence 0 (hang 4 (backslash <> hsep (map ppr (reverse vs)) <+> "->" <$> ppr body)))
                     iter (p:ps) vs = bindingVar p (\v -> iter ps (v:vs))
+          ppr e@(ELamStr _ _)                   = iter params []
+              where (params, body) = flattenLambda e
+                    iter [] vs     = group (atPrecedence 0 (hang 4 (backslash <> "*" <+> hsep (map ppr (reverse vs)) <+> "->" <$> ppr body)))
+                    iter (p:ps) vs = bindingVar p (\v -> iter ps (v:vs))
+          ppr e@(ELamAmp _ _)                   = iter params []
+              where (params, body) = flattenLambda e
+                    iter [] vs     = group (atPrecedence 0 (hang 4 (backslash <> "&" <+> hsep (map ppr (reverse vs)) <+> "->" <$> ppr body)))
+                    iter (p:ps) vs = bindingVar p (\v -> iter ps (v:vs))
           ppr (EVar id)                      = varName id
           ppr (ECon id)                      =
               case isTupleCon id of

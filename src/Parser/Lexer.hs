@@ -40,6 +40,7 @@ languageDef  = T.LanguageDef {
                                    , "then", "type", "where"
                                    , "opaque", "primitive", "requires", "volatile", "require" ]
                , T.reservedOpNames = [".","..","::","=","\\","|", "->"
+                                     , "\\*", "\\&" -- linear lambdas
                                      , "<-", "=>", "~", "`"] }
 
 

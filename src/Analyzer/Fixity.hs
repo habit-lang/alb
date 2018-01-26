@@ -75,7 +75,7 @@ instance (WithFixity a) => WithFixity [a] where
 instance (WithFixity a) => WithFixity (Located a) where
     withFixity (At s a) = withFixity a
 
--- THis is silly...
+-- This is silly...
 
 class IdLike t
     where idFrom :: t -> Id
@@ -199,6 +199,8 @@ fixityProgram' = rec where
   typ t = gmapM rec t
   expr e@(ELet decls _) = withFixity decls $ gmapM rec e
   expr e@(ELam pats _) = withFixity pats $ gmapM rec e
+  expr e@(ELamStr pats _) =  withFixity pats $ gmapM rec e
+  expr e@(ELamAmp pats _) = withFixity pats $ gmapM rec e
   expr e@(EBind x _ _) = withFixity x $ gmapM rec e
   expr (EInfix head tail) = do
     fixities <- asks valFixities

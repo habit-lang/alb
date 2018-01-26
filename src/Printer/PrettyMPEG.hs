@@ -49,6 +49,8 @@ showE (Ap (Ap (Id f) x) y)
      | otherwise        = showEp x ++ " " ++ f ++ " " ++ showEp y
 showE (Ap f x)      = showE f ++ " " ++ showEp x
 showE (Lam i e)     = "\\" ++ i ++ " -> " ++ showE e
+showE (LamStr i e)  = "\\*" ++ i ++ " -> " ++ showE e
+showE (LamAmp i e)  = "\\&" ++ i ++ " -> " ++ showE e
 showE (Match m)     = "{ " ++ showM m ++ " }"
 showE (LetE i e e') = "let " ++ i ++ " = " ++ showE e ++ " in " ++ showE e'
 showE (Bind i e e') = i ++ " <- " ++ showE e ++ "; " ++ showE e'
@@ -105,6 +107,8 @@ prettyE (Ap (Ap (Id f) x) y)
      | otherwise        = prettyEp x <+> text f <+> prettyEp y
 prettyE (Ap f x)      = prettyE f <+> prettyEp x
 prettyE (Lam i e)     = text "\\" <> text i <+> text "->" <+> prettyE e
+prettyE (LamStr i e)     = text "\\*" <> text i <+> text "->" <+> prettyE e
+prettyE (LamAmp i e)     = text "\\&" <> text i <+> text "->" <+> prettyE e
 prettyE (Match m)     = braces (prettyM m)
 prettyE (LetE i e e') = (text "let" <+> text i <+> text "=" <+> prettyE e)
                         $$ (text "in" <+> prettyE e')

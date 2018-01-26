@@ -445,6 +445,8 @@ checkExpr (At loc e) =
        return (At loc e')
     where check (ELet ds body)            = liftM2 ELet (checkDecls ds) (checkExpr body)
           check (ELam v body)             = liftM (ELam v) (checkExpr body)
+          check (ELamStr v body)          = liftM (ELamStr v) (checkExpr body)
+          check (ELamAmp v body)          = liftM (ELamAmp v) (checkExpr body)
           check (EVar id)                 = return (EVar id)
           check (ECon id)                 = return (ECon id)
           check (EBitCon id fs)           =

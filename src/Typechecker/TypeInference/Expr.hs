@@ -51,6 +51,40 @@ checkExpr (At loc (ELam var body)) expected =
                         , assumed = concat gteAssumps ++ assumed r
                         , goals = funp : gteGoals ++ goals r })
 
+-- This is where the actual logic for typechecking \*x resides
+checkExpr (At loc (ELamStr var body)) expected =
+    failAt loc $
+    trace (show ("At" <+> ppr loc <+> "expect type" <+> ppr expected)) $
+    do argTy@(TyVar arg) <- newTyVar KStar
+       resTy             <- newTyVar KStar
+       (funp, t)         <- argTy `polyTo` resTy
+       unifies expected t
+       r <- bind loc var (LamBound argTy) (checkExpr body resTy)
+       (gteAssumps, gteGoals) <- unzip `fmap` mapM (buildLinPred loc (flip moreUnrestricted (At loc t)) <=< bindingOf) (used r)
+       traceIf (not (null gteGoals))
+               (show ("In function" <+> ppr (ELamStr var body) <+> "used" <+> pprList' (used r) <$>
+                      "giving entailment" <+> pprList' (map snd (concat gteAssumps)) <+> "=>" <+> pprList' (map snd gteGoals)))
+               (return r{ payload = X.ELamStr var (X.TyVar arg) (payload r)
+                        , assumed = concat gteAssumps ++ assumed r
+                        , goals = funp : gteGoals ++ goals r })
+
+-- This is where the actual logic for typechecking \&x resides
+checkExpr (At loc (ELamAmp var body)) expected =
+    failAt loc $
+    trace (show ("At" <+> ppr loc <+> "expect type" <+> ppr expected)) $
+    do argTy@(TyVar arg) <- newTyVar KStar
+       resTy             <- newTyVar KStar
+       (funp, t)         <- argTy `polyTo` resTy
+       unifies expected t
+       r <- bind loc var (LamBound argTy) (checkExpr body resTy)
+       (gteAssumps, gteGoals) <- unzip `fmap` mapM (buildLinPred loc (flip moreUnrestricted (At loc t)) <=< bindingOf) (used r)
+       traceIf (not (null gteGoals))
+               (show ("In function" <+> ppr (ELamAmp var body) <+> "used" <+> pprList' (used r) <$>
+                      "giving entailment" <+> pprList' (map snd (concat gteAssumps)) <+> "=>" <+> pprList' (map snd gteGoals)))
+               (return r{ payload = X.ELamAmp var (X.TyVar arg) (payload r)
+                        , assumed = concat gteAssumps ++ assumed r
+                        , goals = funp : gteGoals ++ goals r })
+
 checkExpr (At loc (EVar name)) expected =
     failAt loc $
     trace (show ("At" <+> ppr loc <+> "expect type" <+> ppr expected <+> "for variable" <+> ppr name)) $

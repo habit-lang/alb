@@ -1,8 +1,21 @@
+# Hidden folders
 .*
-alb
+
+# Compiler Generated files
 *.hi
 *.o
-*.bat
 obj/*
+*/auto/*
+
+# Executables
+*.bat
 *.exe
 *.out
+
+alb
+albc
+ilab
+
+# log files
+*.log
+*.err
