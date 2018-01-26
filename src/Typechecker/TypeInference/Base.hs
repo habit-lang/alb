@@ -264,6 +264,7 @@ buildLinPred loc f (LetBound tys) =
        return (zip (tail evs) ps', (head evs, p))
 buildLinPred loc f (LamBound t) =
     do ev <- fresh "e"
+       -- What do we do here?
        return ([], (ev, At loc (f (At loc t))))
 
 weaken :: Location -> [Id] -> [Id] -> M (Preds, Preds)
@@ -400,7 +401,7 @@ allTo = flip (foldr to)
 -- TODO: Above constants for arrow should not be used in Quill typechecking.
 
 linArrTy, unrArrTy :: Ty
-linArrTy = arrowLike "-:>"
+linArrTy = arrowLike "-*>"
 unrArrTy = arrowLike "-!>"
 
 newArrowVar :: M ((Id, Located (Pred (Located Ty))), Ty)

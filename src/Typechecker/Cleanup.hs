@@ -79,6 +79,8 @@ instance Cleanup Expr
            c (EBits val size)           = EBits val size
            c (ECon t)                   = ECon (cleanup vs exs evs t)
            c (ELam i t e)               = ELam i (cleanType vs t) (c e)
+           c (ELamStr i t e)            = ELamStr i (cleanType vs t) (c e)
+           c (ELamAmp i t e)            = ELamAmp i (cleanType vs t) (c e)
            c (EMethod d n ts ds)        = EMethod (cleanup vs exs evs d)
                                                   n
                                                   (map (cleanType vs) ts)

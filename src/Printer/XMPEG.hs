@@ -54,6 +54,16 @@ instance Printable Expr
                     (paramNames, paramTypes) = unzip params
                     iter [] ds     = group (atPrecedence 0 (hang 4 (backslash <+> hsep [parens (ppr v <::> ppr ty) | (v, ty) <- zip (reverse ds) paramTypes] <+> "->" <$> ppr body)))
                     iter (p:ps) ds = bindingVar p (\d -> iter ps (d:ds))
+          ppr e@(ELamStr _ _ _)    = iter paramNames []
+              where (params, body) = flattenLambda e
+                    (paramNames, paramTypes) = unzip params
+                    iter [] ds     = group (atPrecedence 0 (hang 4 (backslash <+> "*" <+> hsep [parens (ppr v <::> ppr ty) | (v, ty) <- zip (reverse ds) paramTypes] <+> "->" <$> ppr body)))
+                    iter (p:ps) ds = bindingVar p (\d -> iter ps (d:ds))
+          ppr e@(ELamAmp _ _ _)    = iter paramNames []
+              where (params, body) = flattenLambda e
+                    (paramNames, paramTypes) = unzip params
+                    iter [] ds     = group (atPrecedence 0 (hang 4 (backslash  <+> "&" <+> hsep [parens (ppr v <::> ppr ty) | (v, ty) <- zip (reverse ds) paramTypes] <+> "->" <$> ppr body)))
+                    iter (p:ps) ds = bindingVar p (\d -> iter ps (d:ds))
           ppr (EMethod d n ts evs) = ppr d <> dot <> int n <> pprTypeArgs ts evs
           ppr (ELet ds body) = iter (bound ds) (align (atPrecedence 0 (text "let" <+> align (ppr ds) </> text "in" <+> ppr body)))
               where iter [] d     = d

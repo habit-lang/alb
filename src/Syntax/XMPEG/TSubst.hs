@@ -123,6 +123,8 @@ instance HasTypeVariables Expr
           s # ECon tapp      = ECon (s # tapp)
           s # ETuple es      = ETuple (s # es)
           s # ELam v t e     = ELam v (s # t) (s # e)
+          s # ELamStr v t e  = ELamStr v (s # t) (s # e)
+          s # ELamAmp v t e  = ELamAmp v (s # t) (s # e)
           s # ELet ds e      = ELet (s # ds) (s # e)
           s # ELetTypes (Left cs) e =
               ELetTypes (Left (catMaybes [do cond' <- cond `under` s; impr' <- impr `under` s; return (cond', impr') | (cond, impr) <- cs]))
@@ -146,6 +148,8 @@ instance HasEvidenceVariables Expr
           fevs (ECon tapp)                     = fevs tapp
           fevs (ETuple es)                     = concatMap fevs es
           fevs (ELam _ _ body)                 = fevs body
+          fevs (ELamStr _ _ body)              = fevs body
+          fevs (ELamAmp _ _ body)              = fevs body
           fevs (ELet ds body)                  = fevs ds ++ fevs body
           fevs (ELetTypes _ e)                 = fevs e
           fevs (ESubst exprSubst evSubst body)
