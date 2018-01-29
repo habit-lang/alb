@@ -279,7 +279,7 @@ options =
     , Option [] ["show-internal-names"] (NoArg (\opt -> opt { shortenInternalNames = False }))
          "Show internal names for MPEG identifiers"
 
-    , Option [] ["help"] (NoArg (\opt -> opt { showHelp = True }))
+    , Option ['?'] ["help"] (NoArg (\opt -> opt { showHelp = True }))
         "Show usage information, then exit" ]
 
 -- Additional sources of options
@@ -394,14 +394,14 @@ buildPipeline options =
 
           toThunkified
             = toAnnotated >=> thunkifyLC (initialize options) >=> pure etaInit >=>
-              pure (inlineProgram exported) >=> Fidget.RenameTypes.renameProgramCtors >=> 
+              pure (inlineProgram exported) >=> Fidget.RenameTypes.renameProgramCtors >=>
               Fidget.RenameTypes.renameProgramTypes
 
           toLCed
             | Nothing <- mainId options = error "Unable to generate LC without main"
-            | Just main <- mainId options = 
-                toAnnotated >=> pure etaInit >=> pure (inlineProgram exported) >=> 
-                LC.RenameTypes.renameProgramCtors >=> LC.RenameTypes.renameProgramTypes >=> 
+            | Just main <- mainId options =
+                toAnnotated >=> pure etaInit >=> pure (inlineProgram exported) >=>
+                LC.RenameTypes.renameProgramCtors >=> LC.RenameTypes.renameProgramTypes >=>
                 lambdaCaseToLC (Entrypoints exported)
 
           toFidgetted
@@ -451,13 +451,17 @@ main = do args <- getArgs
                                      path <- findFile paths fn
                                      return (fn, path, isQuiet input)) (reverse (inputs opts))
 
+          when (showHelp opts) $
+               do hPutStrLn stderr (usageInfo "Usage: alb [OPTION...] FILES..." options)
+                  exitSuccess
+
           let errors' = [ "No inputs specified"                 | null (inputs opts) ]
                      ++ [ "Cannot find input for " ++ show name | (name, Nothing, _) <- inps ]
                      ++ [ "Empty search path"                   | null paths ]
                      ++ errors
-          when (not (null errors') || showHelp opts) $
-               do when (not (showHelp opts)) (mapM_ (hPutStrLn stderr) errors')
-                  hPutStrLn stderr (usageInfo "Usage: alb [OPTION...] FILES..." options)
+
+          when (not (null errors')) $
+               do mapM_ (hPutStrLn stderr) errors'
                   exitFailure
 
           writeIORef Solver.doTrace (traceSolver opts)
