@@ -1,4 +1,4 @@
-requires miniprelude
+requires prelude
 
 class C t
    where foo :: t -> t

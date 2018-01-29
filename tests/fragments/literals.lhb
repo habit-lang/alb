@@ -1,6 +1,6 @@
 ### More literal tests:
 
-> requires miniprelude
+> requires prelude
 
 Miscellaneous bit vector literals:
 
@@ -42,7 +42,7 @@ Miscellaneous int literals:
 > b3 :: Bit 0x8
 > b3  = 0o377
 
-> b4 :: Bit 0b_11_0000
+> b4 :: Bit 0b_10_0000
 > b4  = 0xff
 
 > b5 :: Bit 3
@@ -53,4 +53,3 @@ Miscellaneous int literals:
 
 > b7 :: Bit 0x20
 > b7  = 0X_FfFf_0000
-

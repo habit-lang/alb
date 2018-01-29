@@ -1,4 +1,4 @@
-requires miniprelude
+requires prelude
 
 class t == u | t -> u, u -> t
 
@@ -15,7 +15,9 @@ g' x = x
 
 data Q t u = Q (t u)
 
-data T = C (Q Maybe Unsigned) | D (Q Lab #.foo)
+data Lab (l :: lab) = TheLab
+
+data T = C (Q Maybe Unsigned) | D (Q Lab "foo")
 
 data TheNat (n :: nat) = TheNat
 
@@ -59,10 +61,10 @@ instance t =:= t
 gg :: (t =:= u, v =:= w) => t v -> u w
 gg x = x
 
-data Proxy t = Proxy
+hh :: (t == Unsigned) => Proxy (t :: k) -> Unsigned
+hh _ = 0
 
--- hh :: (t == Unsigned) => Proxy (t :: k) -> Unsigned
--- hh _ = 0
-
--- jj :: Proxy (t :: k) -> t -> Unsigned
--- jj _ _ = 0
+-- This doesn't work either: =:= insists on arguments of the same kind, whereas == is just
+-- falsifiable for arguments of different kinds.
+-- jj :: (t =:= Unsigned) => Proxy (t :: k) -> Unsigned
+-- jj _ = 0

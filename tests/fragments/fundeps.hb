@@ -1,9 +1,9 @@
-requires miniprelude
+requires prelude
 requires list
 
 data Int
 
-class F (a :: *) = (b :: *) 
+class F (a :: *) = (b :: *)
    where foo :: a -> b
 
 instance F Int = Bool
@@ -14,22 +14,22 @@ instance F Bool = _
 
 primitive primFoo :: Bool -> F Bool
 
-instance F (List t) = List u if F t = u 
+instance F (List t) = List u if F t = u
    where foo (Cons x xs) = Cons (foo x) Nil
 
-not True  = False
-not False = True
+notb True  = False
+notb False = True
 
 g :: F Int b => b -> b
-g x = not x
+g x = notb x
 
 h :: F Int b => b -> b
-h = not
+h = notb
 
 class Equal t u | t -> u, u -> t
     where ident :: t -> u
 
-instance Equal t t 
+instance Equal t t
     where ident x = x
 
 r :: t -> t
