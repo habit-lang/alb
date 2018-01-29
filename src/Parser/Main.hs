@@ -26,10 +26,11 @@ aConid   = try $ do
              guard (not (isBitLiteral s))   -- exclude anything that looks like a bit literal
              return i                       -- FIXME: this is ugly!
            where isBitLiteral ('B':rest) = not (null rest) && all isBinDigit rest
-                 isBitLiteral ('O':rest) = not (null rest) && all isOctDigit rest
-                 isBitLiteral ('X':rest) = not (null rest) && all isHexDigit rest
+                 isBitLiteral ('O':rest) = not (null rest) && all (orUnderscore isOctDigit) rest
+                 isBitLiteral ('X':rest) = not (null rest) && all (orUnderscore isHexDigit) rest
                  isBitLiteral _          = False
-                 isBinDigit c            = c=='0' || c=='1'
+                 isBinDigit c            = c=='0' || c=='1' || c == '_'
+                 orUnderscore f c        = c=='_' || f c
 
 aConsym :: ParseM Id           -- basic form of constructor operator
 aConsym  = operator (':'==)
