@@ -379,7 +379,7 @@ $(let types = [''Scheme, ''Decls, ''Primitive, ''Signature, ''TypingGroup, ''Pat
       mkInstance x = do
                TyConI dec <- reify x
                case dec of
-                 DataD [] name typarams _ cons _  ->
+                 DataD [] name typarams cons _  ->
                    [d|instance (Typeable p, Data (p (Located (Type tyid))), Data tyid) => Data ($(conT name) p tyid)
                         where gfoldl k z x = $(caseE (varE 'x) (map (mkClause 'k 'z) cons))
                               gunfold k z _ = undefined
