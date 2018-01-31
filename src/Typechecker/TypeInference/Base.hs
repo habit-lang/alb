@@ -66,11 +66,31 @@ instance HasTypeVariables Binding KId
           inst _ _                       = error "inst applied to Binding"
           gen _ _ _                      = error "gen applied to Binding"
 
-type TyEnv       = Map Id Binding
-type CtorEnv     = Map Id (KScheme TyS, Int)
+instance HasTypeVariables (Binding, [Id]) KId
+    where tvs ((LetBound (ForallK _ tys)), is) = tvs tys
+          tvs ((LamBound ty), is)              = tvs ty
+
+          s # (LetBound (ForallK vs tys), is)  = (LetBound (ForallK vs (s # tys)), is)
+          s # (LamBound ty, is)                = (LamBound (s # ty), is)
+
+          inst _ _                       = error "inst applied to Binding"
+          gen _ _ _                      = error "gen applied to Binding"
+
+
+-- For linear types we have 2 kinds of environment entities
+-- a. [a:x, b:y]
+-- b. [a:x, (b:y;c:z)]
+
+-- To adhere to the same Map kind of structure,
+-- our Map will look like Id -> (Binding, [other Ids it has ; relationship with current Id])
+-- a. will look like [(a -> (x,[])), (b -> (y, []))]
+-- b. will look like [(a -> (x, [])), (b -> (y, [b, c]), (c -> (z, [b, c]))]
+
+type TyEnv       = Map Id (Binding, [Id])
+type CtorEnv     = Map Id ((KScheme TyS, Int), [Id])
 
 tyEnvFromCtorEnv :: CtorEnv -> TyEnv
-tyEnvFromCtorEnv = Map.map (LetBound . fst)
+tyEnvFromCtorEnv = Map.map (\(x, z) -> ((LetBound $ fst x), z))
 
 instance HasTypeVariables TyEnv KId
     where tvs _  = []
@@ -81,12 +101,14 @@ instance HasTypeVariables TyEnv KId
 
 applyToEnvironment :: Unifier -> TyEnv -> TyEnv
 applyToEnvironment u@(ks, s) m = if isEmpty s && K.isEmpty ks then m else Map.map f m
-    where f t = {-# SCC "u##" #-} u ## t
+  where
+    f :: (Binding, [Id]) -> (Binding, [Id])
+    f t = {-# SCC "u##" #-} u ## t
 
 showTypeEnvironment :: TyEnv -> String
 showTypeEnvironment valenv = unlines [fromId v ++ " :: " ++ showBinding b | (v, b) <- Map.assocs valenv]
-    where showBinding (LetBound tys) = show (ppr tys)
-          showBinding (LamBound ty)  = show (ppr ty)
+    where showBinding (LetBound tys, ids) = show (ppr tys)
+          showBinding (LamBound ty, ids)  = show (ppr ty)
 
 data ClassEnv      = ClassEnv { solverEnvironment      :: Solver.SolverEnv
                               , functionalDependencies :: Map Id [Fundep Int]
@@ -135,7 +157,7 @@ type TcRes t = M (TcResult t)
 ----------------------------------------------------------------------------------------------------
 -- Solver interface
 
--- TOOD: rename 'solve' to 'simplify'?  Seems to me to more accurate characterize what it does.
+-- TODO: rename 'solve' to 'simplify'?  Seems to me to more accurate characterize what it does.
 -- Problem: how to similarly rename 'entails'.
 
 solve :: [KId] -> [KId] -> Preds -> M (EvSubst, Preds, [ConditionalBindings])
@@ -264,7 +286,6 @@ buildLinPred loc f (LetBound tys) =
        return (zip (tail evs) ps', (head evs, p))
 buildLinPred loc f (LamBound t) =
     do ev <- fresh "e"
-       -- What do we do here?
        return ([], (ev, At loc (f (At loc t))))
 
 weaken :: Location -> [Id] -> [Id] -> M (Preds, Preds)
@@ -326,7 +347,7 @@ bindingOf id = do s <- gets currentSubstitution
                   mt <- gets (Map.lookup id . typeEnvironment)
                   case mt of
                     Nothing -> failWithS ("Unbound identifier: " ++ fromId id)
-                    Just t  -> return (s ## t)
+                    Just t  -> return (s ## fst t)
 
 -- We encapsulate the checks for weakening in the general binding operations.  That is, when binding
 -- a set of 'x's, if the 'x's are not used in the contained operation, then the corresponding types
@@ -348,7 +369,7 @@ binds loc bs c = do modify (\st -> st { typeEnvironment = Map.union (typeEnviron
     where vs = Map.keys bs
 
 bind :: Location -> Id -> Binding -> TcRes t -> TcRes t
-bind loc x t = binds loc (Map.singleton x t)
+bind loc x t = binds loc (Map.singleton x (t, []))
 
 declare :: TyEnv -> M t -> M t
 declare bs c =
@@ -363,7 +384,7 @@ declare bs c =
 bindCtors :: MonadState TcState m => CtorEnv -> m ()
 bindCtors ctors = modify (\s -> s { ctorEnvironment = Map.union (ctorEnvironment s) ctors })
 
-ctorBinding :: (MonadState TcState m, MonadBase m) => Id -> m (KScheme TyS, Int)
+ctorBinding :: (MonadState TcState m, MonadBase m) => Id -> m ((KScheme TyS, Int), [Id])
 ctorBinding id = do mt <- gets (Map.lookup id . ctorEnvironment)
                     case mt of
                       Nothing -> failWithS ("Unbound constructor function name " ++ fromId id)
@@ -472,7 +493,7 @@ structInit ty ts es
 -- FIXME
 freeEnvironmentVariables :: M [KId]
 freeEnvironmentVariables =
-    do s <- gets currentSubstitution
+    do s  <- gets currentSubstitution
        ts <- gets (Map.elems . typeEnvironment)
        return (nub (tvs (s ## ts)))
 

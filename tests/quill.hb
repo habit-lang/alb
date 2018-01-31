@@ -39,6 +39,7 @@ data Unit = Unit
 
 data Bool = False | True
 
+otherwise :: Bool
 otherwise = True
 
 not :: Bool -!> Bool
@@ -48,8 +49,7 @@ not False = True
 data Ordering = LT | EQ | GT
 
 class Eq t where
-  (==) :: (t >:= f t Bool) => t -!> t ->{f} Bool
-  (/=) :: (t >:= f t Bool) => t -!> t ->{f} Bool
+  (==), (/=) :: (t >:= f t Bool) => t -!> t ->{f} Bool
   x /= y      = not (x == y)   -- default definition
 
 class Ord t | Eq t where
@@ -74,11 +74,44 @@ class Ord t | Eq t where
 class Bounded t where
   minBound, maxBound :: t
 
+-- Some fancy types
+
+-- const :: (Un b, a >:= (b ->{f} a), a >:= (b ->{g} a)) => a ->{f} b ->{g} a
+-- const a b = a
+
+class Functor f m | m -> f where
+      fmap :: {- what should be the predicates here? -} (a -> b) ->{f} m a ->{g} m b
+
+
+class Applicative f m | m -> f where
+      pure :: {- what should be the predicates here? -} t -> m t
+      (<$>) :: {- what should be the predicates here? -} m (a -> b) -> m a -> m b
+
+
+class Monad f m | m -> f where
+      return :: (t >:= m t) => t -> m t
+      -- [ANI] TODO we need to give too many details here
+      -- can we reduce the constraints to only (m t >:= g, f >:= m u)
+      (>>=)  :: (m t >:= ((t ->{f} m u) ->{g} m u), f >:= m u) =>
+                m t -> (t ->{f} m u) ->{g} m u
+
+data Maybe a = Nothing | Just a
+
+instance Monad (-!>) Maybe where
+         return a = Just a
+         (>>=) Nothing f = Nothing
+         (>>=) (Just a) f = f a
+
 
 -- Some simple examples using \*x and \&x
 
-f' :: (Un a) => a -> Pair a a
+-- f' :: (Un a) => a -*> Pair a a
 f' = \*x -> P x x
+
+f'' = \*x -> \*y -> \*z -> P x z
 
 -- f :: a -> Pair a a
 -- f = \&y -> P y y -- This should not typecheck but should be parsed
+
+-- f :: a -> Pair a a
+-- f = \*y -> P y y -- This should not typecheck but should be parsed

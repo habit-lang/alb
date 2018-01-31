@@ -321,11 +321,12 @@ checkMatch (MGuarded (GFrom (At l p) e) m) expected =
                         , goals = goalsC ++ goals rExpr ++ goals rBody
                         , used = used }
          PCon ctor vs ->
-             do (tys, n) <- ctorBinding ctor
+             do ((tys, n), is) <- ctorBinding ctor
                 (kvars, tyvars, ps :=> At _ t) <- instantiate tys
                 let (parameters, result) = flattenArrows t
                     arity                = length parameters
-                    valEnv               = Map.fromList (zip vs (map (LamBound . dislocate) parameters))
+                    valEnv :: Map Id (Binding, [Id])
+                    valEnv               = Map.fromList $ zip vs (zip (map (LamBound . dislocate) parameters) (repeat ([]::[Id])))
                 when (length vs /= arity) $
                   failWithS (fromId ctor ++ " requires " ++ multiple arity "argument" "arguments")
 
@@ -504,7 +505,7 @@ checkTypingGroup (Explicit (name, params, body) expectedTyS) =
                                                 (X.Gen declaredTyVars
                                                   evvars
                                                   (X.ESubst [] evsubst body'))],
-                                   Map.singleton name (LetBound expectedTyS))
+                                   Map.singleton name ((LetBound expectedTyS), []::[Id]))
                       , assumed = deferredAssumptions
                       , goals = deferredGoals
                       , used = used }
@@ -530,7 +531,7 @@ checkTypingGroup (Implicit fs) =
     do -- Generate new type variables for functions
        ts <- replicateM (length fs) (newTyVar KStar)
        -- Check function bodies in environment with aforementioned type variables
-       let env = Map.fromList (zip ids (map LamBound ts))
+       let env = Map.fromList (zip ids (zip (map LamBound ts) (repeat ([]::[Id]))))
        eqnRs <- sequence [declare env (contractRecursive introducedLocation name (checkFunction ps body t)) | ((name, ps, body), t) <- zip fs ts]
 
        (assumedC, goalsC, used) <- contractMany introducedLocation (map used eqnRs)
@@ -613,7 +614,7 @@ checkTypingGroup (Implicit fs) =
        trace (show (hang 4 ("Inferred types" <$>
                             vcat [ppr id <::> ppr tys <+> "(generalized from" <+> ppr t <> ")" | (id, (_, tys), t) <- zip3 ids tyss ts']) <$>
                     "With free environment variables" <+> cat (punctuate (comma <> space) (map ppr envvars))))
-             (return R{ payload = (functions, Map.fromList (zip ids (map (LetBound . snd) tyss)))
+             (return R{ payload = (functions, Map.map (\x -> (x, []::[Id])) (Map.fromList (zip ids (map (LetBound . snd) tyss))))
                       , assumed = deferredAssumptions
                       , goals = deferred
                       , used = used })
@@ -689,7 +690,7 @@ checkTypingGroup (Pattern (At l p) m signatures) =
                                                 (MCommit (introduced (foldl eapp (ECon (fromString ("$Tuple" ++ show (length vs)))) (map EVar ws'))))))
        rBody <- checkTypingGroup (Implicit [(tupleVar, [], body)])
        let (tupleGroup, tupleEnv) = payload rBody
-           LetBound tupleTys = fromJust (Map.lookup tupleVar tupleEnv)
+           LetBound tupleTys = fst $ fromJust (Map.lookup tupleVar tupleEnv)
        (kvars, tyvars, tuplePreds :=> tupleType) <- instantiate tupleTys
        fds <- inducedDependencies tuplePreds
        let componentTypes   = flattenTupleType (dislocate tupleType)
@@ -709,7 +710,7 @@ checkTypingGroup (Pattern (At l p) m signatures) =
 
        trace (show ("Generalizing from pattern binding:" <$$>
                     vcat ["   " <> ppr v <::> ppr tys | (v, (_, tys)) <- zip vs componentSchemes])) $
-            return R{ payload = (tupleGroup ++ componentGroups, componentEnv)
+            return R{ payload = (tupleGroup ++ componentGroups, (Map.map (\x -> (x, []::[Id])) componentEnv))
                     , assumed = assumed rBody
                     , goals = goals rBody
                     , used = used rBody }
@@ -760,7 +761,7 @@ checkTypingGroup (Pattern (At l p) m signatures) =
 
 checkTypingGroup (PrimValue (Signature name expectedTyS) str) =
     return R{ payload = ([X.PrimDefn name (convert expectedTyS) (str, [])],
-                         Map.singleton name (LetBound expectedTyS))
+                         Map.singleton name (LetBound expectedTyS, []))
             , assumed = []
             , goals = []
             , used = [] }
@@ -769,7 +770,7 @@ checkTypingGroup (PrimValue (Signature name expectedTyS) str) =
 
 checkDecls :: Decls Pred KId -> TcRes (X.Decls, TyEnv)
 checkDecls (Decls groups) =
-    do rg <- declare (Map.fromList (signatures groups)) (checkGroups groups)
+    do rg <- declare (Map.map (\x -> (x, []::[Id])) (Map.fromList (signatures groups))) (checkGroups groups)
        let (groups', vals) = payload rg
        return rg{ payload = (X.Decls (concat groups'), vals) }
     where checkGroups [] = return R{ payload = ([], Map.empty)
@@ -788,7 +789,7 @@ checkDecls (Decls groups) =
                          , used = used }
 
           -- flatten typing groups
-
+          signatures :: [TypingGroup Pred KId] -> [(Id, Binding)]
           signatures []                                 = []
           signatures (Explicit (name, _, _) tys : rest) = (name, LetBound tys) : signatures rest
           signatures (Implicit _ : rest)                = signatures rest

@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, PatternGuards #-}
+{-# LANGUAGE FlexibleContexts, PatternGuards, ScopedTypeVariables #-}
 module Typechecker.TypeInference.TopDecl where
 
 import Prelude hiding ((<$>))
@@ -99,7 +99,7 @@ checkTopDecl (Datatype (Kinded name k) params ctors _) =
        ctorEnv <- mapM ctorTypeBinding ctors'
        trace (show ("Binding constructors:" <+> vcat [ ppr id <::> ppr ksc | (id, (ksc, _)) <- ctorEnv ])) $
            return ( X.Datatype name params' xctors
-                  , Map.fromList ctorEnv )
+                  , Map.map (\x-> (x, []::[Id])) (Map.fromList ctorEnv) )
     where convertCtor (Ctor (At _ name) kids params ts) =
               return (name, kids, map (convert . dislocate) params, map (convert . dislocate) ts)
 
@@ -117,9 +117,12 @@ checkTopDecl (Datatype (Kinded name k) params ctors _) =
 
           ctorTypeBinding (Ctor (At _ ctorName) kids qs ts) =
               do (vs, ps, t') <- buildArrow [] (map dislocate ts) t
-                 return (ctorName, (kindQuantify (Forall (kids ++ params' ++ vs)
-                                                          (gen (length kids) (params' ++ vs) ((map introduced ps ++ qs) :=> introduced t'))),
-                                    length kids))
+                 return (ctorName,
+                         (kindQuantify
+                           (Forall (kids ++ params' ++ vs)
+                             (gen (length kids) (params' ++ vs) ((map introduced ps ++ qs) :=> introduced t'))),
+                            length kids)
+                        )
 
 checkTopDecl (Bitdatatype name mtys ctors derives) =
     -- Checking a bitdata type has three steps: for each constructor, we generate the XMPEG
@@ -166,8 +169,9 @@ checkTopDecl (Bitdatatype name mtys ctors derives) =
 
        -- Return XMPEG version of this bitdatatype decl:
        return ( X.Bitdatatype name bddpat xctors
-              , Map.fromList [(cname, (ForallK [] (Forall [] ([] :=> introduced (ctorType cname))), 0))
-                             | Ctor (At _ cname) _ _ _ <- ctors'] )
+              , Map.map (\x -> (x, []::[Id]))
+                        (Map.fromList [(cname, (ForallK [] (Forall [] ([] :=> introduced (ctorType cname))), 0))
+                             | Ctor (At _ cname) _ _ _ <- ctors'] ))
 
     where tycon          :: Ty
           tycon           = TyCon (Kinded name KStar)
@@ -301,7 +305,7 @@ checkTopDecl (Area v inits tys) =
                 size  <- getNat "size" s
                 align <- getNat "alignment" l
                 return ( X.Area v inits' (convert (dislocate ty)) size align
-                       , Map.fromList [(name, (tys', 0)) | (name, _) <- inits'] )
+                       , Map.map (\x -> (x, []::[Id])) (Map.fromList [(name, (tys', 0)) | (name, _) <- inits']) )
          _ ->
              failWithS ("Unsupported area declaration; declared type " ++ show (ppr tys)
                        ++ ", simplified type " ++ show (ppr tys'))
@@ -337,7 +341,7 @@ assertClass (Class name params constraints methods defaults) =
        (sigs, impls) <- unzip `fmap` sequence (zipWith selectorSigImpl methods [0..])
        (mappings, defImpls) <- unzip `fmap` mapM (defaultImpl sigs) defaults
        modify (updateClassEnv methods (Map.fromList mappings)) -- add fundeps and defaults to environment
-       return (Map.fromList [ (name, LetBound tys) | (name, tys) <- sigs ], impls, defImpls)
+       return (Map.map (\x -> (x, []::[Id]))(Map.fromList [ (name, LetBound tys) | (name, tys) <- sigs ]), impls, defImpls)
 
     where classPred = Pred name (map (fmap TyVar) params) Holds
           params'   = map dislocate params
@@ -502,7 +506,7 @@ assertPrimitive :: Primitive Pred KId -> M (X.Defns, CtorEnv)
 assertPrimitive (PrimCon (Signature name tys) impl) =
     do tys' <- simplifyScheme tys
        return ([X.PrimDefn name (X.convert tys') (impl, [])],
-               Map.singleton name (tys, 0))
+               Map.singleton name ((tys, 0), []::[Id]))
 assertPrimitive (PrimClass name _ fundeps _) =
     do mapM_ (assert . Solver.newFunDep name) fundeps'
        modify updateClassEnv
@@ -515,7 +519,7 @@ assertPrimitive _ = return ([], Map.empty)
 
  ----------------------------------------------------------------------------------------------------
 
-checkProgram :: String -> Program Pred KId KId -> M (X.Program KId, Map Id (X.Scheme X.Type, Int), TyEnv)
+checkProgram :: String -> Program Pred KId KId -> M (X.Program KId, Map Id ((X.Scheme X.Type, Int)), TyEnv)
 checkProgram fn p =
     appendFailureContext (text "In" <+> text fn) $
     do (primDecls, primCtors) <- unzip `fmap` mapM (mapLocated assertPrimitive) (primitives p)
@@ -526,8 +530,8 @@ checkProgram fn p =
        let instanceDecls' = instanceDecls ++ derived
        (evDecls, methodImpls) <- assertInstances (map instanceName derived) instanceDecls'
        areaTypes' <- mapM (\(n, tys) -> do ty <- simplifyAreaType tys
-                                           return (n, LamBound ty)) areaTypes
-       let globals = Map.unions (Map.fromList areaTypes' : methodTypeEnvironments)
+                                           return (n, (LamBound ty))) areaTypes
+       let globals = Map.unions (Map.map (\x -> (x, []::[Id])) (Map.fromList areaTypes') : methodTypeEnvironments)
        declare globals $
             do (typeDecls', ctorEnvironments) <- unzip `fmap` mapM (mapLocated checkTopDecl) typeDecls
                let ctorEnvironment = Map.unions (primCtors ++ ctorEnvironments)
@@ -548,7 +552,7 @@ checkProgram fn p =
                                                                (s X.# addEvidence evsubst decls'))
                                                   (s X.# typeDecls' ++ s X.# areaDecls')
                                                   (Map.fromList (evDecls))
-                                      , Map.map (\(tys, n) -> (convert tys, n)) ctorEnvironment
+                                      , Map.map (\((tys, n), is) -> (convert tys, n)) ctorEnvironment
                                       , Map.unions [globals, ctorTypes, valueTypes] )
 
     where (typeDecls, areaDecls, classDecls, instanceDecls, requirementDecls) = partitionDecls (topDecls p)
