@@ -42,6 +42,10 @@ instance Printable Expr
                                   ppr id <> commaBraces (map ppr ts)
           ppr (ELam id ty body) = parens $ atPrecedence 9 $
                                   ((backslash <> ppr id <+> text "::" <+> ppr ty <+> text "-> ") <//> ppr body)
+          ppr (ELamStr id ty body) = parens $ atPrecedence 9 $
+                                  ((backslash <> star <> ppr id <+> text "::" <+> ppr ty <+> text "-> ") <//> ppr body)
+          ppr (ELamAmp id ty body) = parens $ atPrecedence 9 $
+                                  ((backslash <> amp <> ppr id <+> text "::" <+> ppr ty <+> text "-> ") <//> ppr body)
           ppr (ELet ds body)    = atPrecedence 9
                                 $ text "let" <+> align (ppr ds) </> text "in" <+> (align (ppr body))
           ppr (ECase e alts)    = atPrecedence 9

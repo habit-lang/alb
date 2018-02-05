@@ -20,7 +20,7 @@ tapply2   :: Type -> Type -> Type -> Type
 tapply2 c  = TyApp . tapply1 c
 
 tapplyn   :: Type -> [Type] -> Type
-tapplyn    = foldl TyApp  
+tapplyn    = foldl TyApp
 
 -------------------------------------------------------------------------
 -- BUILT-IN PRIMITIVE TYPES
@@ -60,7 +60,7 @@ ref         = tapply2 refCon (TyLit 1)
 
 -------------------------------------------------------------------------
 -- Index types (built-in):
-      
+
 ix         :: Type -> Type
 ix          = tapply1 ixCon
  where ixCon = TyCon (Kinded "Ix" (KNat `KFun` KStar))
@@ -102,8 +102,8 @@ bits = tapply1 bitsCon
 
 -------------------------------------------------------------------------
 -- BUILT-IN DATATYPES (with definitions)
--- These datatypes should be declared in the normal way (appropriately 
--- instantiated in the case of Maybe) in any LambdaCase program in which 
+-- These datatypes should be declared in the normal way (appropriately
+-- instantiated in the case of Maybe) in any LambdaCase program in which
 -- they are used.  But because they are mentioned in the signatures of
 -- primitives, the declarations *must* match those specified below.
 -------------------------------------------------------------------------
@@ -124,7 +124,7 @@ maybeT = tapply1 maybeCon
 
 -- declarations should always match
 -- maybeDecl t = Datatype "Maybe" [t]
---               [("Nothing", []), 
+--               [("Nothing", []),
 --                ("Just", [t])]
 
 ------------------------------------------------------------------------
@@ -132,7 +132,7 @@ maybeT = tapply1 maybeCon
 
 bool :: Type
 bool = TyCon (Kinded "Bool" KStar)
- 
+
 -- declaration should always match
 -- boolDecl  = Bitdatatype "Bool" 1 [ ("False", [ConstantField 0 1]),
 --                                    ("True",  [ConstantField 1 1]) ]
@@ -142,8 +142,8 @@ bool = TyCon (Kinded "Bool" KStar)
 -- Bitdata aids:
 
 bitdatacase :: Id -> Id -> Type
-bitdatacase tcon dcon = bitdatacase' 
-                        (TyCon (Kinded tcon KStar)) 
+bitdatacase tcon dcon = bitdatacase'
+                        (TyCon (Kinded tcon KStar))
                         (TyLabel dcon)
 
 bitdatacase' :: Type -> Type -> Type

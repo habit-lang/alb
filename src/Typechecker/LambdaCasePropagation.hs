@@ -18,6 +18,14 @@ prop_expr g (ELam i t e) =
   do
     e' <- prop_expr (update g (Term i []) t) e
     return $ ELam i t e'
+prop_expr g (ELamStr i t e) =
+  do
+    e' <- prop_expr (update g (Term i []) t) e
+    return $ ELamStr i t e'
+prop_expr g (ELamAmp i t e) =
+  do
+    e' <- prop_expr (update g (Term i []) t) e
+    return $ ELamAmp i t e'
 prop_expr g (ELet ds e) =
   do
     ds' <- prop_decls g ds

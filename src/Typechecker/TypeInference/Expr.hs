@@ -57,7 +57,7 @@ checkExpr (At loc (ELamStr var body)) expected =
     trace (show ("At" <+> ppr loc <+> "expect type" <+> ppr expected)) $
     do argTy@(TyVar arg) <- newTyVar KStar
        resTy             <- newTyVar KStar
-       (funp, t)         <- argTy `polyTo` resTy
+       (funp, t)         <- argTy `starTo` resTy
        unifies expected t
        r <- bind loc var (LamBound argTy) (checkExpr body resTy)
        (gteAssumps, gteGoals) <- unzip `fmap` mapM (buildLinPred loc (flip moreUnrestricted (At loc t)) <=< bindingOf) (used r)
@@ -74,7 +74,7 @@ checkExpr (At loc (ELamAmp var body)) expected =
     trace (show ("At" <+> ppr loc <+> "expect type" <+> ppr expected)) $
     do argTy@(TyVar arg) <- newTyVar KStar
        resTy             <- newTyVar KStar
-       (funp, t)         <- argTy `polyTo` resTy
+       (funp, t)         <- argTy `ampTo` resTy
        unifies expected t
        r <- bind loc var (LamBound argTy) (checkExpr body resTy)
        (gteAssumps, gteGoals) <- unzip `fmap` mapM (buildLinPred loc (flip moreUnrestricted (At loc t)) <=< bindingOf) (used r)
@@ -400,7 +400,7 @@ checkFunction params body expected =
 
 -- The Quill paper describes an improvement regime for Fun (->) predicates, as follows.  If a type
 -- variable 'f' is constrained only by predicates of the form 'Fun f', then it's safe to improve it
--- to either the linear (-:>) or unrestricted (-!>) function types.  If it's also constrained by 'Un
+-- to either the linear (-*>) or unrestricted (-!>) function types.  If it's also constrained by 'Un
 -- f', then it's safe to improve it to the unrestricted (-!>) function type.
 --
 -- This is based on three things: the knowledge that there are only two possible ways to satisfy the

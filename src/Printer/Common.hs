@@ -106,7 +106,7 @@ rbrace          = return WL.rbrace
 lbracket        = return WL.lbracket
 rbracket        = return WL.rbracket
 
-squote, dquote, semi, colon, comma, space, dot, backslash, equals :: Doc
+squote, dquote, semi, colon, comma, space, dot, backslash, star, amp, equals :: Doc
 squote          = return WL.squote
 dquote          = return WL.dquote
 semi            = return WL.semi
@@ -118,6 +118,8 @@ slash           = char '/'
 backslash       = return WL.backslash
 equals          = return WL.equals
 bar             = char '|'
+star            = char '*'
+amp             = char '&'
 
 string :: String -> Doc
 string          = return . WL.string

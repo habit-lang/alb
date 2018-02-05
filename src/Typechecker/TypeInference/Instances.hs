@@ -143,6 +143,8 @@ deriveDatatype name params ctors
               >=> deriveBoolean  `ifRequested` "Boolean"
               >=> deriveShift    `ifRequested` "Shift"
               >=> deriveMonad    `ifRequested` "Monad")
+              -- >=> deriveShow  `ifRequested` "Show"
+              -- >=> deriveUn       `ifRequested` "Un"
    where
     -- The type for which these instances are being defined:
     namedType           = foldl (\f x -> TyApp (at x f) x) (TyCon name) (map (TyVar `fmap`) params)

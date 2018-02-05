@@ -313,7 +313,7 @@ weakenBranching loc left right =
 --  - First, the fixed point for unrestricted functions ((t -!> u) -!> (t -!> u)) -> (t -!> u) is
 --    obviously unproblematic.
 --
---  - Second, the fixed point for linear functions ((t -:> u) -!> (t -:> u)) -> (t -:> u) is
+--  - Second, the fixed point for linear functions ((t -*> u) -!> (t -*> u)) -> (t -*> u) is
 --    unproblematic only if the closure doesn't capture any linear values.  But in that case, it's
 --    exactly equivalent to being unrestricted.
 contractRecursive :: Location -> Id -> TcRes t -> TcRes t
@@ -431,16 +431,34 @@ newArrowVar = do fv <-fresh "f"
                  e <- fresh "e"
                  return ((e, introduced (fun (introduced f))), f)
 
-linTo, unrTo :: Ty -> Ty -> Ty
+newStrArrowVar :: M ((Id, Located (Pred (Located Ty))), Ty)
+newStrArrowVar = do fv <-fresh "f"
+                    let f = TyVar (Kinded fv (KFun KStar (KFun KStar KStar)))
+                    e <- fresh "e"
+                    return ((e, introduced (sepFun (introduced f))), f)
+
+newAmpArrowVar :: M ((Id, Located (Pred (Located Ty))), Ty)
+newAmpArrowVar = do fv <-fresh "f"
+                    let f = TyVar (Kinded fv (KFun KStar (KFun KStar KStar)))
+                    e <- fresh "e"
+                    return ((e, introduced (shFun (introduced f))), f)
+
+starTo, ampTo :: Ty -> Ty -> M ((Id, Located (Pred (Located Ty))), Ty)
 t `linTo` u = linArrTy @@ t @@ u
 t `unrTo` u = unrArrTy @@ t @@ u
+
+t `starTo` u = do (p, f) <- newStrArrowVar
+                  return (p, f @@ t @@ u)
+
+t `ampTo` u = do (p, f) <- newAmpArrowVar
+                 return (p, f @@ t @@ u)
 
 polyTo :: Ty -> Ty -> M ((Id, Located (Pred (Located Ty))), Ty)
 t `polyTo` u = do (p, f) <- newArrowVar
                   return (p, f @@ t @@ u)
 
-allUnrTo :: [Ty] -> Ty -> Ty
-allUnrTo = flip (foldr unrTo)
+-- allUnrTo :: [Ty] -> Ty -> Ty
+-- allUnrTo = flip (foldr unrTo)
 
 allPolyTo :: [Ty] -> Ty -> M (Preds, Ty)
 allPolyTo ts t = do (ps, fs) <- unzip `fmap` replicateM (length ts) newArrowVar
@@ -477,6 +495,8 @@ updateFails r f                      = predf "Update" (map introduced [r, f])
 unrestricted t                       = predh "Un" [t]
 moreUnrestricted t u                 = predh ">:=" [t, u]
 fun t                                = predh "->" [t]
+sepFun t                             = predh "SeFun" [t]
+shFun t                              = predh "ShFun" [t]
 
 xforall = X.Forall [] []
 xgen   = X.Gen [] []

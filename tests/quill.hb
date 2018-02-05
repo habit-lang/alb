@@ -27,6 +27,13 @@ instance Un (-*>) fails
 instance Un ((-*>) t) fails
 instance Un (t -*> u) fails
 
+class ShFun t
+
+class SeFun t
+instance SeFun (-!>) fails
+instance SeFun ((-!>) t) fails
+instance SeFun (t -!> u) fails
+
 --------------------------------------------------------------------------------
 -- Standard types and classes
 
@@ -96,6 +103,7 @@ class Monad f m | m -> f where
                 m t -> (t ->{f} m u) ->{g} m u
 
 data Maybe a = Nothing | Just a
+     -- deriving Show ??
 
 instance Monad (-!>) Maybe where
          return a = Just a
@@ -105,13 +113,10 @@ instance Monad (-!>) Maybe where
 
 -- Some simple examples using \*x and \&x
 
--- f' :: (Un a) => a -*> Pair a a
+f' :: (Un a, SeFun f) => a ->{f} Pair a a
 f' = \*x -> P x x
 
 f'' = \*x -> \*y -> \*z -> P x z
 
--- f :: a -> Pair a a
--- f = \&y -> P y y -- This should not typecheck but should be parsed
-
--- f :: a -> Pair a a
--- f = \*y -> P y y -- This should not typecheck but should be parsed
+g :: (Un a, ShFun f) => a ->{f} Pair a a
+g = \&y -> P y y

@@ -27,6 +27,14 @@ of e as well as the set of free variables in e.
 >     = (ELam i t e', delete i efvs)
 >       where (e', efvs) = fvsSCC e
 
+>   fvsSCC (ELamStr i t e)
+>     = (ELamStr i t e', delete i efvs)
+>       where (e', efvs) = fvsSCC e
+
+>   fvsSCC (ELamAmp i t e)
+>     = (ELamAmp i t e', delete i efvs)
+>       where (e', efvs) = fvsSCC e
+
 >   fvsSCC (ELet (Decls ds) e)
 >     = (ELet (Decls ds') e', fvs)
 >       where (ds', e', fvs) = fvsSCCs ds e

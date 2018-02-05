@@ -1,0 +1,39 @@
+\documentclass{article}
+\usepackage[margin=0.75in, letterpaper]{geometry}
+\usepackage[fleqn]{amsmath}
+\usepackage{hyperref, cleveref, graphicx, caption, subcaption}
+\usepackage{bussproofs, color, textcomp, scrextend}
+\usepackage{semantic}
+\usepackage{MnSymbol}
+\usepackage[utf8]{inputenc}
+%\usepackage[latin1]{inputenc}
+\usepackage[english]{babel}
+%\addtokomafont{labelinglabel}{\sffamily}
+
+\crefformat{section}{\S#2#1#3} % see manual of cleveref, section 8.2.1
+\crefformat{subsection}{\S#2#1#3}
+\crefformat{subsubsection}{\S#2#1#3}
+
+\newcommand\Tau{\mathcal{T}}
+%\newcommand{\Tau}{\mathrm{T}}
+%\def\Tau{{\rm T}}
+
+\title{Syntax/Grammar for Quill}
+\author{Apoorv Ingle}
+\date{February 2018}
+
+\begin{document}
+\maketitle
+
+Types:
+\begin{flalign}
+  \tau &= \Tau \tau \vert \sigma \vert \_  \vert \tau \tau \nonumber\\
+       &\vert \iota \nonumber
+\end{flalign}
+\end{document}
+
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "grammar.tex"
+%%% End:

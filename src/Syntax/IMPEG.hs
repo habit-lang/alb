@@ -290,10 +290,10 @@ emptyProgram = Program { decls      = emptyDecls
 #if __GLASGOW_HASKELL__ >= 708
 
 deriving instance Typeable Scheme
-deriving instance Typeable Expr
-deriving instance Typeable Match
-deriving instance Typeable Guard
-deriving instance Typeable Pattern
+deriving instance Typeable Match    -- M
+deriving instance Typeable Pattern  -- P
+deriving instance Typeable Expr     -- E
+deriving instance Typeable Guard    -- G
 deriving instance Typeable Signature
 deriving instance Typeable Decls
 deriving instance Typeable Primitive

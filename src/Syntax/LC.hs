@@ -30,6 +30,8 @@ data Expr = EVar Id Type
           | ENat Integer      -- ENat n    :: Nat n
           | ECon Id [Type] Type -- constructor name, type arguments, result type
           | ELam Id Type Expr
+          | ELamStr Id Type Expr
+          | ELamAmp Id Type Expr
           | ELet Decls Expr
           | ECase Expr [Alt]  -- [Alt] never empty
           | EApp Expr Expr
