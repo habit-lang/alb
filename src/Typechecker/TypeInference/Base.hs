@@ -46,6 +46,10 @@ type TyS         = Scheme Pred KId
 data Binding     = LetBound (KScheme TyS)
                  | LamBound Ty
 
+instance Show Binding where
+  show (LetBound (ForallK tys _)) = "LetBound (" ++ (show tys) ++ ")"
+  show (LamBound a) = "LamBound" ++ (show a)
+
 letBoundType    :: Ty -> Binding
 letBoundType t   = LetBound (ForallK [] (Forall [] ([] :=> introduced t)))
 
@@ -151,7 +155,7 @@ type Exp         = Expr Pred KId
 data TcResult t = R { payload :: t
                     , assumed :: Preds
                     , goals :: Preds
-                    , used :: [Id] }
+                    , used :: [Id] } -- can use we use this for using linear predicates
 type TcRes t = M (TcResult t)
 
 ----------------------------------------------------------------------------------------------------
@@ -276,6 +280,8 @@ assert c =
 
 -- TODO: the manipulation of locations is entirely suspect; many (if not all) of the linearity
 -- predicates end up with "introduced" locations, which are of no benefit to the programmer at all.
+-- [ANI] Is this is because we never pass the location information for prediates in checkProgram?
+--       Predicates do not store any intrinsic information about their own location
 
 buildLinPred :: Location -> (Located Ty -> Pred (Located Ty)) -> Binding -> M (Preds, (Id, Located (Pred (Located Ty))))
 buildLinPred loc f (LetBound tys) =
@@ -413,6 +419,7 @@ to :: Ty -> Ty -> Ty
 t `to` t' = arrTy @@ t @@ t'
 infixr 5 `to`
 
+-- [ANI] TODO we need to get this
 allTo :: [Ty] -> Ty -> Ty
 allTo = flip (foldr to)
 
@@ -426,16 +433,16 @@ linArrTy = arrowLike "-*>"
 unrArrTy = arrowLike "-!>"
 
 newArrowVar :: M ((Id, Located (Pred (Located Ty))), Ty)
-newArrowVar = do fv <-fresh "f"
+newArrowVar = do fv <- fresh "f"
                  let f = TyVar (Kinded fv (KFun KStar (KFun KStar KStar)))
                  e <- fresh "e"
                  return ((e, introduced (fun (introduced f))), f)
 
-newStrArrowVar :: M ((Id, Located (Pred (Located Ty))), Ty)
-newStrArrowVar = do fv <-fresh "f"
-                    let f = TyVar (Kinded fv (KFun KStar (KFun KStar KStar)))
-                    e <- fresh "e"
-                    return ((e, introduced (sepFun (introduced f))), f)
+newStarArrowVar :: M ((Id, Located (Pred (Located Ty))), Ty)
+newStarArrowVar = do fv <- fresh "f"
+                     let f = TyVar (Kinded fv (KFun KStar (KFun KStar KStar)))
+                     e <- fresh "e"
+                     return ((e, introduced (sepFun (introduced f))), f)
 
 newAmpArrowVar :: M ((Id, Located (Pred (Located Ty))), Ty)
 newAmpArrowVar = do fv <-fresh "f"
@@ -443,11 +450,12 @@ newAmpArrowVar = do fv <-fresh "f"
                     e <- fresh "e"
                     return ((e, introduced (shFun (introduced f))), f)
 
-starTo, ampTo :: Ty -> Ty -> M ((Id, Located (Pred (Located Ty))), Ty)
+linTo, unrTo :: Ty -> Ty -> Ty
 t `linTo` u = linArrTy @@ t @@ u
 t `unrTo` u = unrArrTy @@ t @@ u
 
-t `starTo` u = do (p, f) <- newStrArrowVar
+starTo, ampTo :: Ty -> Ty -> M ((Id, Located (Pred (Located Ty))), Ty)
+t `starTo` u = do (p, f) <- newStarArrowVar
                   return (p, f @@ t @@ u)
 
 t `ampTo` u = do (p, f) <- newAmpArrowVar
@@ -460,9 +468,9 @@ t `polyTo` u = do (p, f) <- newArrowVar
 -- allUnrTo :: [Ty] -> Ty -> Ty
 -- allUnrTo = flip (foldr unrTo)
 
-allPolyTo :: [Ty] -> Ty -> M (Preds, Ty)
-allPolyTo ts t = do (ps, fs) <- unzip `fmap` replicateM (length ts) newArrowVar
-                    return (ps, foldr (\(f, t) u -> f @@ t @@ u) t (zip fs ts))
+-- allPolyTo :: [Ty] -> Ty -> M (Preds, Ty)
+-- allPolyTo ts t = do (ps, fs) <- unzip `fmap` replicateM (length ts) newArrowVar
+--                     return (ps, foldr (\(f, t) u -> f @@ t @@ u) t (zip fs ts))
 
 -- Convenience functions for building predicates:
 
@@ -493,7 +501,7 @@ updateFails r f                      = predf "Update" (map introduced [r, f])
 -- Quill predicates
 
 unrestricted t                       = predh "Un" [t]
-moreUnrestricted t u                 = predh ">:=" [t, u]
+lesserRestricted t u                 = predh ">:=" [t, u]
 fun t                                = predh "->" [t]
 sepFun t                             = predh "SeFun" [t]
 shFun t                              = predh "ShFun" [t]
@@ -527,7 +535,7 @@ splitPredicates preds =
        let envvars' = close envvars fds
            mustRetain (_, p) = any (`notElem` envvars') (tvs p)
            (retained, deferred) = partition mustRetain (zip vs ps')
-       trace ("With free environment variables " ++ intercalate ", " (map (show . ppr) envvars) ++
+       trace ("With  environment variables " ++ intercalate ", " (map (show . ppr) envvars) ++
               "\n  retained predicates\n" ++ unlines ["    " ++ show (ppr id <::> ppr p) | (id, p) <- retained] ++
               "  and deferred predicates\n" ++ unlines ["    " ++ show (ppr id <::> ppr p) | (id, p) <- deferred])
              (return (retained, deferred))

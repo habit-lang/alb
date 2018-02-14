@@ -192,6 +192,8 @@ linearity name goal@(Pred className ts flag loc) =
     case (className, ts) of
       ("Un", [t]) -> un t
       ("->", [t]) -> fun t
+--      ("-*>", [t]) -> fun t
+--      ("-!>", [t]) -> fun t
       _           -> noProgress
 
     where un (TyVar v) =
@@ -215,7 +217,11 @@ linearity name goal@(Pred className ts flag loc) =
                     unPred _                                       = False
           fun _ = noProgress
 
-          funPred v (Pred "->" [TyVar w] Inc _) = trace (ppx v ++ " =?= " ++ ppx w ++ " = " ++ show (v == w)) $
+          funPred v (Pred "->" [TyVar w] Inc _) = trace ("SOLVER DEBUG" ++ ppx v ++ " =?= " ++ ppx w ++ " = " ++ show (v == w)) $
+                                                  v == w
+          funPred v (Pred "-*>" [TyVar w] Inc _) = trace ("SOLVER DEBUG" ++ ppx v ++ "(-*>) =?= " ++ ppx w ++ " = " ++ show (v == w)) $
+                                                  v == w
+          funPred v (Pred "-&>" [TyVar w] Inc _) = trace ("SOLVER DEBUG" ++ ppx v ++ "(-!>) =?= " ++ ppx w ++ " = " ++ show (v == w)) $
                                                   v == w
           funPred _ _                             = False
 

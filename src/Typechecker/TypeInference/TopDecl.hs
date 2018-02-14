@@ -112,7 +112,7 @@ checkTopDecl (Datatype (Kinded name k) params ctors _) =
               do (vs, qs, t') <- buildArrow (u:ts) us t
                  ((_, At _ funp), f@(TyVar v)) <- newArrowVar
                  let t'' = f @@ u @@ t'
-                     qs' = map ((`moreUnrestricted` (introduced f)) . introduced) ts
+                     qs' = map ((`lesserRestricted` (introduced f)) . introduced) ts
                  return (v:vs, funp : qs' ++ qs, t'')
 
           ctorTypeBinding (Ctor (At _ ctorName) kids qs ts) =
@@ -538,6 +538,7 @@ checkProgram fn p =
                    ctorTypes       = tyEnvFromCtorEnv ctorEnvironment
                bindCtors ctorEnvironment
                declare ctorTypes $
+                       -- This is where TypeInference for Expr kicks in
                     do rDecls <- checkDecls (concatDecls [decls p, Decls (concat defaultMethodImpls), Decls methodImpls]) -- (decls', ps, valueTypes)
                        let (decls', valueTypes) = payload rDecls
                        (evsubst, remaining) <- traceIf (not (null (goals rDecls))) (show ("Solving remaining top-level constraints:" <+>

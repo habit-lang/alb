@@ -93,6 +93,8 @@ instance HasVariables Expr
           freeVariables (ECon {})               = []
           freeVariables (ETuple es)             = concatMap freeVariables es
           freeVariables (ELam id _ body)        = filter (id /=) (freeVariables body)
+          freeVariables (ELamStr id _ body)        = filter (id /=) (freeVariables body)
+          freeVariables (ELamAmp id _ body)        = filter (id /=) (freeVariables body)
           freeVariables (ELet ds body)          = freeVariables ds ++ withoutBound ds (freeVariables body)
           freeVariables (ESubst ps _ body  )    = concatMap freeVariables exprs ++ filter (`notElem` ids) (freeVariables body)
               where (ids, exprs) = unzip ps
@@ -222,6 +224,7 @@ instance HasVariables Guard
 --   name{typarams}{evparams} = e
 data Defn = PrimDefn Id (Scheme Type) (String, [Type])
           | Defn Id (Scheme Type) (Gen Expr)
+
 type Defns = [Defn]
 
 instance HasVariables Defn

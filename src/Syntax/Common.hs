@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, TypeSynonymInstances, MultiParamTypeClasses, DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleInstances, TypeSynonymInstances, MultiParamTypeClasses, DeriveDataTypeable, FunctionalDependencies #-}
 module Syntax.Common (module Syntax.Common, SourcePos, newPos, fromString) where
 
 import Data.Char
@@ -132,11 +132,10 @@ introducedLocation = Location introducedPosition introducedPosition
 introduced :: t -> Located t
 introduced = At introducedLocation
 
-
 data PredFN ty = PredFN Id [ty] (Maybe ty) Flag
                  deriving (Eq, Show, Typeable, Data)
 
-data Pred ty = Pred Id [ty] Flag deriving (Eq, Typeable, Data)
+data Pred ty = Pred Id [ty] Flag deriving (Show, Eq, Typeable, Data)
 
 
 data Flag = Holds | Fails

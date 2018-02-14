@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, ScopedTypeVariables #-}
 
 module Typechecker.TypeInference.Expr where
 
@@ -9,7 +9,9 @@ import Control.Monad
 import Control.Monad.State
 import Data.List
 import Data.Map (Map)
+import Data.Set (Set)
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import Data.Maybe
 import Printer.Common hiding (empty)
 import Syntax.Common
@@ -43,7 +45,7 @@ checkExpr (At loc (ELam var body)) expected =
        (funp, t)         <- argTy `polyTo` resTy
        unifies expected t
        r <- bind loc var (LamBound argTy) (checkExpr body resTy)
-       (gteAssumps, gteGoals) <- unzip `fmap` mapM (buildLinPred loc (flip moreUnrestricted (At loc t)) <=< bindingOf) (used r)
+       (gteAssumps, gteGoals) <- unzip `fmap` mapM (buildLinPred loc (flip lesserRestricted (At loc t)) <=< bindingOf) (used r)
        traceIf (not (null gteGoals))
                (show ("In function" <+> ppr (ELam var body) <+> "used" <+> pprList' (used r) <$>
                       "giving entailment" <+> pprList' (map snd (concat gteAssumps)) <+> "=>" <+> pprList' (map snd gteGoals)))
@@ -58,9 +60,11 @@ checkExpr (At loc (ELamStr var body)) expected =
     do argTy@(TyVar arg) <- newTyVar KStar
        resTy             <- newTyVar KStar
        (funp, t)         <- argTy `starTo` resTy
+       -- trace ("DEBUG Lam*:\t" ++ show argTy ++ "\n\t" ++show resTy) (return ())
        unifies expected t
        r <- bind loc var (LamBound argTy) (checkExpr body resTy)
-       (gteAssumps, gteGoals) <- unzip `fmap` mapM (buildLinPred loc (flip moreUnrestricted (At loc t)) <=< bindingOf) (used r)
+       -- trace("DEBUG r: " ++show r)(return ())
+       (gteAssumps, gteGoals) <- unzip `fmap` mapM (buildLinPred loc (flip lesserRestricted (At loc t)) <=< bindingOf) (used r)
        traceIf (not (null gteGoals))
                (show ("In function" <+> ppr (ELamStr var body) <+> "used" <+> pprList' (used r) <$>
                       "giving entailment" <+> pprList' (map snd (concat gteAssumps)) <+> "=>" <+> pprList' (map snd gteGoals)))
@@ -77,7 +81,9 @@ checkExpr (At loc (ELamAmp var body)) expected =
        (funp, t)         <- argTy `ampTo` resTy
        unifies expected t
        r <- bind loc var (LamBound argTy) (checkExpr body resTy)
-       (gteAssumps, gteGoals) <- unzip `fmap` mapM (buildLinPred loc (flip moreUnrestricted (At loc t)) <=< bindingOf) (used r)
+       trace ("DEBUG used r: " ++ show (goals r)) (return ())
+       (gteAssumps, gteGoals) <- unzip `fmap` mapM (buildLinPred loc (flip lesserRestricted (At loc t)) <=< bindingOf) (used r)
+       -- trace (show ("DEBUG: gteAssumption" <$> pprList' (gteAssumps))) (return ())
        traceIf (not (null gteGoals))
                (show ("In function" <+> ppr (ELamAmp var body) <+> "used" <+> pprList' (used r) <$>
                       "giving entailment" <+> pprList' (map snd (concat gteAssumps)) <+> "=>" <+> pprList' (map snd gteGoals)))
@@ -184,18 +190,49 @@ checkExpr (At loc (EMatch m)) expected =
     do r <- checkMatch m expected
        return r{ payload = X.EMatch (payload r) }
 
-checkExpr (At loc (EApp f a)) expected =
+-- At this point we don't have any information about 'f' or 'a'
+-- The magic that we expect to happen is:
+--     1) Identify that the type of a is linear from the 'outer' context
+--     2) assign this Application a tag of linearity or sharing
+-- eg:
+-- \g -> .. -> \f -> ... -> \*x -> ... -> f x -> ...
+-- becuase x is bound to a linear lambda, we should identify the application f x as linear or ShFun
+
+checkExpr (At loc (EApp f a)) expected = -- [ANI] TODO: Have more logic for -&> -*> applications
     failAt loc $
-    trace (show ("At" <+> ppr loc <+> "expect type" <+> ppr expected)) $
+    trace (show ("DEBUG: At" <+> ppr loc <+> "expect type" <+> ppr expected)) $
     do t <- newTyVar KStar
+       tyenv <- gets typeEnvironment
+       let identifiers = Map.keys tyenv
+       -- [ANI] TODO get rid of this by embedding the logic in side polyTo?
        (funp, fty) <- t `polyTo` expected
        rF <- checkExpr f fty
        rA <- checkExpr a t
-       (assumedC, goalsC, used) <- contract loc (used rF) (used rA)
-       return R{ payload = X.EApp (payload rF) (payload rA)
-               , assumed = assumedC ++ assumed rF ++ assumed rA
-               , goals = funp : goalsC ++ goals rF ++ goals rA
-               , used = used }
+       (assumedC, goalsC, used') <- contract loc (used rF) (used rA)
+       -- trace ("DEBUG rF: \n\tused: " ++ show (used rF)
+       --         ++ "\n\tassumed: " ++ show (assumed rF)
+       --         ++ "\n\tgoals: " ++ show (goals rF)) (return ())
+       -- trace ("DEBUG rA: \n\tused: " ++ show (used rA)
+       --         ++ "\n\tassumed: " ++ show (assumed rA)
+       --         ++ "\n\tgoals: " ++ show (goals rA)) (return ())
+       -- trace ("DEBUG tyEnv: " ++ show (intersect (used rF ++ used rA) identifiers))(return ())
+       if (not $ Set.disjoint (Set.fromList $ used rF) (Set.fromList $ used rA))
+       then do (funpAmp, ftyAmp)  <-  t `ampTo` expected
+               rFAmp <- checkExpr f ftyAmp
+               rAAmp <- checkExpr a t
+               (assumedC, goalsC, used') <- contract loc (used rFAmp) (used rAAmp)
+               return R{ payload = X.EApp (payload rFAmp) (payload rAAmp)
+                       , assumed = assumedC ++ assumed rFAmp ++ assumed rAAmp
+                       , goals = funpAmp : goalsC ++ goals rFAmp ++ goals rAAmp
+                       , used = used' }
+       else  do (funpStr, ftyStr)  <-  t `starTo` expected
+                rFStr <- checkExpr f ftyStr
+                rAStr <- checkExpr a t
+                (assumedC, goalsC, used') <- contract loc (used rFStr) (used rAStr)
+                return R{ payload = X.EApp (payload rFStr) (payload rAStr)
+                        , assumed = assumedC ++ assumed rFStr ++ assumed rAStr
+                        , goals = funpStr : goalsC ++ goals rFStr ++ goals rAStr
+                        , used = used' }
 
 checkExpr (At loc (EBind v e rest)) expected =
     failAt loc $
@@ -417,7 +454,7 @@ checkFunction params body expected =
 -- are other function types: as long as all the '>:=' constraints relate variables up for
 -- defaulting, we're happy to default them all.
 
-improveFunPredicates :: Preds -> Preds -> M Preds
+improveFunPredicates :: Preds -> Preds -> M Preds -- [ANI] TODO add logic for outermost funs.
 improveFunPredicates assumed goals =
     traceIf (not (null goals)) (show ("Predicates for defaulting:" <+> pprList' ps)) $
     traceIf (not (null defaulted)) (show ("Defaulting:" <+> pprList defaulted)) $
@@ -429,6 +466,8 @@ improveFunPredicates assumed goals =
     where ps = map snd (assumed ++ goals)
 
           funVar (At _ (Pred "->" [At _ (TyVar v)] Holds)) = Just v
+          funVar (At _ (Pred "ShFun" [At _ (TyVar v)] Holds)) = Just v
+          funVar (At _ (Pred "SeFun" [At _ (TyVar v)] Holds)) = Just v
           funVar _ = Nothing
           funVars = filter defaultable $ catMaybes (map funVar ps)
 
@@ -498,6 +537,7 @@ checkTypingGroup (Explicit (name, params, body) expectedTyS) =
               -- goals.
               when (not (null retainedGoals')) $
                    do fds <- inducedDependencies (map snd (declaredPreds ++ goals))
+                      trace ("DEBUG fds: " ++ show fds) (return ())
                       transformFailures (addAmbiguousVariables (tvs (map snd retainedGoals') \\ close (tvs expected) fds) (map snd retainedGoals')) $
                           contextTooWeak assumed retainedGoals'
 
@@ -780,6 +820,10 @@ checkDecls (Decls groups) =
           checkGroups (g:gs) =
               do rg <- checkTypingGroup g
                  let (g', vals) = payload rg
+                 trace ("DEBUG payload " ++ show (used rg)) (return ())
+                 trace ("DEBUG assumed " ++ show (assumed rg)) (return ())
+                 trace ("DEBUG goals "   ++ show (goals rg)) (return ())
+                 trace ("DEBUG tyenv "   ++ show (vals)) (return ())
                  rgs <- declare vals (checkGroups gs)
                  let (gs', vals') = payload rgs
                  (assumedC, goalsC, used) <- contract introducedLocation (used rg) (used rgs)
