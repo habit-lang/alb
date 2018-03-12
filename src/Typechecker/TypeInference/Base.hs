@@ -8,7 +8,9 @@ import Control.Monad
 import Control.Monad.State
 import Data.List (intercalate, nub, partition)
 import Data.Map (Map)
+import Data.Set (Set)
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import Data.Maybe
 import Printer.Common hiding (empty)
 import Printer.IMPEG hiding (bindingTyVar, tyvarName)
@@ -70,7 +72,7 @@ instance HasTypeVariables Binding KId
           inst _ _                       = error "inst applied to Binding"
           gen _ _ _                      = error "gen applied to Binding"
 
-instance HasTypeVariables (Binding, [Id]) KId
+instance HasTypeVariables (Binding, [[Id]]) KId
     where tvs ((LetBound (ForallK _ tys)), is) = tvs tys
           tvs ((LamBound ty), is)              = tvs ty
 
@@ -91,13 +93,25 @@ instance HasTypeVariables (Binding, [Id]) KId
 -- b. will look like [(a -> (x, [])), (b -> (y, [b, c]), (c -> (z, [b, c]))]
 
 -- scope is to identify whether the id is defined locally or globally
--- data Scope = Local | Global
---   deriving (Eq, Show, Ord)
-type TyEnv       = Map Id (Binding, [[Id]])
-type CtorEnv     = Map Id ((KScheme TyS, Int), [[Id]])
+data Scope = Local | Global
+  deriving (Eq, Show, Ord)
+type TyEnv       = Map Id (Binding, [[Id]], Scope)
+type CtorEnv     = Map Id ((KScheme TyS, Int), [[Id]], Scope)
+
+-- restricts the type environment to local scope
+local :: TyEnv -> TyEnv
+local = Map.filter (\(_, _, scope) -> scope == Local)
+
+-- returns all the variables that have sharing with current variable
+closure :: TyEnv -> Id -> [Id]
+closure tyenv i = nub $ concat $ filter (i `elem`) lstOflst
+  where (lstOflst::[[Id]]) = concat $ map (\(_, shids, _) -> shids) $ Map.elems tyenv
+
+closureHelper :: TyEnv -> [Id] -> Set Id
+closureHelper tyenv is = Set.unions $ map (\l -> Set.fromList l) (map (closure tyenv) is)
 
 tyEnvFromCtorEnv :: CtorEnv -> TyEnv
-tyEnvFromCtorEnv = Map.map (\(x, z) -> ((LetBound $ fst x), z))
+tyEnvFromCtorEnv = Map.map (\(bnds, shids, scope) -> ((LetBound $ fst bnds), shids, scope))
 
 instance HasTypeVariables TyEnv KId
     where tvs _  = []
@@ -109,13 +123,13 @@ instance HasTypeVariables TyEnv KId
 applyToEnvironment :: Unifier -> TyEnv -> TyEnv
 applyToEnvironment u@(ks, s) m = if isEmpty s && K.isEmpty ks then m else Map.map f m
   where
-    f :: (Binding, [[Id]]) -> (Binding, [[Id]])
-    f (t, shids) = {-# SCC "u##" #-} (u ## t, shids)
+    f :: (Binding, [[Id]], Scope) -> (Binding, [[Id]], Scope)
+    f (t, shids, scope) = {-# SCC "u##" #-} (u ## t, shids, scope)
 
 showTypeEnvironment :: TyEnv -> String
 showTypeEnvironment valenv = unlines [fromId v ++ " :: " ++ showBinding b | (v, b) <- Map.assocs valenv]
-    where showBinding (LetBound tys, ids) = show (ppr tys)
-          showBinding (LamBound ty, ids)  = show (ppr ty)
+    where showBinding (LetBound tys, shids, scope) = show (ppr tys) ++ (show shids) ++ (show scope)
+          showBinding (LamBound ty, shids, scope)  = show (ppr ty) ++ (show shids) ++ (show scope)
 
 data ClassEnv      = ClassEnv { solverEnvironment      :: Solver.SolverEnv
                               , functionalDependencies :: Map Id [Fundep Int]
@@ -356,7 +370,7 @@ bindingOf id = do s <- gets currentSubstitution
                   mt <- gets (Map.lookup id . typeEnvironment)
                   case mt of
                     Nothing -> failWithS ("Unbound identifier: " ++ fromId id)
-                    Just t  -> return (s ## fst t)
+                    Just (bnds, shids, scope)  -> return (s ## bnds)
 
 -- We encapsulate the checks for weakening in the general binding operations.  That is, when binding
 -- a set of 'x's, if the 'x's are not used in the contained operation, then the corresponding types
@@ -372,13 +386,18 @@ bindingOf id = do s <- gets currentSubstitution
 binds :: Location -> TyEnv -> TcRes t -> TcRes t
 binds loc bs c = do modify (\st -> st { typeEnvironment = Map.union (typeEnvironment st) bs })
                     r <- c
-                    (assumpsC, goalsC) <- weaken loc vs (used r)
+                    tyenv' <- gets typeEnvironment
+                    let shids = Set.toList $ closureHelper tyenv' (used r)
+                    trace("DEBUG BINDS: "
+                         ++ "\n\tshids: " ++ show shids
+                         ++ "\n\tused r: " ++ show (used r))(return ())
+                    (assumpsC, goalsC) <- weaken loc vs (shids)
                     modify (\st -> st { typeEnvironment = Map.filterWithKey (\v _ -> v `notElem` vs) (typeEnvironment st) })
                     return r{ assumed = assumpsC ++ assumed r, goals = goalsC ++ goals r, used = filter (`notElem` vs) (used r) }
     where vs = Map.keys bs
 
 bind :: Location -> Id -> Binding -> TcRes t -> TcRes t
-bind loc x t = binds loc (Map.singleton x (t, [[x]]))
+bind loc x t = binds loc (Map.singleton x (t, [[x]], Local))
 
 declare :: TyEnv -> M t -> M t
 declare bs c =
@@ -393,7 +412,7 @@ declare bs c =
 bindCtors :: MonadState TcState m => CtorEnv -> m ()
 bindCtors ctors = modify (\s -> s { ctorEnvironment = Map.union (ctorEnvironment s) ctors })
 
-ctorBinding :: (MonadState TcState m, MonadBase m) => Id -> m ((KScheme TyS, Int), [[Id]])
+ctorBinding :: (MonadState TcState m, MonadBase m) => Id -> m ((KScheme TyS, Int), [[Id]], Scope)
 ctorBinding id = do mt <- gets (Map.lookup id . ctorEnvironment)
                     case mt of
                       Nothing -> failWithS ("Unbound constructor function name " ++ fromId id)
@@ -526,7 +545,7 @@ freeEnvironmentVariables :: M [KId]
 freeEnvironmentVariables =
     do s  <- gets currentSubstitution
        ts <- gets (Map.elems . typeEnvironment)
-       return (nub (tvs (s ## (map fst ts))))
+       return (nub (tvs (s ## (map (\(bnds, _, _) -> bnds) ts))))
 
 -- splitPredicates: predicates -> (retained, deferred)
 splitPredicates :: Preds -> M (Preds, Preds)

@@ -49,11 +49,18 @@ instance SeFun (t -*> u)
 --------------------------------------------------------------------------------
 -- Basic examples for pair
 
+shPair = \x -> \&y -> \sh -> sh x y
+
+sePair = \x -> \*y -> \se -> se x y
 
 -- Because this is a sharing pair, there should not be any Uns on the
 -- variables that are not used
 fst = \x -> \&y -> x
 snd = \x -> \&y -> y
+
+-- how will fst . shPair typecheck?
+-- how will snd . shPair typecheck?
+
 
 -- This is a linear pair, hence the variables that
 -- that are not used should be marked as un
