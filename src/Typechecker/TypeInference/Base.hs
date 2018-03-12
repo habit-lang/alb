@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, GeneralizedNewtypeDeriving, MultiParamTypeClasses, OverloadedStrings, TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, GeneralizedNewtypeDeriving, MultiParamTypeClasses, OverloadedStrings, TypeSynonymInstances, ScopedTypeVariables#-}
 module Typechecker.TypeInference.Base where
 
 import Prelude hiding ((<$>))
@@ -90,8 +90,11 @@ instance HasTypeVariables (Binding, [Id]) KId
 -- a. will look like [(a -> (x,[])), (b -> (y, []))]
 -- b. will look like [(a -> (x, [])), (b -> (y, [b, c]), (c -> (z, [b, c]))]
 
-type TyEnv       = Map Id (Binding, [Id])
-type CtorEnv     = Map Id ((KScheme TyS, Int), [Id])
+-- scope is to identify whether the id is defined locally or globally
+-- data Scope = Local | Global
+--   deriving (Eq, Show, Ord)
+type TyEnv       = Map Id (Binding, [[Id]])
+type CtorEnv     = Map Id ((KScheme TyS, Int), [[Id]])
 
 tyEnvFromCtorEnv :: CtorEnv -> TyEnv
 tyEnvFromCtorEnv = Map.map (\(x, z) -> ((LetBound $ fst x), z))
@@ -106,8 +109,8 @@ instance HasTypeVariables TyEnv KId
 applyToEnvironment :: Unifier -> TyEnv -> TyEnv
 applyToEnvironment u@(ks, s) m = if isEmpty s && K.isEmpty ks then m else Map.map f m
   where
-    f :: (Binding, [Id]) -> (Binding, [Id])
-    f t = {-# SCC "u##" #-} u ## t
+    f :: (Binding, [[Id]]) -> (Binding, [[Id]])
+    f (t, shids) = {-# SCC "u##" #-} (u ## t, shids)
 
 showTypeEnvironment :: TyEnv -> String
 showTypeEnvironment valenv = unlines [fromId v ++ " :: " ++ showBinding b | (v, b) <- Map.assocs valenv]
@@ -375,7 +378,7 @@ binds loc bs c = do modify (\st -> st { typeEnvironment = Map.union (typeEnviron
     where vs = Map.keys bs
 
 bind :: Location -> Id -> Binding -> TcRes t -> TcRes t
-bind loc x t = binds loc (Map.singleton x (t, []))
+bind loc x t = binds loc (Map.singleton x (t, [[x]]))
 
 declare :: TyEnv -> M t -> M t
 declare bs c =
@@ -390,7 +393,7 @@ declare bs c =
 bindCtors :: MonadState TcState m => CtorEnv -> m ()
 bindCtors ctors = modify (\s -> s { ctorEnvironment = Map.union (ctorEnvironment s) ctors })
 
-ctorBinding :: (MonadState TcState m, MonadBase m) => Id -> m ((KScheme TyS, Int), [Id])
+ctorBinding :: (MonadState TcState m, MonadBase m) => Id -> m ((KScheme TyS, Int), [[Id]])
 ctorBinding id = do mt <- gets (Map.lookup id . ctorEnvironment)
                     case mt of
                       Nothing -> failWithS ("Unbound constructor function name " ++ fromId id)
@@ -523,7 +526,7 @@ freeEnvironmentVariables :: M [KId]
 freeEnvironmentVariables =
     do s  <- gets currentSubstitution
        ts <- gets (Map.elems . typeEnvironment)
-       return (nub (tvs (s ## ts)))
+       return (nub (tvs (s ## (map fst ts))))
 
 -- splitPredicates: predicates -> (retained, deferred)
 splitPredicates :: Preds -> M (Preds, Preds)

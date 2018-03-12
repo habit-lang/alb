@@ -99,7 +99,7 @@ checkTopDecl (Datatype (Kinded name k) params ctors _) =
        ctorEnv <- mapM ctorTypeBinding ctors'
        trace (show ("Binding constructors:" <+> vcat [ ppr id <::> ppr ksc | (id, (ksc, _)) <- ctorEnv ])) $
            return ( X.Datatype name params' xctors
-                  , Map.map (\x-> (x, []::[Id])) (Map.fromList ctorEnv) )
+                  , Map.map (\x-> (x, [[]]::[[Id]])) (Map.fromList ctorEnv) )
     where convertCtor (Ctor (At _ name) kids params ts) =
               return (name, kids, map (convert . dislocate) params, map (convert . dislocate) ts)
 
@@ -169,7 +169,7 @@ checkTopDecl (Bitdatatype name mtys ctors derives) =
 
        -- Return XMPEG version of this bitdatatype decl:
        return ( X.Bitdatatype name bddpat xctors
-              , Map.map (\x -> (x, []::[Id]))
+              , Map.map (\x -> (x, [[]]::[[Id]]))
                         (Map.fromList [(cname, (ForallK [] (Forall [] ([] :=> introduced (ctorType cname))), 0))
                              | Ctor (At _ cname) _ _ _ <- ctors'] ))
 
@@ -305,7 +305,7 @@ checkTopDecl (Area v inits tys) =
                 size  <- getNat "size" s
                 align <- getNat "alignment" l
                 return ( X.Area v inits' (convert (dislocate ty)) size align
-                       , Map.map (\x -> (x, []::[Id])) (Map.fromList [(name, (tys', 0)) | (name, _) <- inits']) )
+                       , Map.map (\x -> (x, [[]]::[[Id]])) (Map.fromList [(name, (tys', 0)) | (name, _) <- inits']) )
          _ ->
              failWithS ("Unsupported area declaration; declared type " ++ show (ppr tys)
                        ++ ", simplified type " ++ show (ppr tys'))
@@ -341,7 +341,7 @@ assertClass (Class name params constraints methods defaults) =
        (sigs, impls) <- unzip `fmap` sequence (zipWith selectorSigImpl methods [0..])
        (mappings, defImpls) <- unzip `fmap` mapM (defaultImpl sigs) defaults
        modify (updateClassEnv methods (Map.fromList mappings)) -- add fundeps and defaults to environment
-       return (Map.map (\x -> (x, []::[Id]))(Map.fromList [ (name, LetBound tys) | (name, tys) <- sigs ]), impls, defImpls)
+       return (Map.map (\x -> (x, [[]]::[[Id]]))(Map.fromList [ (name, LetBound tys) | (name, tys) <- sigs ]), impls, defImpls)
 
     where classPred = Pred name (map (fmap TyVar) params) Holds
           params'   = map dislocate params
@@ -506,7 +506,7 @@ assertPrimitive :: Primitive Pred KId -> M (X.Defns, CtorEnv)
 assertPrimitive (PrimCon (Signature name tys) impl) =
     do tys' <- simplifyScheme tys
        return ([X.PrimDefn name (X.convert tys') (impl, [])],
-               Map.singleton name ((tys, 0), []::[Id]))
+               Map.singleton name ((tys, 0), [[]]::[[Id]]))
 assertPrimitive (PrimClass name _ fundeps _) =
     do mapM_ (assert . Solver.newFunDep name) fundeps'
        modify updateClassEnv
@@ -531,7 +531,7 @@ checkProgram fn p =
        (evDecls, methodImpls) <- assertInstances (map instanceName derived) instanceDecls'
        areaTypes' <- mapM (\(n, tys) -> do ty <- simplifyAreaType tys
                                            return (n, (LamBound ty))) areaTypes
-       let globals = Map.unions (Map.map (\x -> (x, []::[Id])) (Map.fromList areaTypes') : methodTypeEnvironments)
+       let globals = Map.unions (Map.map (\x -> (x, [[]]::[[Id]])) (Map.fromList areaTypes') : methodTypeEnvironments)
        declare globals $
             do (typeDecls', ctorEnvironments) <- unzip `fmap` mapM (mapLocated checkTopDecl) typeDecls
                let ctorEnvironment = Map.unions (primCtors ++ ctorEnvironments)
