@@ -51,12 +51,11 @@ checkExpr (At loc (ELam var body)) expected =
        (funp, t)         <- argTy `polyTo` resTy
        unifies expected t
        tyenv <- gets typeEnvironment
-       -- get local tyenv
        let tyenv' = updateShIds tyenv var
        modify (\s -> s{typeEnvironment = tyenv'})
        tyenv'' <- gets typeEnvironment
        trace("DEBUG Lam"
-            ++ "\n\t modified tyenv: " ++ (show tyenv''))(return())
+            ++ "\n\t modified tyenv: " ++ (show $ local tyenv''))(return())
        r <- bind loc var (LamBound argTy) (checkExpr body resTy)
        (gteAssumps, gteGoals) <- unzip `fmap` mapM (buildLinPred loc (flip lesserRestricted (At loc t)) <=< bindingOf) (used r)
        traceIf (not (null gteGoals))
@@ -67,7 +66,7 @@ checkExpr (At loc (ELam var body)) expected =
                         , goals = funp : gteGoals ++ goals r })
          where
            updateShIds :: TyEnv -> Id -> TyEnv
-           updateShIds tyenv i = (Map.map (\(bnd, shids, scope) -> (bnd, (shids ++ [[i]]), scope)) tyenv)  `Map.union` tyenv
+           updateShIds tyenv i = (Map.map (\(bnd, shids, scope) -> (bnd, (shids ++ [[i]]), scope)) (local tyenv))  `Map.union` tyenv
 
 -- This is where the actual logic for typechecking \*x resides
 checkExpr (At loc (ELamStr var body)) expected =
@@ -76,17 +75,14 @@ checkExpr (At loc (ELamStr var body)) expected =
     do argTy@(TyVar arg) <- newTyVar KStar
        resTy             <- newTyVar KStar
        (funp, t)         <- argTy `starTo` resTy
-       -- trace ("DEBUG Lam*:\t" ++ show argTy ++ "\n\t" ++show resTy) (return ())
        unifies expected t
        tyenv <- gets typeEnvironment
-       -- get local tyenv
        let tyenv' = updateShIds tyenv var
        modify (\s -> s{typeEnvironment = tyenv'})
        tyenv'' <- gets typeEnvironment
        trace("DEBUG *****"
-            ++ "\n\t modified tyenv: " ++ (show tyenv''))(return())
+            ++ "\n\t modified tyenv: " ++ (show $ local tyenv''))(return())
        r <- bind loc var (LamBound argTy) (checkExpr body resTy)
-       -- trace("DEBUG r: " ++show r)(return ())
        (gteAssumps, gteGoals) <- unzip `fmap` mapM (buildLinPred loc (flip lesserRestricted (At loc t)) <=< bindingOf) (used r)
        traceIf (not (null gteGoals))
                (show ("In function" <+> ppr (ELamStr var body) <+> "used" <+> pprList' (used r) <$>
@@ -96,7 +92,7 @@ checkExpr (At loc (ELamStr var body)) expected =
                         , goals = funp : gteGoals ++ goals r })
          where
            updateShIds :: TyEnv -> Id -> TyEnv
-           updateShIds tyenv i = (Map.map (\(bnd, shids, scope) -> (bnd, (shids ++ [[i]]), scope)) tyenv)  `Map.union` tyenv
+           updateShIds tyenv i = (Map.map (\(bnd, shids, scope) -> (bnd, (shids ++ [[i]]), scope)) (local tyenv))  `Map.union` tyenv
 
 -- This is where the actual logic for typechecking \&x resides
 checkExpr (At loc (ELamAmp var body)) expected =
@@ -112,11 +108,10 @@ checkExpr (At loc (ELamAmp var body)) expected =
        modify (\s -> s{typeEnvironment = tyenv'})
        tyenv'' <- gets typeEnvironment
        trace("DEBUG &&&&&"
-            ++ "\n\t modified tyenv: " ++ (show tyenv''))(return())
+            ++ "\n\t modified tyenv: " ++ (show $ local tyenv''))(return())
        r <- bind loc var (LamBound argTy) (checkExpr body resTy)
        trace ("DEBUG used r: " ++ show (goals r)) (return ())
        (gteAssumps, gteGoals) <- unzip `fmap` mapM (buildLinPred loc (flip lesserRestricted (At loc t)) <=< bindingOf) (used r)
-       -- trace (show ("DEBUG: gteAssumption" <$> pprList' (gteAssumps))) (return ())
        traceIf (not (null gteGoals))
                (show ("In function" <+> ppr (ELamAmp var body) <+> "used" <+> pprList' (used r) <$>
                       "giving entailment" <+> pprList' (map snd (concat gteAssumps)) <+> "=>" <+> pprList' (map snd gteGoals)))
@@ -238,21 +233,12 @@ checkExpr (At loc (EApp f a)) expected = -- [ANI] TODO: Have more logic for -&> 
     failAt loc $
     trace (show ("DEBUG: At" <+> ppr loc <+> "expect type" <+> ppr expected)) $
     do t <- newTyVar KStar
-       tyenv <- gets typeEnvironment
-       let identifiers = Map.keys tyenv
        -- [ANI] TODO get rid of this by embedding the logic in side polyTo?
        (funp, fty) <- t `polyTo` expected
        rF <- checkExpr f fty
        rA <- checkExpr a t
        (assumedC, goalsC, used') <- contract loc (used rF) (used rA)
-       -- trace ("DEBUG rF: \n\tused: " ++ show (used rF)
-       --         ++ "\n\tassumed: " ++ show (assumed rF)
-       --         ++ "\n\tgoals: " ++ show (goals rF)) (return ())
-       -- trace ("DEBUG rA: \n\tused: " ++ show (used rA)
-       --         ++ "\n\tassumed: " ++ show (assumed rA)
-       --         ++ "\n\tgoals: " ++ show (goals rA)) (return ())
-       -- trace ("DEBUG tyEnv: " ++ show (intersect (used rF ++ used rA) identifiers))(return ())
-       -- Compute the closure here
+       tyenv <- gets typeEnvironment
        trace("DEBUG EAPP"
             ++ "\n\ttyenv: " ++ show (local tyenv)
             ++ "\n\tclosure used rF: " ++ show (closureHelper (local tyenv) (used rF))

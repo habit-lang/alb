@@ -388,12 +388,15 @@ binds loc bs c = do modify (\st -> st { typeEnvironment = Map.union (typeEnviron
                     r <- c
                     tyenv' <- gets typeEnvironment
                     let shids = Set.toList $ closureHelper tyenv' (used r)
-                    trace("DEBUG BINDS: "
-                         ++ "\n\tshids: " ++ show shids
-                         ++ "\n\tused r: " ++ show (used r))(return ())
+                    trace("DEBUG BINDS: " ++ (show (Map.keys bs))
+                         ++ "\n\tsharing closure: " ++ show shids
+                         ++ "\n\tused r: " ++ show (used r)
+                         ++ "\n\ttyenv: " ++ show (local tyenv'))(return ())
                     (assumpsC, goalsC) <- weaken loc vs (shids)
-                    modify (\st -> st { typeEnvironment = Map.filterWithKey (\v _ -> v `notElem` vs) (typeEnvironment st) })
-                    return r{ assumed = assumpsC ++ assumed r, goals = goalsC ++ goals r, used = filter (`notElem` vs) (used r) }
+                    modify (\st -> st { typeEnvironment = Map.withoutKeys (typeEnvironment st) ((Set.fromList vs) `Set.difference` (Set.fromList shids))})
+                    tyenv'' <- gets typeEnvironment
+                    trace("\tmodified tyenv: " ++ show (local tyenv''))(return())
+                    return r{ assumed = assumpsC ++ assumed r, goals = goalsC ++ goals r, used = nub $ (filter (`notElem` vs) (used r)) ++ (filter (`notElem` vs) (shids)) }
     where vs = Map.keys bs
 
 bind :: Location -> Id -> Binding -> TcRes t -> TcRes t
