@@ -51,11 +51,12 @@ checkExpr (At loc (ELam var body)) expected =
        (funp, t)         <- argTy `polyTo` resTy
        unifies expected t
        tyenv <- gets typeEnvironment
+       trace("DEBUG Lam"
+            ++ "\n\ttyenv: " ++ (show $ local tyenv))(return())
        let tyenv' = updateShIds tyenv var
        modify (\s -> s{typeEnvironment = tyenv'})
        tyenv'' <- gets typeEnvironment
-       trace("DEBUG Lam"
-            ++ "\n\t modified tyenv: " ++ (show $ local tyenv''))(return())
+       trace("\tmodified tyenv: " ++ (show $ local tyenv''))(return())
        r <- bind loc var (LamBound argTy) (checkExpr body resTy)
        (gteAssumps, gteGoals) <- unzip `fmap` mapM (buildLinPred loc (flip lesserRestricted (At loc t)) <=< bindingOf) (used r)
        traceIf (not (null gteGoals))
@@ -237,9 +238,9 @@ checkExpr (At loc (EApp f a)) expected = -- [ANI] TODO: Have more logic for -&> 
        (funp, fty) <- t `polyTo` expected
        rF <- checkExpr f fty
        rA <- checkExpr a t
-       (assumedC, goalsC, used') <- contract loc (used rF) (used rA)
+       -- (assumedC, goalsC, used') <- contract loc (used rF) (used rA)
        tyenv <- gets typeEnvironment
-       trace("DEBUG EAPP"
+       trace("DEBUG EAPP " ++ show (used rF) ++ show (used rA)
             ++ "\n\ttyenv: " ++ show (local tyenv)
             ++ "\n\tclosure used rF: " ++ show (closureHelper (local tyenv) (used rF))
             ++ "\n\tclosure used rA: " ++ show (closureHelper (local tyenv) (used rA))) (return ())
