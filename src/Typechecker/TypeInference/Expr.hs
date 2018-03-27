@@ -51,20 +51,24 @@ checkExpr (At loc (ELam var body)) expected =
        (funp, t)         <- argTy `polyTo` resTy
        unifies expected t
        tyenv <- gets typeEnvironment
-       trace("DEBUG Lam"
-            ++ "\n\ttyenv: " ++ (show $ local tyenv))(return())
+       trace("DEBUG Lam:" ++ (show var)
+            ++ "\n\t         tyenv: " ++ (show $ local tyenv))(return())
        let tyenv' = updateShIds tyenv var
        modify (\s -> s{typeEnvironment = tyenv'})
        tyenv'' <- gets typeEnvironment
        trace("\tmodified tyenv: " ++ (show $ local tyenv''))(return())
        r <- bind loc var (LamBound argTy) (checkExpr body resTy)
-       (gteAssumps, gteGoals) <- unzip `fmap` mapM (buildLinPred loc (flip lesserRestricted (At loc t)) <=< bindingOf) (used r)
-       traceIf (not (null gteGoals))
-               (show ("In function" <+> ppr (ELam var body) <+> "used" <+> pprList' (used r) <$>
-                      "giving entailment" <+> pprList' (map snd (concat gteAssumps)) <+> "=>" <+> pprList' (map snd gteGoals)))
-               (return r{ payload = X.ELam var (X.TyVar arg) (payload r)
-                        , assumed = concat gteAssumps ++ assumed r
-                        , goals = funp : gteGoals ++ goals r })
+       -- (gteAssumps, gteGoals) <- unzip `fmap` mapM (buildLinPred loc (flip lesserRestricted (At loc t)) <=< bindingOf) (used r)
+       modify (\s -> s{typeEnvironment = Map.withoutKeys (typeEnvironment s) (Set.fromList $ closure (typeEnvironment s) var)})
+       tyenv''' <- gets typeEnvironment
+       trace("DEBUG Lam Complete: " ++ (show var)
+             ++"\n\ttyenv: " ++ (show $ local tyenv'''))(return())
+       -- traceIf (not (null gteGoals))
+       --         (show ("In function" <+> ppr (ELam var body) <+> "used" <+> pprList' (used r) <$>
+       --                "giving entailment" <+> pprList' (map snd (concat gteAssumps)) <+> "=>" <+> pprList' (map snd gteGoals)))
+       return r{ payload = X.ELam var (X.TyVar arg) (payload r)}
+                        -- , assumed = concat gteAssumps ++ assumed r
+                        -- , goals = funp : gteGoals ++ goals r })
          where
            updateShIds :: TyEnv -> Id -> TyEnv
            updateShIds tyenv i = (Map.map (\(bnd, shids, scope) -> (bnd, (shids ++ [[i]]), scope)) (local tyenv))  `Map.union` tyenv
@@ -78,13 +82,19 @@ checkExpr (At loc (ELamStr var body)) expected =
        (funp, t)         <- argTy `starTo` resTy
        unifies expected t
        tyenv <- gets typeEnvironment
+       trace("DEBUG *****" ++ (show var)
+              ++ "\n\t         tyenv: " ++ (show $ local tyenv))(return())
        let tyenv' = updateShIds tyenv var
        modify (\s -> s{typeEnvironment = tyenv'})
        tyenv'' <- gets typeEnvironment
-       trace("DEBUG *****"
-            ++ "\n\t modified tyenv: " ++ (show $ local tyenv''))(return())
+       trace("\n\t modified tyenv: " ++ (show $ local tyenv''))(return())
        r <- bind loc var (LamBound argTy) (checkExpr body resTy)
        (gteAssumps, gteGoals) <- unzip `fmap` mapM (buildLinPred loc (flip lesserRestricted (At loc t)) <=< bindingOf) (used r)
+       -- get rid of the variables that are bound till current scope?
+       modify (\s -> s{typeEnvironment = Map.withoutKeys (typeEnvironment s) (Set.fromList $ closure (typeEnvironment s) var)})
+       tyenv''' <- gets typeEnvironment
+       trace("DEBUG Lam**** Complete: " ++ (show var)
+             ++"\n\ttyenv: " ++ (show $ local tyenv'''))(return())
        traceIf (not (null gteGoals))
                (show ("In function" <+> ppr (ELamStr var body) <+> "used" <+> pprList' (used r) <$>
                       "giving entailment" <+> pprList' (map snd (concat gteAssumps)) <+> "=>" <+> pprList' (map snd gteGoals)))
@@ -104,12 +114,12 @@ checkExpr (At loc (ELamAmp var body)) expected =
        (funp, t)         <- argTy `ampTo` resTy
        unifies expected t
        tyenv <- gets typeEnvironment
-       -- get local tyenv
+       trace("DEBUG &&&&" ++ (show var)
+              ++ "\n\t          tyenv: " ++ (show $ local tyenv))(return())
        let tyenv' = updateShIds tyenv var
        modify (\s -> s{typeEnvironment = tyenv'})
        tyenv'' <- gets typeEnvironment
-       trace("DEBUG &&&&&"
-            ++ "\n\t modified tyenv: " ++ (show $ local tyenv''))(return())
+       trace("\n\t modified tyenv: " ++ (show $ local tyenv''))(return())
        r <- bind loc var (LamBound argTy) (checkExpr body resTy)
        trace ("DEBUG used r: " ++ show (goals r)) (return ())
        (gteAssumps, gteGoals) <- unzip `fmap` mapM (buildLinPred loc (flip lesserRestricted (At loc t)) <=< bindingOf) (used r)
@@ -248,7 +258,7 @@ checkExpr (At loc (EApp f a)) expected = -- [ANI] TODO: Have more logic for -&> 
        then do (funpAmp, ftyAmp)  <-  t `ampTo` expected
                rFAmp <- checkExpr f ftyAmp
                rAAmp <- checkExpr a t
-               trace("\n\tclosure overlaps generating ampTo")(return ())
+               trace("\n\tClosure overlaps generating ampTo\n")(return ())
                (assumedC, goalsC, used') <- contract loc (used rFAmp) (used rAAmp)
                return R{ payload = X.EApp (payload rFAmp) (payload rAAmp)
                        , assumed = assumedC ++ assumed rFAmp ++ assumed rAAmp
@@ -257,7 +267,7 @@ checkExpr (At loc (EApp f a)) expected = -- [ANI] TODO: Have more logic for -&> 
        else  do (funpStr, ftyStr)  <-  t `starTo` expected
                 rFStr <- checkExpr f ftyStr
                 rAStr <- checkExpr a t
-                trace("\n\tclosure does not overlap generating starTo")(return ())
+                trace("\n\tClosure does not overlap generating starTo\n")(return ())
                 (assumedC, goalsC, used') <- contract loc (used rFStr) (used rAStr)
                 return R{ payload = X.EApp (payload rFStr) (payload rAStr)
                         , assumed = assumedC ++ assumed rFStr ++ assumed rAStr
@@ -527,7 +537,7 @@ improveFunPredicates assumed goals =
 checkTypingGroup :: TypingGroup Pred KId -> TcRes (X.Defns, TyEnv)
 
 checkTypingGroup (Explicit (name, params, body) expectedTyS) =
-    trace ("Inferring type for " ++ show (ppr name <::> ppr expectedTyS)) $
+    trace ("Explicit Inferring type for\n" ++ show (ppr name <::> ppr expectedTyS)) $
     do -- Instantiate declared type signatures
        (declaredKVars, declaredTyVars, declaredPredicates :=> At _ declaredType) <- instantiate expectedTyS
        evvars <- freshFor "e" declaredPredicates
@@ -575,7 +585,7 @@ checkTypingGroup (Explicit (name, params, body) expectedTyS) =
                                                 (X.Gen declaredTyVars
                                                   evvars
                                                   (X.ESubst [] evsubst body'))],
-                                   Map.singleton name ((LetBound expectedTyS), [[]]::[[Id]], Local))
+                                   Map.singleton name ((LetBound expectedTyS), [[]]::[[Id]], Global))
                       , assumed = deferredAssumptions
                       , goals = deferredGoals
                       , used = used }
@@ -601,7 +611,7 @@ checkTypingGroup (Implicit fs) =
     do -- Generate new type variables for functions
        ts <- replicateM (length fs) (newTyVar KStar)
        -- Check function bodies in environment with aforementioned type variables
-       let env = Map.fromList (zip ids (zip3 (map LamBound ts) (repeat ([[]]::[[Id]]))(repeat Local)))
+       let env = Map.fromList (zip ids (zip3 (map LamBound ts) (repeat ([[]]::[[Id]]))(repeat Global)))
        eqnRs <- sequence [declare env (contractRecursive introducedLocation name (checkFunction ps body t)) | ((name, ps, body), t) <- zip fs ts]
 
        (assumedC, goalsC, used) <- contractMany introducedLocation (map used eqnRs)
@@ -851,10 +861,10 @@ checkDecls (Decls groups) =
           checkGroups (g:gs) =
               do rg <- checkTypingGroup g
                  let (g', vals) = payload rg
-                 trace ("DEBUG payload " ++ show (used rg)) (return ())
-                 trace ("DEBUG assumed " ++ show (assumed rg)) (return ())
-                 trace ("DEBUG goals "   ++ show (goals rg)) (return ())
-                 trace ("DEBUG tyenv "   ++ show (vals)) (return ())
+                 trace ("DEBUG checkDecls"
+                        ++ "\n\tassumed " ++ show (assumed rg)
+                        ++ "\n\tgoals "   ++ show (goals rg)
+                        ++ "\n\ttyenv "   ++ show (vals)) (return ())
                  rgs <- declare vals (checkGroups gs)
                  let (gs', vals') = payload rgs
                  (assumedC, goalsC, used) <- contract introducedLocation (used rg) (used rgs)

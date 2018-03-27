@@ -428,6 +428,7 @@ equation = liftM2 (:=) (located pattern) (rhs (reservedOp "=") expr)
 typeSignatures :: ParseM Id -> ParseM [Signature]
 typeSignatures idParser = do ids <- try (commaSep1 idParser `followedBy` reservedOp "::")
                              t <- qual type_
+                             -- trace ("DEBUG typesignature: " ++ show ids) (return ())
                              return [Signature id t | id <- ids]
 
 assoc :: ParseM Assoc
@@ -445,6 +446,7 @@ fixity = do a <- assoc
 
 decl :: ParseM (Decls -> Decls)
 decl = choice [ do sigs <- typeSignatures varid
+                   -- trace ("DEBUG decl: " ++ show sigs)(return ())
                    return (\decls -> decls { signatures = signatures decls ++ sigs })
               , do eqn <- equation
                    return (\decls -> decls { equations = equations decls ++ [eqn] })

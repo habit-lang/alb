@@ -395,12 +395,14 @@ binds loc bs c = do modify (\st -> st { typeEnvironment = Map.union (typeEnviron
                     -- Generate goals depending on the sharing closure of the current variable.
                     -- instead of the ones that only appear in the body
                     (assumpsC, goalsC) <- weaken loc vs (shids)
+                    -- remove all the keys that are not in our sharing environment because they would been weakened. i.e. added un constraints
                     modify (\st -> st { typeEnvironment = Map.withoutKeys (typeEnvironment st) ((Set.fromList vs) `Set.difference` (Set.fromList shids))})
                     -- modify (\st -> st { typeEnvironment = Map.withoutKeys (typeEnvironment st) (Set.fromList $ vs \\ shids)})
                     tyenv'' <- gets typeEnvironment
                     trace("\tmodified tyenv: " ++ show (local tyenv''))(return())
                     return r{ assumed = assumpsC ++ assumed r
                             , goals = goalsC ++ goals r
+                            -- The extra used ids that are passed here cause unnecessary clutter while generating goals
                             , used = Set.toList $ Set.fromList $ (filter (`notElem` vs) (used r)) ++ (filter (`notElem` vs) (shids)) }
                             -- , used = filter (`notElem` vs) (used r) }
     where vs = Map.keys bs
