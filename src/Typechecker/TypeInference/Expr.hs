@@ -58,17 +58,20 @@ checkExpr (At loc (ELam var body)) expected =
        tyenv'' <- gets typeEnvironment
        trace("\tmodified tyenv: " ++ (show $ local tyenv''))(return())
        r <- bind loc var (LamBound argTy) (checkExpr body resTy)
-       -- (gteAssumps, gteGoals) <- unzip `fmap` mapM (buildLinPred loc (flip lesserRestricted (At loc t)) <=< bindingOf) (used r)
+       -- uncommenting This *might* cause problems in introducing unrestricted predicates at outermost level
+       -- The problem is we may have removed the used variable in the inner ELamStr call
+       -- and bindingOf will blow up here
+       (gteAssumps, gteGoals) <- unzip `fmap` mapM (buildLinPred loc (flip lesserRestricted (At loc t)) <=< bindingOf) (used r)
        modify (\s -> s{typeEnvironment = Map.withoutKeys (typeEnvironment s) (Set.fromList $ closure (typeEnvironment s) var)})
        tyenv''' <- gets typeEnvironment
        trace("DEBUG Lam Complete: " ++ (show var)
              ++"\n\ttyenv: " ++ (show $ local tyenv'''))(return())
-       -- traceIf (not (null gteGoals))
-       --         (show ("In function" <+> ppr (ELam var body) <+> "used" <+> pprList' (used r) <$>
-       --                "giving entailment" <+> pprList' (map snd (concat gteAssumps)) <+> "=>" <+> pprList' (map snd gteGoals)))
-       return r{ payload = X.ELam var (X.TyVar arg) (payload r)}
-                        -- , assumed = concat gteAssumps ++ assumed r
-                        -- , goals = funp : gteGoals ++ goals r })
+       traceIf (not (null gteGoals))
+               (show ("In function" <+> ppr (ELam var body) <+> "used" <+> pprList' (used r) <$>
+                      "giving entailment" <+> pprList' (map snd (concat gteAssumps)) <+> "=>" <+> pprList' (map snd gteGoals)))
+               (return r{ payload = X.ELam var (X.TyVar arg) (payload r)
+                        , assumed = concat gteAssumps ++ assumed r
+                        , goals = funp : gteGoals ++ goals r })
          where
            updateShIds :: TyEnv -> Id -> TyEnv
            updateShIds tyenv i = (Map.map (\(bnd, shids, scope) -> (bnd, (shids ++ [[i]]), scope)) (local tyenv))  `Map.union` tyenv
