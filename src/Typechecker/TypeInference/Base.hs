@@ -314,7 +314,9 @@ buildLinPred loc f (LamBound t) =
 weaken :: Location -> [Id] -> [Id] -> M (Preds, Preds)
 weaken loc introduced used =
     traceIf (not (null dropped)) (show ("Weakened:" <+> pprList' dropped)) $
-    do (assumpss, goals) <- unzip `fmap` mapM weakenVar dropped
+    do trace ("in weaking introduced used: " ++ (show introduced) ++ (show used))(return ())
+       (assumpss, goals) <- unzip `fmap` mapM weakenVar dropped
+       trace("weakening done")(return())
        return (concat assumpss, goals)
     where dropped = filter (`notElem` used) introduced
           weakenVar tyid = buildLinPred loc unrestricted =<< bindingOf tyid
@@ -390,16 +392,16 @@ binds loc bs c = do modify (\st -> st { typeEnvironment = Map.union (typeEnviron
                     let shids = Set.toList $ closureHelper tyenv' (used r)
                     trace("DEBUG BINDS: " ++ (show (Map.keys bs))
                          ++ "\n\tsharing closure: " ++ show shids
-                         ++ "\n\tused r: " ++ show (used r)
-                         ++ "\n\ttyenv: " ++ show (local tyenv'))(return ())
+                         ++ "\n         \tused r: " ++ show (used r)
+                         ++ "\n         \ttyenv: " ++ show (local tyenv'))(return ())
                     -- Generate goals depending on the sharing closure of the current variable.
                     -- instead of the ones that only appear in the body
                     (assumpsC, goalsC) <- weaken loc vs (shids)
                     -- remove all the keys that are not in our sharing environment because they would been weakened. i.e. added un constraints
-                    modify (\st -> st { typeEnvironment = Map.withoutKeys (typeEnvironment st) ((Set.fromList vs) `Set.difference` (Set.fromList shids))})
+                    -- modify (\st -> st { typeEnvironment = Map.withoutKeys (typeEnvironment st) ((Set.fromList vs) `Set.difference` (Set.fromList shids))})
                     -- modify (\st -> st { typeEnvironment = Map.withoutKeys (typeEnvironment st) (Set.fromList $ vs \\ shids)})
-                    tyenv'' <- gets typeEnvironment
-                    trace("\tmodified tyenv: " ++ show (local tyenv''))(return())
+                    -- tyenv'' <- gets typeEnvironment
+                    -- trace("\tmodified tyenv: " ++ show (local tyenv''))(return())
                     return r{ assumed = assumpsC ++ assumed r
                             , goals = goalsC ++ goals r
                             -- The extra used ids that are passed here cause unnecessary clutter while generating goals

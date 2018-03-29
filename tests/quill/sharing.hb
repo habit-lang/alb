@@ -62,7 +62,7 @@ shPair :: (SeFun f1, ShFun g1, SeFun h1
           , b >:= ((a ->{k1} (b ->{j1} c)) ->{h1} c)
           , (>:=) b (f1 a (g1 b (h1 (k1 a (j1 b c)) c))) -- This could not be automatically infered
            ) => a ->{f1} (b ->{g1} ((a ->{k1} (b ->{j1} c)) ->{h1} c))
-shPair = \x -> \&y -> \sh -> sh x y
+shPair = \x -> \&y -> \*sh -> sh x y
 
 
 sePair :: (SeFun f, SeFun g, SeFun h
@@ -72,7 +72,7 @@ sePair :: (SeFun f, SeFun g, SeFun h
            , b >:= ((a ->{k} (b ->{j} c)) ->{h} c)
            ) =>
            a ->{f} (b ->{g} ((a ->{k} (b ->{j} c)) ->{h} c))
-sePair = \x -> \*y -> \sp -> sp x y
+sePair = \x -> \*y -> \*sp -> sp x y
 
 
 -- simple functions
@@ -81,14 +81,18 @@ id  = \x -> x
 
 -- Because this is a sharing pair, there should not be any Uns on the
 -- variables that are not used
+
+-- fst :: ((->) f, b >:= (a ->{f} (b ->{g} a))
+--        , ShFun g
+--        , a >:= (b ->{g} a))
+--        =>  a ->{f} (b ->{g} a)
 fst = \x -> \&y -> x
+
+-- snd :: ((->) f, ShFun g
+--        , b >:= (a ->{f} (b ->{g} b))
+--        , a >:= (b ->{g} b))
+--        => a ->{f} (b ->{g} b)
 snd = \x -> \&y -> y
-
--- cfst :: ((->) f, SeFun g, (>:=) a (g b (h c a)),
---              Un b, ShFun h, (>:=) a (h c a), Un c) =>
---                 a ->{f} (b ->{g} (c ->{h} a))
-cfst = \z -> \*x -> \&y -> z
-
 
 -- csnd :: ((->) f, (>:=) c (f a (g b (h c c))),
 --          (>:=) b (f a (g b (h c c))), Un a, SeFun g,
@@ -97,6 +101,10 @@ cfst = \z -> \*x -> \&y -> z
 --                  a ->{f} (b ->{g}(c ->{h} c))
 csnd = \z -> \*x -> \&y -> y
 
+-- cfst :: ((->) f, SeFun g, (>:=) a (g b (h c a)),
+--              Un b, ShFun h, (>:=) a (h c a), Un c) =>
+--                 a ->{f} (b ->{g} (c ->{h} a))
+cfst = \z -> \*x -> \&y -> z
 
 -- csnd' :: ((->) f, (>:=) c (f a (g b (h c b))),
 --           (>:=) b (f a (g b (h c b))), Un a, SeFun g,
@@ -111,5 +119,13 @@ csnd' = \z -> \*x -> \&y -> x
 
 -- This is a linear pair, hence the variables that
 -- that are not used should be marked as Un
+-- fst' :: ((->) f, SeFun g
+--        , a >:= (b ->{g} a)
+--        , Un b)
+--        =>  a ->{f} (b ->{g} a)
 fst' = \x -> \*y -> x
+
+-- snd' :: ((->) f, SeFun g
+--        , Un a)
+--        => a ->{f} (b ->{g} b)
 snd' = \x -> \*y -> y

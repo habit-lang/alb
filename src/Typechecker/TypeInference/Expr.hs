@@ -58,11 +58,10 @@ checkExpr (At loc (ELam var body)) expected =
        tyenv'' <- gets typeEnvironment
        trace("\tmodified tyenv: " ++ (show $ local tyenv''))(return())
        r <- bind loc var (LamBound argTy) (checkExpr body resTy)
-       -- uncommenting This *might* cause problems in introducing unrestricted predicates at outermost level
-       -- The problem is we may have removed the used variable in the inner ELamStr call
-       -- and bindingOf will blow up here
+       trace ("DEBUG Lam\n\t         used r: ")(return ())
        (gteAssumps, gteGoals) <- unzip `fmap` mapM (buildLinPred loc (flip lesserRestricted (At loc t)) <=< bindingOf) (used r)
        modify (\s -> s{typeEnvironment = Map.withoutKeys (typeEnvironment s) (Set.fromList $ closure (typeEnvironment s) var)})
+       modify (\s -> s{typeEnvironment = Map.withoutKeys (typeEnvironment s) (Set.fromList $ concat $ fmap (closure (typeEnvironment s)) (used r))})
        tyenv''' <- gets typeEnvironment
        trace("DEBUG Lam Complete: " ++ (show var)
              ++"\n\ttyenv: " ++ (show $ local tyenv'''))(return())
@@ -76,7 +75,6 @@ checkExpr (At loc (ELam var body)) expected =
            updateShIds :: TyEnv -> Id -> TyEnv
            updateShIds tyenv i = (Map.map (\(bnd, shids, scope) -> (bnd, (shids ++ [[i]]), scope)) (local tyenv))  `Map.union` tyenv
 
--- This is where the actual logic for typechecking \*x resides
 checkExpr (At loc (ELamStr var body)) expected =
     failAt loc $
     trace (show ("At" <+> ppr loc <+> "expect type" <+> ppr expected)) $
@@ -86,15 +84,18 @@ checkExpr (At loc (ELamStr var body)) expected =
        unifies expected t
        tyenv <- gets typeEnvironment
        trace("DEBUG *****" ++ (show var)
-              ++ "\n\t         tyenv: " ++ (show $ local tyenv))(return())
+              ++ "\n\t          tyenv: " ++ (show $ local tyenv))(return())
        let tyenv' = updateShIds tyenv var
        modify (\s -> s{typeEnvironment = tyenv'})
        tyenv'' <- gets typeEnvironment
-       trace("\n\t modified tyenv: " ++ (show $ local tyenv''))(return())
+       trace("\t modified tyenv: " ++ (show $ local tyenv''))(return())
        r <- bind loc var (LamBound argTy) (checkExpr body resTy)
+       trace("DEBUG goals r: " ++ show (goals r)) (return())
        (gteAssumps, gteGoals) <- unzip `fmap` mapM (buildLinPred loc (flip lesserRestricted (At loc t)) <=< bindingOf) (used r)
        -- get rid of the variables that are bound till current scope?
-       modify (\s -> s{typeEnvironment = Map.withoutKeys (typeEnvironment s) (Set.fromList $ closure (typeEnvironment s) var)})
+       -- We cannot get rid of the variables here as the outer call might need this variable to add unrestricted predicates
+       modify (\s -> s{typeEnvironment = Map.withoutKeys (typeEnvironment s)
+                        ((closureHelper (typeEnvironment s) [var])  Set.\\ (closureHelper (typeEnvironment s) (used r)))})
        tyenv''' <- gets typeEnvironment
        trace("DEBUG Lam**** Complete: " ++ (show var)
              ++"\n\ttyenv: " ++ (show $ local tyenv'''))(return())
@@ -108,7 +109,6 @@ checkExpr (At loc (ELamStr var body)) expected =
            updateShIds :: TyEnv -> Id -> TyEnv
            updateShIds tyenv i = (Map.map (\(bnd, shids, scope) -> (bnd, (shids ++ [[i]]), scope)) (local tyenv))  `Map.union` tyenv
 
--- This is where the actual logic for typechecking \&x resides
 checkExpr (At loc (ELamAmp var body)) expected =
     failAt loc $
     trace (show ("At" <+> ppr loc <+> "expect type" <+> ppr expected)) $
@@ -117,15 +117,16 @@ checkExpr (At loc (ELamAmp var body)) expected =
        (funp, t)         <- argTy `ampTo` resTy
        unifies expected t
        tyenv <- gets typeEnvironment
-       trace("DEBUG &&&&" ++ (show var)
+       trace("DEBUG &&&& " ++ (show var)
               ++ "\n\t          tyenv: " ++ (show $ local tyenv))(return())
        let tyenv' = updateShIds tyenv var
        modify (\s -> s{typeEnvironment = tyenv'})
        tyenv'' <- gets typeEnvironment
-       trace("\n\t modified tyenv: " ++ (show $ local tyenv''))(return())
+       trace("\t modified tyenv: " ++ (show $ local tyenv''))(return())
        r <- bind loc var (LamBound argTy) (checkExpr body resTy)
-       trace ("DEBUG used r: " ++ show (goals r)) (return ())
+       trace ("DEBUG goals r: " ++ show (goals r)) (return ())
        (gteAssumps, gteGoals) <- unzip `fmap` mapM (buildLinPred loc (flip lesserRestricted (At loc t)) <=< bindingOf) (used r)
+       trace("DEBUG Lam&&&& COMPLETE: " ++ (show var))(return())
        traceIf (not (null gteGoals))
                (show ("In function" <+> ppr (ELamAmp var body) <+> "used" <+> pprList' (used r) <$>
                       "giving entailment" <+> pprList' (map snd (concat gteAssumps)) <+> "=>" <+> pprList' (map snd gteGoals)))
@@ -241,7 +242,7 @@ checkExpr (At loc (EMatch m)) expected =
 --     2) assign this Application a tag of linearity or sharing
 -- eg:
 -- \g -> .. -> \f -> ... -> \*x -> ... -> f x -> ...
--- becuase x is bound to a linear lambda, we should identify the application f x as linear or ShFun
+-- because x is bound to a linear lambda, we should identify the application f x as linear or ShFun
 
 checkExpr (At loc (EApp f a)) expected = -- [ANI] TODO: Have more logic for -&> -*> applications
     failAt loc $
