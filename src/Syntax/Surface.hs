@@ -17,6 +17,7 @@ data Type = TyCon Id
           | TyNat Integer
           | TyTuple [Located Type]
           | TyTupleCon Int
+          -- | TyTupleConSh Int
           | TyKinded (Located Type) (Located Kind)
           | TyLabel Id
           | TySelect (Located Type) (Located Id)
@@ -56,6 +57,7 @@ data Expr = ELet Decls (Located Expr)
           | ELit Literal
           | ETuple [Located Expr]
           | ETupleCon Int
+          -- | ETupleConSh Int
           | EApp (Located Expr) (Located Expr)
           | EBind (Maybe Id) (Located Expr) (Located Expr)
           | ESelect (Located Expr) (Located Id)

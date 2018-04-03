@@ -157,8 +157,8 @@ l = \f -> \*x -> f x
 l' = \f -> \x -> f x x
 
 -- This should fail
-l'' = (\f -> \x -> \y -> f x y)
+-- l'' = \f -> \*x -> \*y -> f x y
 
-ex  = \f -> \g -> \x -> (f x) (g x)
+-- ex  = \f -> \g -> \x -> (f x) (g x)
 
 -- ex' = \f -> \g -> \x -> \y -> (f x y) (g x)

@@ -133,6 +133,8 @@ atype' = choice [ reservedOp "_" >> return TyWild
                 , TyNat `fmap` intLiteral
                 , try (parens (do n <- many1 (reservedOp ",")
                                   return (TyTupleCon (length n + 1))))
+                -- , try (parens (do n <- many1 (reservedOp ";")
+                --                   return (TyTupleConSh (length n + 1))))
                 , parens (do t <- located type_
                              choice [ do reservedOp ","
                                          ts <- commaSep1 (located type_)

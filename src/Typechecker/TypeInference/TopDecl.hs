@@ -94,12 +94,12 @@ checkTopDecl :: TopDecl Pred KId KId -> M (X.TopDecl KId, CtorEnv)
 checkTopDecl (Datatype (Kinded name k) params ctors _) =
     -- Nothing much to do here; all the hard part of checking that datatype declarations are well
     -- formed was done during kind inference.
-    do ctors' <- mapM (simplifyCtor params') ctors
+    do ctors'<- mapM (simplifyCtor params') ctors
        xctors <- mapM convertCtor ctors'
        ctorEnv <- mapM ctorTypeBinding ctors'
-       trace (show ("Binding constructors:" <+> vcat [ ppr id <::> ppr ksc | (id, (ksc, _)) <- ctorEnv ])) $
-           return ( X.Datatype name params' xctors
-                  , Map.map (\x-> (x, [[]]::[[Id]], Global)) (Map.fromList ctorEnv) )
+       trace (show ("Binding constructors:" <+> vcat [ ppr id <::> ppr ksc | (id, ((ksc, _), _, _)) <- ctorEnv ])) $
+         return ( X.Datatype name params' xctors
+                , (Map.fromList ctorEnv))
     where convertCtor (Ctor (At _ name) kids params ts) =
               return (name, kids, map (convert . dislocate) params, map (convert . dislocate) ts)
 
@@ -110,18 +110,22 @@ checkTopDecl (Datatype (Kinded name k) params ctors _) =
               return ([], [], t)
           buildArrow ts (u:us) t =
               do (vs, qs, t') <- buildArrow (u:ts) us t
-                 ((_, At _ funp), f@(TyVar v)) <- newArrowVar
+                 -- [ANI] TODO Some syntax updation to get flexibility of getting a ShFun or SeFun here
+                 ((_, At _ funp), f@(TyVar v)) <- newStarArrowVar
                  let t'' = f @@ u @@ t'
                      qs' = map ((`lesserRestricted` (introduced f)) . introduced) ts
                  return (v:vs, funp : qs' ++ qs, t'')
 
+          ctorTypeBinding :: Ctor KId (Pred (Located Ty)) Ty -> M (Id, ((KScheme TyS, Int), [[Id]], Scope))
           ctorTypeBinding (Ctor (At _ ctorName) kids qs ts) =
               do (vs, ps, t') <- buildArrow [] (map dislocate ts) t
-                 return (ctorName,
-                         (kindQuantify
+                 return (ctorName
+                        , ((kindQuantify
                            (Forall (kids ++ params' ++ vs)
                              (gen (length kids) (params' ++ vs) ((map introduced ps ++ qs) :=> introduced t'))),
                             length kids)
+                          , [[]] :: [[Id]]
+                          , Global)
                         )
 
 checkTopDecl (Bitdatatype name mtys ctors derives) =
