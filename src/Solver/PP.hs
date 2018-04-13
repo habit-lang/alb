@@ -114,7 +114,7 @@ instance PP Axiom
               where f "" = ""
                     f s = s ++ ": "
 
-instance PP Axioms
+instance {-# OVERLAPPING #-} PP Axioms
     where pp _ axs = intercalate "\n" (map ((++ ".") . pp 0) axs)
 
 names = tail loop
@@ -133,7 +133,7 @@ instance {-# OVERLAPPING #-} PP FunDeps
 instance PP Requirement
     where pp _ (Requires ps qs) = intercalate ", " (map ppx ps) ++ " requires " ++ intercalate ", " (map (ppx . snd) qs)
 
-instance PP Requirements
+instance {-# OVERLAPPING #-} PP Requirements
     where pp _ rqs = intercalate "\n" (map ((++ ".") . ppx) rqs)
 
 instance {-# OVERLAPPING #-} PP (Id, [Int])
