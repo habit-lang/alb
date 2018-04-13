@@ -53,7 +53,7 @@ addEvidence evsubst (X.Decls groups) = X.Decls (map addEvidence' groups)
 -- kind inference in such an order...
 
 simplifyCtor :: (K.HasKinds t, HasTypeVariables t KId) => [KId] -> Ctor KId (PredType Pred KId) t -> M (Ctor KId (PredType Pred KId) t)
-simplifyCtor univs (Ctor id@(At l _) kids ps0 t) =
+simplifyCtor univs (Ctor id@(At l _) kids ps0 t sh) =
     failAt l $
     do evvars <- freshFor "e" ps2
        (s, _, ps3, _) <- entails' (tvs t) (tvs t) [] (zip evvars ps2)
@@ -63,7 +63,7 @@ simplifyCtor univs (Ctor id@(At l _) kids ps0 t) =
        fds <- inducedDependencies ps4
        when (not (null (kids' \\ close univs fds)))
             (failWithS "Unsupported existential type in constructor")
-       return (Ctor id kids' (gen 0 kids' ps4) (gen 0 kids' t''))
+       return (Ctor id kids' (gen 0 kids' ps4) (gen 0 kids' t'') sh)
     where ts = map TyVar kids
           ps1 = inst ts ps0
           t' = inst ts t
@@ -100,7 +100,7 @@ checkTopDecl (Datatype (Kinded name k) params ctors _) =
        trace (show ("Binding constructors:" <+> vcat [ ppr id <::> ppr ksc | (id, ((ksc, _), _, _)) <- ctorEnv ])) $
          return ( X.Datatype name params' xctors
                 , (Map.fromList ctorEnv))
-    where convertCtor (Ctor (At _ name) kids params ts) =
+    where convertCtor (Ctor (At _ name) kids params ts _) =
               return (name, kids, map (convert . dislocate) params, map (convert . dislocate) ts)
 
           params'   = map dislocate params
@@ -117,7 +117,7 @@ checkTopDecl (Datatype (Kinded name k) params ctors _) =
                  return (v:vs, funp : qs' ++ qs, t'')
 
           ctorTypeBinding :: Ctor KId (Pred (Located Ty)) Ty -> M (Id, ((KScheme TyS, Int), [[Id]], Scope))
-          ctorTypeBinding (Ctor (At _ ctorName) kids qs ts) =
+          ctorTypeBinding (Ctor (At _ ctorName) kids qs ts _) =
               do (vs, ps, t') <- buildArrow [] (map dislocate ts) t
                  return (ctorName
                         , ((kindQuantify
@@ -175,7 +175,7 @@ checkTopDecl (Bitdatatype name mtys ctors derives) =
        return ( X.Bitdatatype name bddpat xctors
               , Map.map (\x -> (x, [[]]::[[Id]], Global))
                         (Map.fromList [(cname, (ForallK [] (Forall [] ([] :=> introduced (ctorType cname))), 0))
-                             | Ctor (At _ cname) _ _ _ <- ctors'] ))
+                             | Ctor (At _ cname) _ _ _ _ <- ctors'] ))
 
     where tycon          :: Ty
           tycon           = TyCon (Kinded name KStar)
@@ -188,7 +188,7 @@ checkTopDecl (Bitdatatype name mtys ctors derives) =
           convertCtor :: Int ->
                          Ctor KId (PredType Pred KId) (BitdataField KId) -> -- original constructor spec
                          M X.BitdataCtor                                    -- XMPEG fields
-          convertCtor totalSize (Ctor (At l cname) [] [] fields)
+          convertCtor totalSize (Ctor (At l cname) [] [] fields _)
             = failAt l $
               do fieldTypes <- mapM (fieldType . dislocate) fields
                  determinedSizes <- mapM (solveForNat . bitSize) (filter sizeDetermined fieldTypes)
@@ -258,7 +258,7 @@ checkTopDecl (Struct name mtys ctor derives) =
 
     appendFailureContextS ("In the definition of a structure type " ++ fromId name) $
     do -- Simplify region and object to existentials
-       Ctor _ ks ps locatedRegions <- simplifyCtor [] ctor
+       Ctor _ ks ps locatedRegions _ <- simplifyCtor [] ctor
        when (not (null ks) || not (null ps))
             (failWithS "Unsupported structure declaration")
        let regions = map dislocate locatedRegions
@@ -553,7 +553,7 @@ checkProgram fn p =
                        declare valueTypes $
                             do (areaDecls', _) <- unzip `fmap` mapM (mapLocated checkTopDecl) areaDecls
                                s <- gets (convert . currentSubstitution)
-                               return ( X.Program (X.consDecls (concat (selectorImpls ++ primDecls))
+                               return (X.Program (X.consDecls (concat (selectorImpls ++ primDecls))
                                                                (s X.# addEvidence evsubst decls'))
                                                   (s X.# typeDecls' ++ s X.# areaDecls')
                                                   (Map.fromList (evDecls))

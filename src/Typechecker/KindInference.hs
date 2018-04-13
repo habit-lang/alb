@@ -104,7 +104,7 @@ instance References t => References (KScheme t)
     where references (ForallK _ x) = references x
 
 instance (References p, References t) => References (Ctor tyid p t)
-    where references (Ctor _ _ ps ts) = concatMap references ps ++ concatMap references ts
+    where references (Ctor _ _ ps ts _) = concatMap references ps ++ concatMap references ts
 
 instance References (BitdataField Id)
     where references (LabeledField _ ty _) = references ty
@@ -427,14 +427,14 @@ checkTopDecl (At loc tdecl) =
     where checkSize Nothing     = return Nothing
           checkSize (Just size) = Just `fmap` checkScheme KNat size
 
-          checkCtor f (Ctor name qvars preds xs) =
+          checkCtor f (Ctor name qvars preds xs sh) =
               do knames <- freshFor "k" qvars
                  bindLocals (Map.fromList (zip qvars (map (Left . KVar) knames))) $
                      do let qvars' = map TyVar qvars
                         preds' <- mapM (checkPred . inst qvars') preds
                         xs'    <- mapM (f . inst qvars') xs
                         let kids = zipWith Kinded qvars (map KVar knames)
-                        return (Ctor name kids (map (gen 0 kids) preds') (map (gen 0 kids) xs'))
+                        return (Ctor name kids (map (gen 0 kids) preds') (map (gen 0 kids) xs') sh)
 
 ----------------------------------------------------------------------------------------------------
 -- Kind annotation for expressions and local declarations.

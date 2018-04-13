@@ -240,7 +240,7 @@ instance (TyId tyid, TyParam typaram, Printable (PredType p tyid), HasTypeVariab
               "require" <+> cat (punctuate ", " (map (ppr . snd) ps)) <+> "if" <+> cat (punctuate ", " (map ppr qs))
 
           ppr (Datatype name params ctors drv) = nest 4 (text "data" <+> ppr name <+> cat (punctuate space (map ppr params)) <+> pprCtors <> pprDrvs)
-              where pprCtor (Ctor name quant preds fields) = ppr name <+> align (sep (map (atPrecedence 10 . ppr) fields) <> pprQuant <> pprPreds)
+              where pprCtor (Ctor name quant preds fields sh) = ppr name <+> align (sep (map (atPrecedence 10 . ppr) fields) <> pprQuant <> pprPreds) <+> ppr (show sh)
                         where pprQuant | null quant = empty
                                        | otherwise  = softline <> text "forall" <+> align (cat (punctuate (comma <> softline) (map ppr quant)))
                               pprPreds | null preds = empty
@@ -253,7 +253,8 @@ instance (TyId tyid, TyParam typaram, Printable (PredType p tyid), HasTypeVariab
                             | otherwise = softline <> text "deriving" <+> parens (cat (punctuate comma (map ppr drv)))
 
           ppr (Bitdatatype name size ctors drv) = nest 4 (text "bitdata" <+> ppr name <> (maybe empty (\t -> slash <> ppr t) size) <+> pprCtors <> pprDrvs)
-              where pprCtor (Ctor name quant preds fields) = ppr name <+> brackets (cat (punctuate (space <> bar <> space) (map ppr fields))) <> pprQuant <> pprPreds
+              where pprCtor (Ctor name quant preds fields sh) = ppr name
+                      <+> brackets (cat (punctuate (space <> bar <> space) (map ppr fields))) <> pprQuant <> pprPreds <+> ppr (show sh)
                         where pprQuant | null quant = empty
                                        | otherwise  = space <> text "forall" <+> cat (punctuate (comma <> space) (map ppr quant))
                               pprPreds | null preds = empty
@@ -265,12 +266,12 @@ instance (TyId tyid, TyParam typaram, Printable (PredType p tyid), HasTypeVariab
                     pprDrvs | null drv = empty
                             | otherwise = softline <> text "deriving" <+> parens (cat (punctuate comma (map ppr drv)))
 
-          ppr (Struct name size (Ctor _ ks ps regions) drv) =
+          ppr (Struct name size (Ctor _ ks ps regions sh) drv) =
               nest 4 (text "struct" <+>
                       ppr name <>
                       maybe empty (\t -> slash <> ppr t) size <+>
                       brackets (cat (punctuate (softline <> bar <> space) (map ppr regions))) <>
-                      pprQuant <> pprPreds <> pprDrvs)
+                      pprQuant <> pprPreds <> pprDrvs) <+> ppr (show sh)
               where pprQuant | null ks = empty
                              | otherwise = softline <> text "forall" <+> cat (punctuate (comma <> space) (map ppr ks))
                     pprPreds | null ps = empty

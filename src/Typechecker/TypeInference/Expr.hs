@@ -349,7 +349,7 @@ checkExpr (At loc (EStructInit name inits)) expected =
                                                  , used = []}
 
 ----------------------------------------------------------------------------------------------------
-
+-- [TODO] Work with this
 checkMatch :: Match Pred KId -> Ty -> TcRes X.Match
 checkMatch MFail expected =
     return R{ payload = X.MFail
@@ -369,6 +369,7 @@ checkMatch (MElse m n) expected =
                , used = used }
 checkMatch (MGuarded (GLet decls) m) expected =
     do rDecls <- checkDecls decls
+       trace("DEBUG in MGuarded")(return ())
        let (decls', vals) = payload rDecls
        rBody <- binds introducedLocation vals (checkMatch m expected)
        (assumedC, goalsC, used) <- contract introducedLocation (used rDecls) (used rBody)
@@ -497,8 +498,9 @@ checkFunction params body expected =
 -- defaults are only valid if 'T' is linear.  For the moment, we address the case in which the 'T's
 -- are other function types: as long as all the '>:=' constraints relate variables up for
 -- defaulting, we're happy to default them all.
+-- [ANI] TODO Custom datatypes will blow up at line 535 because ends function cannot handle everything
 
-improveFunPredicates :: Preds -> Preds -> M Preds -- [ANI] TODO add logic for outermost funs.
+improveFunPredicates :: Preds -> Preds -> M Preds
 improveFunPredicates assumed goals =
     traceIf (not (null goals)) (show ("Predicates for defaulting:" <+> pprList' ps)) $
     traceIf (not (null defaulted)) (show ("Defaulting:" <+> pprList defaulted)) $
@@ -524,10 +526,16 @@ improveFunPredicates assumed goals =
 
           orderings = [ends | p <- filter (any (`elem` funVars) . tvs) ps, ends <- endpoints p]
               where endpoints (At _ (Pred ">:=" [At _ t, At _ u] Holds)) = [ends t u]
-                        where ends (TyApp (At _ (TyApp (At _ (TyVar v)) _)) _) (TyApp (At _ (TyApp (At _ (TyVar w)) _)) _) = (v, w)
-                              ends (TyVar v) (TyApp (At _ (TyApp (At _ (TyVar w)) _)) _) = (v, w)
-                              ends (TyApp (At _ (TyApp (At _ (TyVar v)) _)) _) (TyVar w) = (v, w)
-                              ends (TyVar v) (TyVar w) = (v, w)
+                        where
+                          -- ends :: Type a -> Type b -> (a, b)
+                          ends (TyApp (At _ (TyApp (At _ (TyVar v)) _)) _) (TyApp (At _ (TyApp (At _ (TyVar w)) _)) _) = (v, w)
+                          ends (TyVar v) (TyApp (At _ (TyApp (At _ (TyVar w)) _)) _) = (v, w)
+                          ends (TyApp (At _ (TyApp (At _ (TyVar v)) _)) _) (TyVar w) = (v, w)
+                          ends (TyVar v) (TyVar w) = (v, w)
+                          -- [ANI] TODO This can be n-ary Type constructor. How will we handle this?
+                          ends (TyApp (At _ (TyApp (At _ (TyCon c)) (At _ (TyVar _)))) (At _ (TyVar _))) (TyVar f) = (c, f)
+                          ends ty1 ty2 =
+                            error $ "Cannot figure out what to do with this type: " ++ (show ty1) ++ (show ty2)
                     endpoints _ = []
 
           loop vs | vs == ws = vs

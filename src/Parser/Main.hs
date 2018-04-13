@@ -122,6 +122,7 @@ atype = do t <- located atype'
            return (dislocate (foldl tyselect t ss))
     where tyselect t id = at t (TySelect t id)
 
+atype' :: ParseM Type
 atype' = choice [ reservedOp "_" >> return TyWild
                 , try (reserved "()") >> return (TyCon "Unit")
                 , do char '#'
@@ -133,8 +134,6 @@ atype' = choice [ reservedOp "_" >> return TyWild
                 , TyNat `fmap` intLiteral
                 , try (parens (do n <- many1 (reservedOp ",")
                                   return (TyTupleCon (length n + 1))))
-                -- , try (parens (do n <- many1 (reservedOp ";")
-                --                   return (TyTupleConSh (length n + 1))))
                 , parens (do t <- located type_
                              choice [ do reservedOp ","
                                          ts <- commaSep1 (located type_)
@@ -521,11 +520,17 @@ dataDecl = do opaque <- option False (reserved "opaque" >> return True)
                                    name <- located consym
                                    rhs <- located atype
                                    preds <- option [] $ reserved "if" >> commaSep1 (located predicate)
-                                   return (Ctor name [] preds [lhs, rhs])
+                                   return (Ctor name [] preds [lhs, rhs] False)
                         , do name <- located conid
                              fields <- many (located atype)
+                             trace ("DEBUG\n\t Se Fields: " ++ show fields)(return ())
                              preds <- option [] $ reserved "if" >> commaSep1 (located predicate)
-                             return (Ctor name [] preds fields) ]
+                             return (Ctor name [] preds fields False)
+                        , do name <- located conid
+                             fields <- many (located atype)
+                             trace ("DEBUG\n\t Sh Fields: " ++ show fields)(return ())
+                             preds <- option [] $ reserved "if" >> commaSep1 (located predicate)
+                             return (Ctor name [] preds fields True) ]
 
 deriveList :: ParseM [Id]
 deriveList  = option []
@@ -542,7 +547,7 @@ bitdataDecl = do reserved "bitdata"
     where  ctor = do name <- located conid
                      fields <- concat `fmap` brackets (field `sepBy` reservedOp "|")
                      preds <- option [] $ reserved "if" >> commaSep1 (located predicate)
-                     return (Ctor name [] preds fields)
+                     return (Ctor name [] preds fields False)
            field = try (do labels <- commaSep1 (located label)
                            reservedOp "::"
                            typ <- located type_
@@ -559,7 +564,7 @@ structDecl = do reserved "struct"
                 width <- optionMaybe (reservedOp "/" >> qual type_)
                 fields <- brackets (field `sepBy` reservedOp "|")
                 ps <- option [] $ reserved "if" >> commaSep1 (located predicate)
-                Struct id width (Ctor lid [] ps (concat fields)) `fmap` deriveList
+                Struct id width (Ctor lid [] ps (concat fields) False) `fmap` deriveList
 
     where field = (do idInits <- commaSep1 (located varid +++ optionMaybe (reservedOp "<-" >> located exprApp))
                       reservedOp "::"

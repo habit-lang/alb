@@ -408,7 +408,7 @@ deriveBitdatatype name msize ctors drv
       ctorWidths :: Located Ty ->                                      -- total width
                     Ctor KId (PredType Pred KId) (BitdataField KId) -> -- constructor
                     M [Located (PredType Pred KId)]                    -- (field widths, size-determining predicates)
-      ctorWidths totalWidth (Ctor _ kids ps fields) =
+      ctorWidths totalWidth (Ctor _ kids ps fields _) =
           do ts         <- freshParams kids
              fieldTypes <- mapM fieldType [ f | At _ f <- fields ]
              let (determined, undetermined) = partition sizeDetermined fieldTypes
@@ -432,7 +432,7 @@ deriveBitdatatype name msize ctors drv
     --     where update = bitdataUpdate
     --   else ...
     --
-    ctorSelectUpdate (Ctor (At l cname) kids ps fields)
+    ctorSelectUpdate (Ctor (At l cname) kids ps fields _)
       = do selInstName <- fresh "selInst"
            updInstName <- fresh "updInst"
            ts          <- freshParams kids
@@ -475,7 +475,7 @@ deriveBitdatatype name msize ctors drv
     -- anyway, even if we wanted to, because there isn't enough information in the
     -- system to infer that:  forall f, t. Select T f t ==> Select (BitdataCase T C) f t.
     --
-    singleCtorSelectUpdate [Ctor (At l cname) _ _ fields]
+    singleCtorSelectUpdate [Ctor (At l cname) _ _ fields _]
       = do selInstName <- fresh "selInst"
            updInstName <- fresh "updInst"
            return ([Instance selInstName idSelect selChain | not (null selChain)],
@@ -650,7 +650,7 @@ deriveBitdatatype name msize ctors drv
 -- Deriving for types introduced in struct declarations:
 
 deriveStruct :: Id -> Maybe (Scheme Pred KId) -> Ctor KId (PredType Pred KId) (StructRegion KId) -> [Id] -> M [TDecl]
-deriveStruct name msize (Ctor _ kids ps regions) drv
+deriveStruct name msize (Ctor _ kids ps regions _ ) drv
     | any (`notElem` ["NoInit", "NullInit"]) drv = failWith ("No support for deriving instances of" <+>
                                                              hsep (punctuate comma (map ppr (filter (`notElem` ["NoInit", "NullInit"]) drv))))
     | otherwise =

@@ -144,7 +144,9 @@ data Flag = Holds | Fails
 data Ctor tyid p t = Ctor { ctorName       :: Located Id
                           , ctorParams     :: [tyid]
                           , ctorQualifiers :: [Located p]
-                          , ctorFields     :: [Located t] }
+                          , ctorFields     :: [Located t]
+                          , shared         :: Bool -- [ANI] TODO change to something more sophisticated to specify sharing
+                          }
             deriving (Eq, Show, Typeable, Data)
 
 data Fundep t = [t] :~> [t]
