@@ -91,42 +91,57 @@ mustBeSatisfied pred =
 
 checkTopDecl :: TopDecl Pred KId KId -> M (X.TopDecl KId, CtorEnv)
 
-checkTopDecl (Datatype (Kinded name k) params ctors _) =
+checkTopDecl (Datatype (Kinded name k) params ctors sh) =
     -- Nothing much to do here; all the hard part of checking that datatype declarations are well
     -- formed was done during kind inference.
     do ctors'<- mapM (simplifyCtor params') ctors
        xctors <- mapM convertCtor ctors'
-       ctorEnv <- mapM ctorTypeBinding ctors'
+       ctorEnv <- mapM (ctorTypeBinding) ctors'
        trace (show ("Binding constructors:" <+> vcat [ ppr id <::> ppr ksc | (id, ((ksc, _), _, _)) <- ctorEnv ])) $
-         return ( X.Datatype name params' xctors
+         return (X.Datatype name params' xctors
                 , (Map.fromList ctorEnv))
-    where convertCtor (Ctor (At _ name) kids params ts _) =
-              return (name, kids, map (convert . dislocate) params, map (convert . dislocate) ts)
+    where
 
-          params'   = map dislocate params
-          t         = foldl (@@) (TyCon (Kinded name k)) (map TyVar params')
+      convertCtor (Ctor (At _ name) kids params ts _) =
+        return (name, kids, map (convert . dislocate) params, map (convert . dislocate) ts)
 
-          buildArrow _ [] t =
-              return ([], [], t)
-          buildArrow ts (u:us) t =
-              do (vs, qs, t') <- buildArrow (u:ts) us t
-                 -- [ANI] TODO Some syntax updation to get flexibility of getting a ShFun or SeFun here
-                 ((_, At _ funp), f@(TyVar v)) <- newStarArrowVar
-                 let t'' = f @@ u @@ t'
-                     qs' = map ((`lesserRestricted` (introduced f)) . introduced) ts
-                 return (v:vs, funp : qs' ++ qs, t'')
+      params'   = map dislocate params
+      t         = foldl (@@) (TyCon (Kinded name k)) (map TyVar params')
 
-          ctorTypeBinding :: Ctor KId (Pred (Located Ty)) Ty -> M (Id, ((KScheme TyS, Int), [[Id]], Scope))
-          ctorTypeBinding (Ctor (At _ ctorName) kids qs ts _) =
-              do (vs, ps, t') <- buildArrow [] (map dislocate ts) t
-                 return (ctorName
-                        , ((kindQuantify
-                           (Forall (kids ++ params' ++ vs)
-                             (gen (length kids) (params' ++ vs) ((map introduced ps ++ qs) :=> introduced t'))),
-                            length kids)
-                          , [[]] :: [[Id]]
-                          , Global)
-                        )
+
+      -- [ANI] TODO Some syntax updation to get flexibility of getting a ShFun or SeFun here
+      buildArrow :: Bool -> [Ty] -> [Ty] -> Ty -> M ([KId], [Pred (Located Ty)], Ty)
+      buildArrow _ _ [] t =
+        return ([], [], t)
+      buildArrow False ts (u:us) t =
+        do (vs, qs, t') <- buildArrow False (u:ts) us t
+           ((_, At _ funp), f@(TyVar v)) <- newStarArrowVar
+           let t'' = f @@ u @@ t'
+               qs' = map ((`lesserRestricted` (introduced f)) . introduced) ts
+           return (v:vs, funp : qs' ++ qs, t'')
+      buildArrow True ts (u:us) t =
+        do (vs, qs, t') <- buildArrow True (u:ts) us t
+           ((_, At _ funp), f@(TyVar v)) <- newAmpArrowVar
+           let t'' = f @@ u @@ t'
+               qs' = map ((`lesserRestricted` (introduced f)) . introduced) ts
+           return (v:vs, funp : qs' ++ qs, t'')
+
+      ctorTypeBinding :: Ctor KId (Pred (Located Ty)) Ty -> M (Id, ((KScheme TyS, Int), [[Id]], Scope))
+      ctorTypeBinding (Ctor (At _ ctorName) kids qs ts sh) =
+        do (vs, ps, t') <- buildArrow sh [] (map dislocate ts) t
+           return (ctorName
+                  , ((kindQuantify
+                       (Forall (kids ++ params' ++ vs)
+                         (gen (length kids) (params' ++ vs) ((map introduced ps ++ qs) :=> introduced t'))),
+                      length kids)
+                    , [[]]::[[Id]]
+                    , Global)
+                  )
+
+      -- sharingHelper :: Bool -> [Id] -> [[Id]]
+      -- sharingHelper True is = [is]
+      -- sharingHelper False is = [[i] | i <- is]
+
 
 checkTopDecl (Bitdatatype name mtys ctors derives) =
     -- Checking a bitdata type has three steps: for each constructor, we generate the XMPEG
