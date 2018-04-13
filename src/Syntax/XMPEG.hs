@@ -268,24 +268,24 @@ instance Binder Decls
 type TopDecls typaram = [TopDecl typaram]
 
 data TopDecl typaram
-             = Datatype Id                             -- type name
-                        [typaram]                      -- params
+             = Datatype Id                                 -- type name
+                        [typaram]                          -- params
                         [(Id, [KId], [Pred Type], [Type])] -- ctors
 
-             | Bitdatatype Id                          -- type name
-                           BDD.Pat                     -- BDD for full type
-                           [BitdataCtor]               -- ctors
+             | Bitdatatype Id                              -- type name
+                           BDD.Pat                         -- BDD for full type
+                           [BitdataCtor]                   -- ctors
 
-             | Struct Id                               -- type name
-                      Int                              -- size in bytes
-                      [StructField]                    -- fields
+             | Struct Id                                   -- type name
+                      Int                                  -- size in bytes
+                      [StructField]                        -- fields
 
-             | Area Bool [(Id, Inst)] Type Int Int     -- (name, init) type size alignment
+             | Area Bool [(Id, Inst)] Type Int Int         -- (name, init) type size alignment
 
-type BitdataCtor  = (Id, [BitdataField], BDD.Pat)      -- (name, list of fields, coverage)
-data BitdataField = LabeledField Id Type BDD.Pat Int   -- name, type, coverage, offset in bits
-                  | ConstantField Integer BDD.Pat Int  -- value, coverage, offset
-data StructField = StructField (Maybe Id) Type Int Int -- name, type, width, offset in bytes
+type BitdataCtor  = (Id, [BitdataField], BDD.Pat)          -- (name, list of fields, coverage)
+data BitdataField = LabeledField Id Type BDD.Pat Int       -- name, type, coverage, offset in bits
+                  | ConstantField Integer BDD.Pat Int      -- value, coverage, offset
+data StructField = StructField (Maybe Id) Type Int Int     -- name, type, width, offset in bytes
 
 -- Dictionary constructors:
 
