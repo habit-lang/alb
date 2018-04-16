@@ -521,16 +521,17 @@ dataDecl = do opaque <- option False (reserved "opaque" >> return True)
                                    rhs <- located atype
                                    preds <- option [] $ reserved "if" >> commaSep1 (located predicate)
                                    return (Ctor name [] preds [lhs, rhs] False)
-                        , do name <- located conid
-                             fields <- many (located atype)
-                             trace ("DEBUG\n\t Se Fields: " ++ show fields)(return ())
-                             preds <- option [] $ reserved "if" >> commaSep1 (located predicate)
-                             return (Ctor name [] preds fields False)
-                        , do name <- located conid
-                             fields <- many (located atype)
-                             trace ("DEBUG\n\t Sh Fields: " ++ show fields)(return ())
-                             preds <- option [] $ reserved "if" >> commaSep1 (located predicate)
-                             return (Ctor name [] preds fields True) ]
+                        , try $ do name <- located conid
+                                   _ <- reserved "!!"
+                                   fields <- many (located atype)
+                                   trace ("DEBUG\n\t Sh Fields: " ++ show fields)(return ())
+                                   preds <- option [] $ reserved "if" >> commaSep1 (located predicate)
+                                   return (Ctor name [] preds fields True)
+                        , try $ do name <- located conid
+                                   fields <- many (located atype)
+                                   trace ("DEBUG\n\t Se Fields: " ++ show fields)(return ())
+                                   preds <- option [] $ reserved "if" >> commaSep1 (located predicate)
+                                   return (Ctor name [] preds fields False) ]
 
 deriveList :: ParseM [Id]
 deriveList  = option []

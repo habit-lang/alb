@@ -108,7 +108,6 @@ checkTopDecl (Datatype (Kinded name k) params ctors sh) =
       params'   = map dislocate params
       t         = foldl (@@) (TyCon (Kinded name k)) (map TyVar params')
 
-
       -- [ANI] TODO Some syntax updation to get flexibility of getting a ShFun or SeFun here
       buildArrow :: Bool -> [Ty] -> [Ty] -> Ty -> M ([KId], [Pred (Located Ty)], Ty)
       buildArrow _ _ [] t =
