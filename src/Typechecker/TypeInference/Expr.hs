@@ -403,17 +403,23 @@ checkMatch (MGuarded (GFrom (At l p) e) m) expected =
                         , goals = goalsC ++ goals rExpr ++ goals rBody
                         , used = used }
          PCon ctor vs ->
-             do ((tys, n), shids, _) <- ctorBinding ctor
+             do ((tys, n), shtyids, _) <- ctorBinding ctor
                 (kvars, tyvars, ps :=> At _ t) <- instantiate tys
                 let (parameters, result) = flattenArrows t
                     arity                = length parameters
                     valEnv :: TyEnv
                     valEnv               = Map.fromList $ zip vs (zip3 (map (LamBound . dislocate) parameters) (repeat sps) (repeat Local))
+                    -- Typically what we would like to do is to copy the structure of shtyids (sharing type ids) to the value type ids ie vs
+                    -- so if shtyids has a structure of [[a,b] [c,d] [e]], vs should also have a similar structure
                     sps :: [[Id]]
-                    sps = sharingParams (length shids == 1) vs
+                    sps = sharingParams shtyids vs
                 when (length vs /= arity) $
                   failWithS (fromId ctor ++ " requires " ++ multiple arity "argument" "arguments")
 
+                -- TODO [ANI] we still have the problem of "leaking" variables into the type env becuase the
+                -- smart trick that we used for lambda typechecking is no longer valid here.
+                -- It would not cause any problems as such because we generate unique names but will cause
+                -- annoyance while debugging the type environment (Yikes!!)
                 rExpr <- checkExpr e result
                 v <- fresh "v"
                 let tys :: TyS
@@ -460,9 +466,10 @@ checkMatch (MGuarded (GFrom (At l p) e) m) expected =
                ktoi :: Type KId -> Id
                ktoi (TyVar (Kinded i _)) = i
 
-               sharingParams :: Bool -> [Id] -> [[Id]]
-               sharingParams True is  = [is]
-               sharingParams False is = [[i] | i<- is]
+               -- imitates the sharing structure
+               sharingParams :: [[Id]] -> [Id] -> [[Id]]
+               sharingParams [] _ = []
+               sharingParams (part : others) is = (take (length part) is) : (sharingParams others (drop (length part) is))
 --                   existentialPredicates extVars determining deferred expected =
 --                       do extVars <- concatMap tvs `fmap` mapM (substitute . TyVar) extVars
 --                          expected' <- substitute expected

@@ -8,20 +8,20 @@ requires qprelude
 data Bool = False | True
 instance Un Bool
 
--- otherwise :: Bool
--- otherwise = True
+otherwise :: Bool
+otherwise = True
 
--- not :: Bool -> Bool
--- not True = False
--- not False = True
+not :: Bool -> Bool
+not True = False
+not False = True
 
 -- data Ordering = LT | EQ | GT
 -- instance Un Ordering
 
 data Choice a b = L a | R b
 data Pair a b = P a b
-
 data Pair' a b = ShP !! a b
+data Sh3Tuple a b c = Sh3P !! a b c
 
 -- ctob :: (->) f => f (Choice a b) -> Bool
 -- ctob x = {( L a <- x => ^False | R b <- x => ^False )}
@@ -38,8 +38,10 @@ data Pair' a b = ShP !! a b
 -- fstp :: Pair' a b -> a
 fstp (ShP a b) = a
 
+sndp (ShP a b) = b
+
 -- swap :: (SeFun f) => Pair a b ->{f} Pair b a
--- swap (P a b) = P b a
+swap (P a b) = P b a
 
 -- fst :: (Un b) => Pair a b -> a
 -- fst (P a b) = a
@@ -47,10 +49,16 @@ fstp (ShP a b) = a
 -- snd :: (Un a) => Pair a b -> b
 -- snd (P a b) = b
 
+fstp3 (Sh3P a b c) = a
+
+sndp3 (Sh3P a b c) = b
+
+trdp3 (Sh3P a b c) = c
+
 -- class Eq t where
---   (==) :: (t >:= f t Bool) => t -> t ->{f} Bool
---   (/=) :: (t >:= f t Bool) => t -> t ->{f} Bool
---   x /= y      = not (x == y)   -- default definition
+--    (==) :: (t >:= f t Bool) => t -> t ->{f} Bool
+--    (/=) :: (t >:= f t Bool) => t -> t ->{f} Bool
+--    x /= y      = not (x == y)   -- default definition
 
 -- class Ord t | Eq t where
 --   compare              :: (t >:= f t Ordering) => t -> t ->{f} Ordering
