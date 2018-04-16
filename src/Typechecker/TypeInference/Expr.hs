@@ -164,7 +164,7 @@ checkExpr (At loc (EVar name)) expected =
 
 checkExpr (At loc (ECon name)) expected =
     failAt loc $
-    trace (show ("At" <+> ppr loc <+> "expect type" <+> ppr expected)) $
+    trace (show ("ECon At" <+> ppr loc <+> "expect type" <+> ppr expected)) $
     do b <- bindingOf name
        case b of
          LamBound _ -> error "Constructor name associated with lambda-bound type"
@@ -403,12 +403,14 @@ checkMatch (MGuarded (GFrom (At l p) e) m) expected =
                         , goals = goalsC ++ goals rExpr ++ goals rBody
                         , used = used }
          PCon ctor vs ->
-             do ((tys, n), is, _) <- ctorBinding ctor
+             do ((tys, n), shids, _) <- ctorBinding ctor
                 (kvars, tyvars, ps :=> At _ t) <- instantiate tys
                 let (parameters, result) = flattenArrows t
                     arity                = length parameters
-                    valEnv :: Map Id (Binding, [[Id]], Scope)
-                    valEnv               = Map.fromList $ zip vs (zip3 (map (LamBound . dislocate) parameters) (repeat ([[]]::[[Id]])) (repeat Local))
+                    valEnv :: TyEnv
+                    valEnv               = Map.fromList $ zip vs (zip3 (map (LamBound . dislocate) parameters) (repeat sps) (repeat Local))
+                    sps :: [[Id]]
+                    sps = sharingParams (length shids == 1) vs
                 when (length vs /= arity) $
                   failWithS (fromId ctor ++ " requires " ++ multiple arity "argument" "arguments")
 
@@ -449,11 +451,18 @@ checkMatch (MGuarded (GFrom (At l p) e) m) expected =
                         , goals = goalsC ++ goals rExpr ++ rs
                         , used = used }
 
-             where flattenArrows (TyApp (At _ (TyApp (At _ (TyVar _)) at)) (At _ rt))
-                                      = let (args', result) = flattenArrows rt
-                                        in (at : args', result)
-                   flattenArrows t    = ([], t)
+             where
+               flattenArrows (TyApp (At _ (TyApp (At _ (TyVar _)) at)) (At _ rt))
+                 = let (args', result) = flattenArrows rt
+                   in (at : args', result)
+               flattenArrows t    = ([], t)
 
+               ktoi :: Type KId -> Id
+               ktoi (TyVar (Kinded i _)) = i
+
+               sharingParams :: Bool -> [Id] -> [[Id]]
+               sharingParams True is  = [is]
+               sharingParams False is = [[i] | i<- is]
 --                   existentialPredicates extVars determining deferred expected =
 --                       do extVars <- concatMap tvs `fmap` mapM (substitute . TyVar) extVars
 --                          expected' <- substitute expected

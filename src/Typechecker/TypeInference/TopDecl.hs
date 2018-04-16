@@ -128,18 +128,26 @@ checkTopDecl (Datatype (Kinded name k) params ctors sh) =
       ctorTypeBinding :: Ctor KId (Pred (Located Ty)) Ty -> M (Id, ((KScheme TyS, Int), [[Id]], Scope))
       ctorTypeBinding (Ctor (At _ ctorName) kids qs ts sh) =
         do (vs, ps, t') <- buildArrow sh [] (map dislocate ts) t
+           trace ("DEBUG building ctorTypeBiding for "++ (show ctorName) ++ ":"
+                 ++ "\n\tkids: " ++ (show kids)
+                 ++ "\n\tparams': " ++ (show params')
+                 ++ "\n\tvs: " ++ (show vs)
+                 ++ "\n\t computed params: " ++ show (sharingHelper sh (map ktoi params'))
+                 ++ "\n\tts: " ++ show ts)(return())
            return (ctorName
                   , ((kindQuantify
                        (Forall (kids ++ params' ++ vs)
                          (gen (length kids) (params' ++ vs) ((map introduced ps ++ qs) :=> introduced t'))),
                       length kids)
-                    , [[]]::[[Id]]
+                    , sharingHelper sh (map ktoi params')
                     , Global)
                   )
+      ktoi :: KId -> Id
+      ktoi (Kinded i _) = i
 
-      -- sharingHelper :: Bool -> [Id] -> [[Id]]
-      -- sharingHelper True is = [is]
-      -- sharingHelper False is = [[i] | i <- is]
+      sharingHelper :: Bool -> [a] -> [[a]]
+      sharingHelper True is = [is]
+      sharingHelper False is = [[i] | i <- is]
 
 
 checkTopDecl (Bitdatatype name mtys ctors derives) =
@@ -548,13 +556,13 @@ checkProgram fn p =
        let instanceDecls' = instanceDecls ++ derived
        (evDecls, methodImpls) <- assertInstances (map instanceName derived) instanceDecls'
        areaTypes' <- mapM (\(n, tys) -> do ty <- simplifyAreaType tys
-                                           return (n, (LamBound ty))) areaTypes
-       let globals = Map.unions (Map.map (\x -> (x, [[]]::[[Id]], Global)) (Map.fromList areaTypes') : methodTypeEnvironments)
+                                           return (n, ((LamBound ty), [[]]::[[Id]], Global))) areaTypes
+       let globals = Map.unions ((Map.fromList areaTypes') : methodTypeEnvironments)
        declare globals $
             do (typeDecls', ctorEnvironments) <- unzip `fmap` mapM (mapLocated checkTopDecl) typeDecls
                let ctorEnvironment = Map.unions (primCtors ++ ctorEnvironments)
                    ctorTypes       = tyEnvFromCtorEnv ctorEnvironment
-               bindCtors ctorEnvironment
+               bindCtors ctorEnvironment -- should constructor
                declare ctorTypes $
                        -- This is where TypeInference for Expr kicks in
                     do rDecls <- checkDecls (concatDecls [decls p, Decls (concat defaultMethodImpls), Decls methodImpls]) -- (decls', ps, valueTypes)

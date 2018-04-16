@@ -110,6 +110,7 @@ closure tyenv i = nub $ concat $ filter (i `elem`) lstOflst
 closureHelper :: TyEnv -> [Id] -> Set Id
 closureHelper tyenv is = Set.unions $ map (\l -> Set.fromList l) (map (closure tyenv) is)
 
+-- TODO [ANI] Need to Fix this
 tyEnvFromCtorEnv :: CtorEnv -> TyEnv
 tyEnvFromCtorEnv = Map.map (\(bnds, shids, scope) -> ((LetBound $ fst bnds), shids, scope))
 
