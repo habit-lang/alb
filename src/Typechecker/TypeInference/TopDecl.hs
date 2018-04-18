@@ -150,8 +150,8 @@ checkTopDecl (Datatype (Kinded name k) params ctors sh) =
       tytoi :: Ty -> Id
       tytoi lty = case lty of
                     TyVar (Kinded a _)  -> a
-                    TyApp (At _ (TyCon (Kinded c _))) _ -> c
-                    TyApp (At _ (TyApp (At _ (TyCon (Kinded c _))) _)) _ -> c
+                    TyCon (Kinded c _)  -> c
+                    TyApp (At _ ty) _   -> tytoi ty
 
 checkTopDecl (Bitdatatype name mtys ctors derives) =
     -- Checking a bitdata type has three steps: for each constructor, we generate the XMPEG
