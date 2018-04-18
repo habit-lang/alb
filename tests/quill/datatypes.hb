@@ -22,29 +22,34 @@ data Choice a b = L a | R b
 data Pair a b = P a b
 data Pair' a b = ShP !! a b
 data Sh3Tuple a b c = Sh3P !! a b c
+data Mix3Tuple a b c = Mx3Tp !! a (Pair b c)
+
+lprj (Mx3Tp a p) = a
+
+rprj1 :: (Un c) => Mix3Tuple a b c -> b
+rprj1 (Mx3Tp a p) = fst p
 
 -- ctob :: (->) f => f (Choice a b) -> Bool
 -- ctob x = {( L a <- x => ^False | R b <- x => ^False )}
 --              g => commit False | g => commit False
 
--- ctob :: Choice Bool Bool -> Bool
--- ctob (L x) = x
--- ctob (R y) = y
+ctob :: Choice Bool Bool -> Bool
+ctob (L x) = x
+ctob (R y) = y
 
--- ctob' :: {- (Un a, Un b, SeFun f) =>-} Choice a b ->{f} Pair' (Choice a b) Bool
--- ctob' (L x) = P (L x) True
--- ctob' (R y) = P (R y) False
+ctob' :: {- (Un a, Un b, SeFun f) =>-} Choice a b ->{f} Pair (Choice a b) Bool
+ctob' (L x) = P (L x) True
+ctob' (R y) = P (R y) False
 
 -- fstp :: Pair' a b -> a
-fstp (ShP a b) = a
-
-sndp (ShP a b) = b
+fstp (ShP x y) = x
+sndp (ShP x y) = y
 
 -- swap :: (SeFun f) => Pair a b ->{f} Pair b a
 swap (P a b) = P b a
 
--- fst :: (Un b) => Pair a b -> a
--- fst (P a b) = a
+fst :: (Un b) => Pair a b -> a
+fst (P a b) = a
 
 -- snd :: (Un a) => Pair a b -> b
 -- snd (P a b) = b
@@ -96,20 +101,21 @@ trdp3 (Sh3P a b c) = c
 --       (<$>) :: {- what should be the predicates here? -} m (a -> b) ->{f1} m a ->{g1} m b
 
 
--- class Monad f m | m -> f where
---       return :: (t >:= m t) => t -> m t
---       -- [ANI] TODO we need to give too many details here
---       -- can we reduce the constraints to only (m t >:= g, f >:= m u)
---       (>>=)  :: (m t >:= ((t ->{f} m u) ->{g} m u), f >:= m u, ShFun f) =>
---                 m t -> (t ->{f} m u) ->{g} m u
+class Monad f m | m -> f where
+       return :: (t >:= m t) => t -> m t
+       -- [ANI] TODO we need to give too many details here
+       -- can we reduce the constraints to only (m t >:= g, f >:= m u)
+       (>>=)  :: (f >:= m u, m t >:= ((t ->{f} m u) ->{g} m u)) =>
+                 m t ->{h} (t ->{f} m u) ->{g} m u
 
--- data Maybe a = Nothing | Just a
+data Maybe a = Nothing | Just a
 --      -- deriving Show ??
 
+-- TODO This is broken now
 -- instance Monad (-!>) Maybe where
---          -- return :: a -> Maybe a
---          return a = Just a
---          -- we cannot have a linear funtion f here as it is not used exactly once.
---          -- (>>=) :: m a -> (a -> m b) -> m b
---          (>>=) Nothing f = Nothing
---          (>>=) (Just a) f = f a
+--           -- return :: a -> Maybe a
+--           return a = Just a
+--           -- we cannot have a linear funtion f here as it is not used exactly once.
+--           -- (>>=) :: m a -> (a -> m b) -> m b
+--           (>>=) Nothing  f = Nothing
+--           (>>=) (Just a) f = f a

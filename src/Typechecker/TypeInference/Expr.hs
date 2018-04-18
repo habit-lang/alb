@@ -369,7 +369,7 @@ checkMatch (MElse m n) expected =
                , used = used }
 checkMatch (MGuarded (GLet decls) m) expected =
     do rDecls <- checkDecls decls
-       trace("DEBUG in MGuarded")(return ())
+       trace("DEBUG in MGuarded GLet")(return ())
        let (decls', vals) = payload rDecls
        rBody <- binds introducedLocation vals (checkMatch m expected)
        (assumedC, goalsC, used) <- contract introducedLocation (used rDecls) (used rBody)
@@ -379,6 +379,7 @@ checkMatch (MGuarded (GLet decls) m) expected =
                , used = used }
 checkMatch (MGuarded (GFrom (At l p) e) m) expected =
     do t <- newTyVar KStar
+       trace("DEBUG in MGuarded GFrom")(return ())
        case p of
          PWild ->
              do rExpr <- checkExpr e t -- (e', ps)
@@ -419,7 +420,8 @@ checkMatch (MGuarded (GFrom (At l p) e) m) expected =
                 -- TODO [ANI] we still have the problem of "leaking" variables into the type env becuase the
                 -- smart trick that we used for lambda typechecking is no longer valid here.
                 -- It would not cause any problems as such because we generate unique names but will cause
-                -- annoyance while debugging the type environment (Yikes!!)
+                -- annoyance while debugging the type environment as we keep on holding on the
+                -- variables that we do not need (Yikes!!)
                 rExpr <- checkExpr e result
                 v <- fresh "v"
                 let tys :: TyS
@@ -429,7 +431,6 @@ checkMatch (MGuarded (GFrom (At l p) e) m) expected =
                 envvars <- freeEnvironmentVariables
                 let ps'          = zip evs ps
                     transparents = tvs expected ++ tvs valEnv ++ envvars
---                     ps''         = [(id, convert (dislocate p)) | (id, p) <- ps']
                     extVars      = take n tyvars
 
                 rBody <- binds introducedLocation valEnv (checkMatch m expected)
@@ -437,22 +438,12 @@ checkMatch (MGuarded (GFrom (At l p) e) m) expected =
                     traceIf (not (null (goals rBody)))
                             (show ("Simplifying predicates from guarded match:" <+> pprList' (map snd (goals rBody))))
                             (entails transparents (tvs expected ++ tvs valEnv) ps' (goals rBody))
---                extPreds <- existentialPredicates (take n tyvars) ps' (goals rExpr ++ rs) expected
 
                 (assumedC, goalsC, used) <- contract introducedLocation (used rExpr) (used rBody)
 
                 return R{ payload = X.MGuarded (X.GLet (X.Decls [X.Defn v (convert tys) (X.Gen [] [] (payload rExpr))])) $
                                     X.MGuarded (X.GFrom (X.PCon (X.Inst ctor (map X.TyVar tyvars) (map X.EvVar evs)) vs) v) $
                                     payload rBody
-{-
-                                    X.MGuarded (X.GFrom (X.PCon ctor (map X.TyVar tyvars) ps' vs) (payload rExpr))
-                                               (foldr (\cbinds m -> case cbinds of
-                                                                      Left cs | all null (map snd cs) -> m
-                                                                              | otherwise             -> X.MGuarded (X.GLetTypes (Left cs)) m
-                                                                      Right (args, results, f)        -> X.MGuarded (X.GLetTypes (Right (args, results, f))) m)
-                                                      (X.MGuarded (X.GSubst evsubst) (payload rBody))
-                                                      cbindss)
--}
                         , assumed = assumedC ++ assumed rExpr ++ assumed rBody
                         , goals = goalsC ++ goals rExpr ++ rs
                         , used = used }
@@ -462,9 +453,6 @@ checkMatch (MGuarded (GFrom (At l p) e) m) expected =
                  = let (args', result) = flattenArrows rt
                    in (at : args', result)
                flattenArrows t    = ([], t)
-
-               ktoi :: Type KId -> Id
-               ktoi (TyVar (Kinded i _)) = i
 
                -- imitates the sharing structure
                sharingParams :: [[Id]] -> [Id] -> [[Id]]

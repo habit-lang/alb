@@ -132,23 +132,26 @@ checkTopDecl (Datatype (Kinded name k) params ctors sh) =
                  ++ "\n\tkids: " ++ (show kids)
                  ++ "\n\tparams': " ++ (show params')
                  ++ "\n\tvs: " ++ (show vs)
-                 ++ "\n\t computed params: " ++ show (sharingHelper sh (map ktoi params'))
+                 ++ "\n\t computed params: " ++ show (sharingHelper sh (map (tytoi . dislocate) ts))
                  ++ "\n\tts: " ++ show ts)(return())
            return (ctorName
                   , ((kindQuantify
                        (Forall (kids ++ params' ++ vs)
                          (gen (length kids) (params' ++ vs) ((map introduced ps ++ qs) :=> introduced t'))),
                       length kids)
-                    , sharingHelper sh (map ktoi params')
+                    , sharingHelper sh (map (tytoi . dislocate) ts)
                     , Global)
                   )
-      ktoi :: KId -> Id
-      ktoi (Kinded i _) = i
-
       sharingHelper :: Bool -> [a] -> [[a]]
       sharingHelper True is = [is]
       sharingHelper False is = [[i] | i <- is]
 
+      -- TODO [ANI] Make this generic
+      tytoi :: Ty -> Id
+      tytoi lty = case lty of
+                    TyVar (Kinded a _)  -> a
+                    TyApp (At _ (TyCon (Kinded c _))) _ -> c
+                    TyApp (At _ (TyApp (At _ (TyCon (Kinded c _))) _)) _ -> c
 
 checkTopDecl (Bitdatatype name mtys ctors derives) =
     -- Checking a bitdata type has three steps: for each constructor, we generate the XMPEG
