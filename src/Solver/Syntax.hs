@@ -12,7 +12,11 @@ concatMapM f xs = concat `fmap` mapM f xs
 
 infixl 5 :@
 type TyId = Kinded Id
-data Type = TyCon TyId  | TyVar TyId | TyGen Int | TyLit Integer | Type :@ Type deriving (Eq, Show)
+data Type = TyCon TyId
+          | TyVar TyId
+          | TyGen Int
+          | TyLit Integer
+          | Type :@ Type deriving (Eq, Show)
 
 kindOf                     :: Type -> Kind
 kindOf (TyCon (Kinded _ k)) = k

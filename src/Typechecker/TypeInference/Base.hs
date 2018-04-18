@@ -315,7 +315,7 @@ buildLinPred loc f (LamBound t) =
 weaken :: Location -> [Id] -> [Id] -> M (Preds, Preds)
 weaken loc introduced used =
     traceIf (not (null dropped)) (show ("Weakened:" <+> pprList' dropped)) $
-    do trace ("in weaking introduced used: " ++ (show introduced) ++ (show used))(return ())
+    do trace ("in weakening introduced used: " ++ (show introduced) ++ (show used))(return ())
        (assumpss, goals) <- unzip `fmap` mapM weakenVar dropped
        trace("weakening done")(return())
        return (concat assumpss, goals)
@@ -465,8 +465,8 @@ allTo = flip (foldr to)
 -- TODO: Above constants for arrow should not be used in Quill typechecking.
 
 linArrTy, unrArrTy :: Ty
-linArrTy = arrowLike "-*>"
-unrArrTy = arrowLike "-!>"
+linArrTy = arrowLike "-!*>"
+unrArrTy = arrowLike "-!&>"
 
 newArrowVar :: M ((Id, Located (Pred (Located Ty))), Ty)
 newArrowVar = do fv <- fresh "f"

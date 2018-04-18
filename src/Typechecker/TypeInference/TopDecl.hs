@@ -146,7 +146,6 @@ checkTopDecl (Datatype (Kinded name k) params ctors sh) =
       sharingHelper True is = [is]
       sharingHelper False is = [[i] | i <- is]
 
-      -- TODO [ANI] Make this generic
       tytoi :: Ty -> Id
       tytoi lty = case lty of
                     TyVar (Kinded a _)  -> a

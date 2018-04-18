@@ -593,7 +593,7 @@ checkTypingGroup (Explicit (name, params, body) expectedTyS) =
               -- goals.
               when (not (null retainedGoals')) $
                    do fds <- inducedDependencies (map snd (declaredPreds ++ goals))
-                      trace ("DEBUG fds: " ++ show fds) (return ())
+                      trace ("DEBUG fun depen: " ++ show fds) (return ())
                       transformFailures (addAmbiguousVariables (tvs (map snd retainedGoals') \\ close (tvs expected) fds) (map snd retainedGoals')) $
                           contextTooWeak assumed retainedGoals'
 

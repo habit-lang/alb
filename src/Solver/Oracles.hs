@@ -187,7 +187,7 @@ arithmetic name goal@(Pred className ts flag loc) =
           gcdP _ _ _ _ = noProgress
 
 ----------------------------------------------------------------------------------------------------
-
+linearity :: Id -> Pred -> Tactic (Subst, Tactic ())
 linearity name goal@(Pred className ts flag loc) =
     case (className, ts) of
       ("Un", [t]) -> un t
@@ -199,12 +199,12 @@ linearity name goal@(Pred className ts flag loc) =
     where un (TyVar v) =
               do b <- known (funPred v)
                  if b
-                 then return (singleton v (arrowLike "-!>"), prove "Oracles_linearity_un")
+                 then return (singleton v (arrowLike "-!&>"), prove "Oracles_linearity_un")
                  else noProgress
           un ((TyVar v :@ _) :@ _) =
               do b <- known (funPred v)
                  if b
-                 then return (singleton v (arrowLike "-!>"), prove "Oracles_linearity_un")
+                 then return (singleton v (arrowLike "-!&>"), prove "Oracles_linearity_un")
                  else noProgress
           un _ = noProgress
 
@@ -221,7 +221,7 @@ linearity name goal@(Pred className ts flag loc) =
                                                   v == w
           funPred v (Pred "-*>" [TyVar w] Inc _) = trace ("SOLVER DEBUG" ++ ppx v ++ "(-*>) =?= " ++ ppx w ++ " = " ++ show (v == w)) $
                                                   v == w
-          funPred v (Pred "-&>" [TyVar w] Inc _) = trace ("SOLVER DEBUG" ++ ppx v ++ "(-!>) =?= " ++ ppx w ++ " = " ++ show (v == w)) $
+          funPred v (Pred "-&>" [TyVar w] Inc _) = trace ("SOLVER DEBUG" ++ ppx v ++ "(-&>) =?= " ++ ppx w ++ " = " ++ show (v == w)) $
                                                   v == w
           funPred _ _                             = False
 
