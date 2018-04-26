@@ -5,6 +5,10 @@ data Maybe a = Nothing | Just a
 
 data Either l r = Left l | Right r
 
+
+instance Un (Either a b) if Un a, Un b
+else Un (Either a b) fails
+
 class Functor f m | m -> f where
       fmap :: ((m a) >:= ((a ->{f} b) ->{g2} (m b))) => m a ->{g1} (a ->{f} b) ->{g2} m b
 
@@ -43,12 +47,11 @@ instance Applicative (-!*>) Maybe where
                                     Nothing -> Nothing
                                     Just f' -> Just (f' a')
 
--- This fails because Un (Either a b) is not being provided?
--- instance Applicative (-!*>) (Either a) where
---        pure a = Right a
---        (<*>) a f = case f of
---                      Left e -> Left e
---                      Right f' -> fmap a f'
+instance Applicative (-!*>) (Either a) where
+       pure a = Right a
+       (<*>) a f = case f of
+                     Left e -> Left e
+                     Right f' -> fmap a f'
 
 class Monad f m | m -> f where
       return :: (t >:= m t) => t -> m t
