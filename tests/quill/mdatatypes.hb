@@ -1,4 +1,5 @@
 requires qprelude
+requires rdatatypes
 
 data Maybe a = Nothing | Just a
 
@@ -19,8 +20,19 @@ class Monad f m | m -> f where
 -- TODO This is broken now
 instance Monad (-!*>) Maybe where
          -- return :: a -> Maybe a
-         return a = Just a
-         -- we cannot have a linear funtion f here as it is not used exactly once.
+         return = \a -> Just a
+
+         -- we cannot have a linear funtion f
+         -- here as it is can be discarded in the case of Nothing
+         -- described above by (-!*>)
          -- (>>=) :: m a -> (a -> m b) -> m b
-         (>>=) Nothing  f = Nothing
-         (>>=) (Just a) f = f a
+         (>>=) a f = case a of
+                       Nothing -> Nothing
+                       Just v  -> f v
+
+-- instance Monad (-!*>) NEList where
+--          return a = Last a
+--          (>>=) (Last a) f = f a
+--          (>>=) (Cons' a as) f = Cons' (f a) ((>>=) as f)
+
+-- type State k s = Pair k s

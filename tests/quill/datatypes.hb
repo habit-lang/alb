@@ -24,11 +24,6 @@ data Pair' a b = ShP !! a b
 data Sh3Tuple a b c = Sh3P !! a b c
 data Mix3Tuple a b c = Mx3Tp !! a (Pair b c)
 
-lprj (Mx3Tp a p) = a
-
-rprj1 :: (Un c, Un b) => Mix3Tuple a b c -> b
-rprj1 (Mx3Tp a p) = fst p
-
 -- ctob :: (->) f => f (Choice a b) -> Bool
 -- ctob x = {( L a <- x => ^False | R b <- x => ^False )}
 --              g => commit False | g => commit False
@@ -46,14 +41,23 @@ fstp (ShP x y) = x
 sndp (ShP x y) = y
 
 -- swap :: (SeFun f) => Pair a b ->{f} Pair b a
-swap (P a b) = P b a
+swap (P x y) = P y x
 
-fst :: (Un b) => Pair a b -> a
-fst (P a b) = a
+fst :: (Un c) => Pair b c -> b
+fst (P x y) = x
 
--- snd :: (Un a) => Pair a b -> b
--- snd (P a b) = b
+snd :: (Un a) => Pair a b -> b
+snd (P a b) = b
 
 fstp3 (Sh3P a b c) = a
 sndp3 (Sh3P a b c) = b
 trdp3 (Sh3P a b c) = c
+
+lprj (Mx3Tp a p) = a
+
+rprj1 :: (Un c) => Mix3Tuple a b c ->{f} b
+rprj1 (Mx3Tp a (P c d)) = c
+
+-- TODO This fails
+rprj1' :: (Un c) => Mix3Tuple a b c -> b
+rprj1' (Mx3Tp a p) = fst p

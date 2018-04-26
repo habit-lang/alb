@@ -187,42 +187,52 @@ arithmetic name goal@(Pred className ts flag loc) =
           gcdP _ _ _ _ = noProgress
 
 ----------------------------------------------------------------------------------------------------
+-- TODO work on the matrix here
 linearity :: Id -> Pred -> Tactic (Subst, Tactic ())
 linearity name goal@(Pred className ts flag loc) =
     case (className, ts) of
+      ("SeFun", [t]) -> sefun t
+      ("ShFun", [t]) -> shfun t
       ("Un", [t]) -> un t
-      ("->", [t]) -> fun t
---      ("-*>", [t]) -> fun t
---      ("-!>", [t]) -> fun t
+      -- ("->", [t]) -> un t
       _           -> noProgress
 
-    where un (TyVar v) =
+    where un ((TyVar v :@ _) :@ _) =
               do b <- known (funPred v)
                  if b
                  then return (singleton v (arrowLike "-!&>"), prove "Oracles_linearity_un")
                  else noProgress
-          un ((TyVar v :@ _) :@ _) =
+          un (TyVar v) =
               do b <- known (funPred v)
                  if b
                  then return (singleton v (arrowLike "-!&>"), prove "Oracles_linearity_un")
                  else noProgress
           un _ = noProgress
 
-          fun (TyVar v) = do b <- known unPred
-                             if b
-                             then return (singleton v (arrowLike "-!>"), prove "Oracles_linearity_fun")
-                             else noProgress
+          sefun (TyVar v) = do b <- known unPred
+                               if b
+                               then return (singleton v (arrowLike "-!*>"), prove "Oracles_linearity_fun")
+                               else noProgress
               where unPred (Pred "Un" [TyVar w] Inc _)             = v == w
                     unPred (Pred "Un" [(TyVar w :@ _) :@ _] Inc _) = v == w
                     unPred _                                       = False
-          fun _ = noProgress
+          sefun _ = noProgress
 
-          funPred v (Pred "->" [TyVar w] Inc _) = trace ("SOLVER DEBUG" ++ ppx v ++ " =?= " ++ ppx w ++ " = " ++ show (v == w)) $
-                                                  v == w
-          funPred v (Pred "-*>" [TyVar w] Inc _) = trace ("SOLVER DEBUG" ++ ppx v ++ "(-*>) =?= " ++ ppx w ++ " = " ++ show (v == w)) $
-                                                  v == w
-          funPred v (Pred "-&>" [TyVar w] Inc _) = trace ("SOLVER DEBUG" ++ ppx v ++ "(-&>) =?= " ++ ppx w ++ " = " ++ show (v == w)) $
-                                                  v == w
+          shfun (TyVar v) = do b <- known unPred
+                               if b
+                               then return (singleton v (arrowLike "-!&>"), prove "Oracles_linearity_fun")
+                               else noProgress
+              where unPred (Pred "Un" [TyVar w] Inc _)             = v == w
+                    unPred (Pred "Un" [(TyVar w :@ _) :@ _] Inc _) = v == w
+                    unPred _                                       = False
+          shfun _ = noProgress
+
+          funPred v (Pred "->" [TyVar w] Inc _) = trace ("SOLVER DEBUG\n\t" ++ ppx v ++ " =?= " ++ ppx w ++ " = " ++ show (v == w)) $
+                                                   v == w
+          -- funPred v (Pred "SeFun" [TyVar w] Inc _) = trace ("SOLVER DEBUG\n\t" ++ ppx v ++ " (-*>) =?= " ++ ppx w ++ " = " ++ show (v == w)) $
+          --                                         v == w
+          -- funPred v (Pred "ShFun" [TyVar w] Inc _) = trace ("SOLVER DEBUG\n\t" ++ ppx v ++ " (-&>) =?= " ++ ppx w ++ " = " ++ show (v == w)) $
+          --                                         v == w
           funPred _ _                             = False
 
           arrowLike id = TyCon (Kinded (Ident id 0 (Just (Fixity RightAssoc 5))) (KFun KStar (KFun KStar KStar)))

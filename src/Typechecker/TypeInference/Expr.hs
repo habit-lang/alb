@@ -24,8 +24,15 @@ import Typechecker.TypeInference.Base
 
 ----------------------------------------------------------------------------------------------------
 
-closureOverlaps :: TyEnv -> [Id] -> [Id] -> Bool
-closureOverlaps tyenv l1 l2 = s1 == s2
+data ClosureOverLapStatus = Total | Partial | Null
+
+closureOverlaps :: TyEnv -> [Id] -> [Id] -> ClosureOverLapStatus
+closureOverlaps tyenv l1 l2 =
+  if (s1 == s2)
+  then Total
+  else if (Set.null $ s1 `Set.intersection` s2)
+       then Partial
+       else Null
   where
     s1 = Set.unions $ map (\l -> Set.fromList l) (map (closure tyenv) l1)
     s2 = Set.unions $ map (\l -> Set.fromList l) (map (closure tyenv) l2)
@@ -258,25 +265,31 @@ checkExpr (At loc (EApp f a)) expected = -- [ANI] TODO: Have more logic for -&> 
             ++ "\n\ttyenv: " ++ show (local tyenv)
             ++ "\n\tclosure used rF: " ++ show (closureHelper (local tyenv) (used rF))
             ++ "\n\tclosure used rA: " ++ show (closureHelper (local tyenv) (used rA))) (return ())
-       if (closureOverlaps (local tyenv) (used rF) (used rA))
-       then do (funpAmp, ftyAmp)  <-  t `ampTo` expected
-               rFAmp <- checkExpr f ftyAmp
-               rAAmp <- checkExpr a t
-               trace("\n\tClosure overlaps generating ampTo\n")(return ())
-               (assumedC, goalsC, used') <- contract loc (used rFAmp) (used rAAmp)
-               return R{ payload = X.EApp (payload rFAmp) (payload rAAmp)
-                       , assumed = assumedC ++ assumed rFAmp ++ assumed rAAmp
-                       , goals = funpAmp : goalsC ++ goals rFAmp ++ goals rAAmp
-                       , used = used' }
-       else  do (funpStr, ftyStr)  <-  t `starTo` expected
-                rFStr <- checkExpr f ftyStr
-                rAStr <- checkExpr a t
-                trace("\n\tClosure does not overlap generating starTo\n")(return ())
-                (assumedC, goalsC, used') <- contract loc (used rFStr) (used rAStr)
-                return R{ payload = X.EApp (payload rFStr) (payload rAStr)
-                        , assumed = assumedC ++ assumed rFStr ++ assumed rAStr
-                        , goals = funpStr : goalsC ++ goals rFStr ++ goals rAStr
-                        , used = used' }
+       case (closureOverlaps (local tyenv) (used rF) (used rA)) of
+         Total -> do (funpAmp, ftyAmp)  <-  t `ampTo` expected
+                     rFAmp <- checkExpr f ftyAmp
+                     rAAmp <- checkExpr a t
+                     trace("\n\tClosure overlaps generating ampTo\n")(return ())
+                     (assumedC, goalsC, used') <- contract loc (used rFAmp) (used rAAmp)
+                     return R{ payload = X.EApp (payload rFAmp) (payload rAAmp)
+                             , assumed = assumedC ++ assumed rFAmp ++ assumed rAAmp
+                             , goals = funpAmp : goalsC ++ goals rFAmp ++ goals rAAmp
+                             , used = used' }
+         _     -> do (funpStr, ftyStr)  <-  t `starTo` expected
+                     rFStr <- checkExpr f ftyStr
+                     rAStr <- checkExpr a t
+                     trace("\n\tClosure does not overlap generating starTo\n")(return ())
+                     (assumedC, goalsC, used') <- contract loc (used rFStr) (used rAStr)
+                     return R{ payload = X.EApp (payload rFStr) (payload rAStr)
+                             , assumed = assumedC ++ assumed rFStr ++ assumed rAStr
+                             , goals = funpStr : goalsC ++ goals rFStr ++ goals rAStr
+                             , used = used' }
+         -- _     -> do trace("\n\tClosure partiall overlaps generating polyTo\n")(return ())
+         --             (assumedC, goalsC, used') <- contract loc (used rF) (used rA)
+         --             return R{ payload = X.EApp (payload rF) (payload rA)
+         --                     , assumed = assumedC ++ assumed rF ++ assumed rA
+         --                     , goals = funp : goalsC ++ goals rF ++ goals rA
+         --                     , used = used' }
 
 checkExpr (At loc (EBind v e rest)) expected =
     failAt loc $
@@ -532,14 +545,16 @@ improveFunPredicates assumed goals =
               where endpoints (At _ (Pred ">:=" [At _ t, At _ u] Holds)) = [ends t u]
                         where
                           -- ends :: Type a -> Type b -> (a, b)
-                          ends (TyApp (At _ (TyApp (At _ (TyVar v)) _)) _) (TyApp (At _ (TyApp (At _ (TyVar w)) _)) _) = (v, w)
-                          ends (TyVar v) (TyApp (At _ (TyApp (At _ (TyVar w)) _)) _) = (v, w)
-                          ends (TyApp (At _ (TyApp (At _ (TyVar v)) _)) _) (TyVar w) = (v, w)
                           ends (TyVar v) (TyVar w) = (v, w)
+                          ends (TyCon c) (TyVar w) = (c, w)
+                          -- ends (TyApp (At _ (TyApp (At _ (TyVar v)) _)) _) (TyApp (At _ (TyApp (At _ (TyVar w)) _)) _) = (v, w)
+                          ends (TyApp (At _ (TyApp (At _ ty1) _)) _) ty2 = ends ty1 ty2
+                          ends ty1 (TyApp (At _ (TyApp (At _ ty2) _)) _) = ends ty1 ty2
+                          -- ends (TyApp (At _ (TyApp (At _ (TyVar v)) _)) _) (TyVar w) = (v, w)
                           -- [ANI] TODO This can be n-ary Type constructor. How will we handle this?
-                          ends (TyApp (At _ (TyApp (At _ (TyCon c)) (At _ (TyVar _)))) (At _ (TyVar _))) (TyVar f) = (c, f)
+                          -- ends (TyApp (At _ (TyApp (At _ (TyCon c)) (At _ (TyVar _)))) (At _ (TyVar _))) (TyVar f) = (c, f)
                           ends ty1 ty2 =
-                            error $ "Cannot figure out what to do with this type: " ++ (show ty1) ++ (show ty2)
+                            error $ "Cannot figure out what to do with types: " ++ (show ty1) ++ (show ty2)
                     endpoints _ = []
 
           loop vs | vs == ws = vs

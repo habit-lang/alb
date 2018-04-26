@@ -108,7 +108,9 @@ closure tyenv i = nub $ concat $ filter (i `elem`) lstOflst
   where (lstOflst::[[Id]]) = concat $ map (\(_, shids, _) -> shids) $ Map.elems tyenv
 
 closureHelper :: TyEnv -> [Id] -> Set Id
-closureHelper tyenv is = Set.unions $ map (\l -> Set.fromList l) (map (closure tyenv) is)
+closureHelper tyenv is = if (Map.null tyenv)
+                         then Set.fromList is
+                         else Set.unions $ map (\l -> Set.fromList l) (map (closure tyenv) is)
 
 -- TODO [ANI] Need to Fix this
 tyEnvFromCtorEnv :: CtorEnv -> TyEnv
@@ -185,6 +187,7 @@ type TcRes t = M (TcResult t)
 solve :: [KId] -> [KId] -> Preds -> M (EvSubst, Preds, [ConditionalBindings])
 solve tvs0 outputVariables ps = entails tvs0 outputVariables [] ps
 
+-- ANI [TODO] Monad instance for Maybe fails here
 entails :: [KId] -> [KId] -> Preds -> Preds -> M (EvSubst, Preds, [ConditionalBindings])
 entails transparents outputVariables hypotheses conclusions =
     do (s, evs, ps, cbinds) <- entails' transparents outputVariables hypotheses conclusions
@@ -317,7 +320,9 @@ weaken loc introduced used =
     traceIf (not (null dropped)) (show ("Weakened:" <+> pprList' dropped)) $
     do trace ("in weakening introduced used: " ++ (show introduced) ++ (show used))(return ())
        (assumpss, goals) <- unzip `fmap` mapM weakenVar dropped
-       trace("weakening done")(return())
+       trace("Weakening done.")(return())
+       trace("\n\tNew Goals: " ++ (show goals)
+            ++"\n\tNew Assumptions: " ++ (show assumpss))(return ())
        return (concat assumpss, goals)
     where dropped = filter (`notElem` used) introduced
           weakenVar tyid = buildLinPred loc unrestricted =<< bindingOf tyid
@@ -391,13 +396,15 @@ binds loc bs c = do modify (\st -> st { typeEnvironment = Map.union (typeEnviron
                     r <- c
                     tyenv' <- gets typeEnvironment
                     let shids = Set.toList $ closureHelper tyenv' (used r)
-                    trace("DEBUG BINDS: " ++ (show (Map.keys bs))
+                    trace("DEBUG BINDS: " ++ (show vs)
                          ++ "\n\tsharing closure: " ++ show shids
                          ++ "\n         \tused r: " ++ show (used r)
                          ++ "\n         \ttyenv: " ++ show (local tyenv'))(return ())
                     -- Generate goals depending on the sharing closure of the current variable.
                     -- instead of the ones that only appear in the body
-                    (assumpsC, goalsC) <- weaken loc vs (shids)
+                    (assumpsC, goalsC) <- if null shids
+                                          then weaken loc vs (used r)
+                                          else weaken loc vs (shids)
                     -- remove all the keys that are not in our sharing environment because they would been weakened. i.e. added un constraints
                     -- modify (\st -> st { typeEnvironment = Map.withoutKeys (typeEnvironment st) ((Set.fromList vs) `Set.difference` (Set.fromList shids))})
                     -- modify (\st -> st { typeEnvironment = Map.withoutKeys (typeEnvironment st) (Set.fromList $ vs \\ shids)})
