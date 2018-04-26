@@ -548,8 +548,8 @@ improveFunPredicates assumed goals =
                           ends (TyVar v) (TyVar w) = (v, w)
                           ends (TyCon c) (TyVar w) = (c, w)
                           -- ends (TyApp (At _ (TyApp (At _ (TyVar v)) _)) _) (TyApp (At _ (TyApp (At _ (TyVar w)) _)) _) = (v, w)
-                          ends (TyApp (At _ (TyApp (At _ ty1) _)) _) ty2 = ends ty1 ty2
-                          ends ty1 (TyApp (At _ (TyApp (At _ ty2) _)) _) = ends ty1 ty2
+                          ends (TyApp (At _ ty1) _) ty2 = ends ty1 ty2
+                          ends ty1 (TyApp (At _ ty2) _) = ends ty1 ty2
                           -- ends (TyApp (At _ (TyApp (At _ (TyVar v)) _)) _) (TyVar w) = (v, w)
                           -- [ANI] TODO This can be n-ary Type constructor. How will we handle this?
                           -- ends (TyApp (At _ (TyApp (At _ (TyCon c)) (At _ (TyVar _)))) (At _ (TyVar _))) (TyVar f) = (c, f)
