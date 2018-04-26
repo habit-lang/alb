@@ -1,10 +1,9 @@
 requires qprelude
--- requires rdatatypes
+requires rdatatypes
 
 data Maybe a = Nothing | Just a
 
 data Either l r = Left l | Right r
-
 
 instance Un (Either a b) if Un a, Un b
 else Un (Either a b) fails
@@ -18,9 +17,21 @@ instance Functor (-!*>) Maybe where
                    Just a  -> Just (f a)
 
 instance Functor (-!*>) (Either a) where
-       fmap a f = case a of
+      fmap a f = case a of
                     Left a' -> Left a'
                     Right a' -> Right (f a')
+
+-- we need to provide -!*> and not -*> because f is used multiple number of times in Cons' case
+instance Functor (-!*>) NEList where
+      fmap a f = case a of
+                   Last x -> Last (f x)
+                   Cons' x xs -> Cons' (f x) (fmap xs f)
+
+instance Functor (-!*>) List where
+     fmap a f = case a of
+              Nil -> Nil
+              Cons x xs -> Cons (f x) (fmap xs f)
+
 
 -- interestingly the alternative definition where the function is mentioned first fails
 -- class Functor f m | m -> f where
@@ -53,6 +64,12 @@ instance Applicative (-!*>) (Either a) where
                      Left e -> Left e
                      Right f' -> fmap a f'
 
+instance Applicative (-!*>) NEList where
+       pure a = Last a
+       (<*>) a f = case f of
+                     Last f' -> fmap a f'
+                     Cons' f' fs' -> concat' (fmap a f') ((<*>) a fs')
+
 class Monad f m | m -> f where
       return :: (t >:= m t) => t -> m t
       -- [ANI] TODO we need to give too many details here
@@ -78,7 +95,12 @@ instance Monad (-!*>) (Either a) where
                        Left l -> Left l
                        Right l -> f l
 
--- instance Monad (-!*>) NEList where
---          return a = Last a
---          (>>=) (Last a) f = f a
---          (>>=) (Cons' a as) f = Cons' (f a) ((>>=) as f)
+instance Monad (-!*>) NEList where
+         return a = Last a
+         (>>=) (Last a) f = f a
+         (>>=) (Cons' a as) f = concat' (f a) ((>>=) as f)
+
+head :: (Un a) => List a -> Maybe a
+head xs = case xs of
+            Nil -> Nothing
+            Cons a as -> Just a
