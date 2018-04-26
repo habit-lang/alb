@@ -1,5 +1,5 @@
 requires qprelude
-requires rdatatypes
+-- requires rdatatypes
 
 data Maybe a = Nothing | Just a
 
@@ -35,4 +35,10 @@ instance Monad (-!*>) Maybe where
 --          (>>=) (Last a) f = f a
 --          (>>=) (Cons' a as) f = Cons' (f a) ((>>=) as f)
 
--- type State k s = Pair k s
+data Either a b = Left a | Right b
+
+instance Monad (-!*>) (Either a) where
+         return a  = Right a
+         (>>=) a f = case a of
+                       Left l -> Left l
+                       Right l -> f l
