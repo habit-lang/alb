@@ -13,34 +13,33 @@ import System.IO
 
 
 -- Options for invoking the LC Compiler
-data LCCOptions = LCCOptions { root         :: Maybe String,
+data LCCOptions = LCCOptions { jarPath      :: Maybe String,
                                otherOptions :: String,
                                fake         :: Bool }
 
-
-defaultLCCOptions = LCCOptions { root         = Nothing,
+defaultLCCOptions = LCCOptions { jarPath      = Nothing,
                                  otherOptions = "",
                                  fake         = False }
 
 lccompile :: LCCOptions -> String -> Program -> IO ()
 lccompile lcco outputFileName prog =
     do writeFile lcFileName (show (ppr prog))
-       withFile outputFileName WriteMode $ \ h -> do
          -- java -cp "${CLASSPATH}" lc.LCC -S "${TMP}"
-         execPath <- getExecutablePath
-         let rt     = case root lcco of
-                           Nothing   -> takeDirectory execPath </> ".." </> "mil" 
-                           Just path -> path
-             lccCmd = intercalate " " [ "java",
-                                        "-cp", rt </> "bin",
-                                        "lc.LCC",
-                                        "-S", lcFileName,
-                                        otherOptions lcco ]
-         if fake lcco
-         then putStrLn $ lccCmd ++ " > " ++ outputFileName
-         else do (_, _, _, ph) <- createProcess $ (shell lccCmd) { std_out = UseHandle h }
-                 exitCode <- waitForProcess ph
-                 if exitCode /= ExitSuccess
-                 then hPutStrLn stderr ("lcc invokation failed (" ++ show exitCode ++ ")")
-                 else return ()
+       execPath <- getExecutablePath
+       let jarPath' = case jarPath lcco of
+                        Nothing   -> takeDirectory execPath </> "mil-tools.jar"
+                        Just path -> path
+           lccCmd = intercalate " " [ "java",
+                                      "-jar", jarPath',
+                                      lcFileName,
+                                      "-l" ++ llFileName,
+                                      otherOptions lcco ]
+       if fake lcco
+       then putStrLn lccCmd
+       else do exitCode <- system lccCmd
+               if exitCode /= ExitSuccess
+               then hPutStrLn stderr ("mil-tools invokation failed (" ++ show exitCode ++ ")")
+               else return ()
+
     where lcFileName = replaceExtension outputFileName "lc"
+          llFileName = replaceExtension outputFileName "ll"

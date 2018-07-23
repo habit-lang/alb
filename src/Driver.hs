@@ -264,8 +264,8 @@ options =
     , Option [] ["fake-compcert"] (NoArg (\opt -> opt { compCertOptions = (compCertOptions opt) { CompCert.fake = True } }))
           "Generate fidget output and ccomp command, but do not actually invoke ccomp"
 
-    , Option [] ["lcc-root"] (ReqArg (\x opt -> opt { lccOptions = (lccOptions opt) { LCC.root = Just x } }) "PATH")
-         "Root of the lcc installation"
+    , Option [] ["lcc-jar"] (ReqArg (\x opt -> opt { lccOptions = (lccOptions opt) { LCC.jarPath = Just x } }) "PATH")
+         "Path to the MIL-tools JAR file"
 
     , Option [] ["lcc-other"] (ReqArg (\x opt -> opt { lccOptions = (lccOptions opt) { LCC.otherOptions = x } }) "STRING")
           "Other options to lcc"
