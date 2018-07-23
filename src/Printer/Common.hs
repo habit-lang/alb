@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, GeneralizedNewtypeDeriving, TypeSynonymInstances #-}
-module Printer.Common (module Printer.Common, SimpleDoc, displayS, displayIO, Fixity(..)) where
+module Printer.Common (module Printer.Common, module Data.Semigroup, SimpleDoc, displayS, displayIO, Fixity(..)) where
 
 import Prelude hiding ((<$>),(<>))
 
@@ -12,7 +12,7 @@ import Printer.WadlerLeijen (SimpleDoc, displayS, displayIO)
 import qualified Printer.WadlerLeijen as WL
 import Syntax.Common
 import Syntax.Surface (Assoc(..), dislocate, Fixity(..), Fixities(..), Id, Located(..), mergeFixities)
-import Data.Semigroup
+import Data.Semigroup (Semigroup, (<>))
 -- Following Iavor's lead, basically wrapping the pretty-printing library of my choice (in this
 -- case, the Wadler-Leijen "prettier printer") in a reader monad to capture details like the current
 -- precedence, display options, etc.
