@@ -14,26 +14,14 @@ import System.Console.GetOpt
 import System.Directory (doesFileExist)
 import System.Environment (getArgs, getEnvironment, getProgName)
 import System.Exit
-import System.FilePath  ((</>), (<.>), dropExtension, joinDrive, splitSearchPath)
+import System.FilePath  ((</>), (<.>), dropExtension, joinDrive, splitSearchPath, takeFileName)
 import System.IO
 
 import Analyzer
 import Common
-import CompCert
-import Fidget.LambdaCaseToFidget
-import Fidget.Thunkify
-import Fidget.Mangle
-import Fidget.FidgetCleanup
-import Fidget.Pretty (pprogram)
-import Fidget.RenameVars
-import Fidget.RenameTypes
-import Fidget.RenameIds
-import Fidget.SpecialTypes
-import Fidget.AddExports
-import Fidget.TailCalls
 import LC.LambdaCaseToLC
 import LC.RenameTypes
-import LCC
+import MILTools
 import Normalizer.EtaInit
 import Normalizer.Inliner
 import Normalizer.PatternMatchCompiler
@@ -62,10 +50,7 @@ data Stage = Desugared
            | Specialized
            | Normalized
            | Annotated
-           | Thunkified
            | LCed
-           | Fidgetted
-           | Compiled
            | LCCompiled
 
 data Input = Quiet { filename :: String}
@@ -76,7 +61,6 @@ isQuiet (Quiet _) = True
 isQuiet _         = False
 
 data Options = Options { stage                :: Stage
-                       , optimize             :: OptPasses
                        , searchPath           :: [FilePath]
                        , inputs               :: [Input]
                        , output               :: Maybe String
@@ -87,8 +71,7 @@ data Options = Options { stage                :: Stage
                        , printExportSignatures:: Bool
                        , dotFiles             :: Bool
                        , simplifyNames        :: Bool
-                       , compCertOptions      :: CompCertOptions
-                       , lccOptions           :: LCCOptions
+                       , milOptions           :: MILOptions
                        , populateEnvironments :: Bool
                        , traceSolver          :: Bool
                        , traceSolverInputs    :: Bool
@@ -105,8 +88,7 @@ data Options = Options { stage                :: Stage
                        , showHelp             :: Bool }
 
 defaultOptions :: Options
-defaultOptions = Options { stage                = Compiled
-                         , optimize             = NoOpt
+defaultOptions = Options { stage                = LCCompiled
                          , searchPath           = [""]
                          , inputs               = []
                          , output               = Nothing
@@ -117,8 +99,7 @@ defaultOptions = Options { stage                = Compiled
                          , printExportSignatures= False
                          , dotFiles             = True
                          , simplifyNames        = False
-                         , compCertOptions      = defaultCompCertOptions
-                         , lccOptions           = defaultLCCOptions
+                         , milOptions           = defaultMILOptions
                          , populateEnvironments = False
                          , traceSolver          = False
                          , traceSolverInputs    = False
@@ -154,24 +135,11 @@ options =
     , Option [] ["Sa"] (NoArg (\opt -> opt { stage = Annotated }))
         "Stop after lambda_case annotation"
 
-    , Option [] ["Sh"] (NoArg (\opt -> opt { stage = Thunkified }))
-        "Stop after thunkifying lambda_case"
-
     , Option [] ["Sc"] (NoArg (\opt -> opt { stage = LCed }))
         "Stop after generating LC"
 
-    , Option ['f'] ["Sf"] (NoArg (\opt -> opt { stage = Fidgetted }))
-        "Stop after generating Fidget"
-
     , Option [] ["lcc"] (NoArg (\opt -> opt { stage = LCCompiled }))
         "Compile using lcc rather than ccomp"
-
-    , Option ['O'] [] (ReqArg (\p opt -> opt { optimize = Full (read p) }) "PASSES")
-        "Perform PASSES passes of full optimization in Fidget"
-
-    , Option ['F'] [] (ReqArg (\opts opt -> let (n,ps) = (head . reads) opts
-                                            in opt{ optimize = Partial n ps }) "OPTIMIZATIONS")
-        "Specify number and types of Fidget optimization passes to perform, see README"
 
     , Option ['o'] [] (ReqArg (\out opt -> opt { output = Just out }) "FILE")
         "Write output to file"
@@ -243,35 +211,23 @@ options =
     , Option [] ["no-dot-files"] (NoArg (\opt -> opt { dotFiles = False } ))
         "Does not include preferences from any previously checked dot files"
 
-    , Option [] ["simplify-names"] (NoArg (\opt -> opt { simplifyNames = True }))
-         "Simplify the resulting Fidget names"
+    , Option [] ["mil-jar"] (ReqArg (\x opt -> opt { milOptions = (milOptions opt) { MILTools.jarPath = Just x } }) "PATH")
+         "Path to the MIL-tools JAR file"
 
-    , Option [] ["compcert-root"] (ReqArg (\x opt -> opt { compCertOptions = (compCertOptions opt) { CompCert.root = x } }) "PATH")
-         "Root of the CompCert installation"
-
-    , Option [] ["ccomp-name"] (ReqArg (\x opt -> opt { compCertOptions = (compCertOptions opt) { ccompExe = x } }) "PATH")
-          "Name of the ccomp executable"
-
-    , Option [] ["compcert-harness"] (ReqArg (\x opt -> opt { compCertOptions = (compCertOptions opt) { harness = x } }) "PATH")
-          "Name of the harness C program"
-
-    , Option [] ["compcert-gc"] (ReqArg (\x opt -> opt { compCertOptions = (compCertOptions opt) { gc = x } }) "PATH")
-          "Name of the garbage collector object file"
-
-    , Option [] ["compcert-other"] (ReqArg (\x opt -> opt { compCertOptions = (compCertOptions opt) { CompCert.otherOptions = x } }) "STRING")
-          "Other options to ccomp"
-
-    , Option [] ["fake-compcert"] (NoArg (\opt -> opt { compCertOptions = (compCertOptions opt) { CompCert.fake = True } }))
-          "Generate fidget output and ccomp command, but do not actually invoke ccomp"
-
-    , Option [] ["lcc-root"] (ReqArg (\x opt -> opt { lccOptions = (lccOptions opt) { LCC.root = Just x } }) "PATH")
-         "Root of the lcc installation"
-
-    , Option [] ["lcc-other"] (ReqArg (\x opt -> opt { lccOptions = (lccOptions opt) { LCC.otherOptions = x } }) "STRING")
+    , Option [] ["mil-opt"] (ReqArg (\x opt -> opt { milOptions = (milOptions opt) { MILTools.otherOptions = x ++ otherOptions (milOptions opt) }}) "STRING")
           "Other options to lcc"
 
-    , Option [] ["fake-lcc"] (NoArg (\opt -> opt { lccOptions = (lccOptions opt) { LCC.fake = True } }))
-          "Generate LC output and lcc command, but do not actually invoke lcc"
+    , Option [] ["include-mil"] (ReqArg (\x opt -> opt{ milOptions = (milOptions opt){ extraMilFiles = extraMilFiles (milOptions opt) ++ [x] } }) "FILE")
+          "Additional MIL files to pass to MIL-tools"
+
+    , Option [] ["fake-mil"] (NoArg (\opt -> opt { milOptions = (milOptions opt) { MILTools.fake = True } }))
+          "Generate LC output and MIL-tools command, but do not actually invoke MIL-tools"
+
+    , Option [] ["clang"] (ReqArg (\x opt -> opt{ milOptions = (milOptions opt){ clangPath = Just x } }) "FILE")
+          "Path to clang binary (or replacement script)"
+
+    , Option [] ["clang-opt"] (ReqArg (\x opt -> opt{ milOptions = (milOptions opt){clangOptions = x ++ clangOptions (milOptions opt) }}) "STRING")
+          "Other options to clang"
 
     , Option [] ["verbose"] (NoArg (\opt -> opt { verbose = True }))
          "Be verbose"
@@ -348,15 +304,10 @@ buildPipeline options =
       Specialized      -> codePipe toSpecialized
       Normalized       -> codePipe toNormalized
       Annotated        -> codePipe toAnnotated
-      Thunkified       -> codePipe toThunkified
       LCed             -> codePipe toLCed
-      Fidgetted        -> toFidgetted >=> pure (text . show . pprogram) >=> writeIntermediate
-      Compiled         -> case output options of
-                            Nothing -> pure (const (hPutStrLn stderr "Cannot compile program without output name"))
-                            Just s  -> toFidgetted >=> pure (compile (compCertOptions options) s)
       LCCompiled       -> case output options of
-                            Nothing -> pure (const (hPutStrLn stderr "Cannot compile program without output name"))
-                            Just s  -> toLCed >=> pure (lccompile (lccOptions options) s)
+                            Nothing -> error "How do we not have an output name?"
+                            Just s  -> toLCed >=> pure (milCompile (milOptions options) s)
 
 
     where --filePipe' :: (s -> q -> Pass _ x y) -> (Pass () [(s, (q, x))] [y])
@@ -392,28 +343,12 @@ buildPipeline options =
           toAnnotated
             = toNormalized >=> propagateLCTypes >=> checkLCProgram
 
-          toThunkified
-            = toAnnotated >=> thunkifyLC (initialize options) >=> pure etaInit >=>
-              pure (inlineProgram exported) >=> Fidget.RenameTypes.renameProgramCtors >=>
-              Fidget.RenameTypes.renameProgramTypes
-
           toLCed
             | Nothing <- mainId options = error "Unable to generate LC without main"
             | Just main <- mainId options =
                 toAnnotated >=> pure etaInit >=> pure (inlineProgram exported) >=>
                 LC.RenameTypes.renameProgramCtors >=> LC.RenameTypes.renameProgramTypes >=>
                 lambdaCaseToLC (Entrypoints exported)
-
-          toFidgetted
-            | Nothing <- mainId options = error "Unable to generate fidget without main"
-            | Just main <- mainId options =
-                toThunkified >=> transLCtoFidget main (initialize options) >=> specialTypes >=>
-                optFidget (map fst (exports options)) (optimize options) >=>
-                tailCallOpt exported >=>
-                optFidget (map fst (exports options)) (optimize options) >=>
-                renameVars (prefix options) >=>
-                addExports (prefix options) (exports options) (printExportSignatures options) >=>
-                mangleProgram >=> fixIds (map snd (exports options)) (simplifyNames options)
 
           writeIntermediate =
               pure (\d -> case output options of
@@ -481,7 +416,14 @@ main = do args <- getArgs
                = when (not (null warnings))
                    (mapM_ (hPutStrLn stderr . printMessage) warnings)
 
-          case runPass (buildPipeline opts) pipelineInput (1, ()) of
+              opts' | stage opts == LCCompiled =
+                        case output opts of
+                          Just _ -> opts
+                          Nothing -> let (_, Just file, _) = head inps in
+                                     opts{ output = Just (dropExtension (takeFileName file)) }
+                    | otherwise = opts
+
+          case runPass (buildPipeline opts') pipelineInput (1, ()) of
             Left (err, warnings)     -> do showWarnings warnings
                                            hPutStrLn stderr (printMessage err)
                                            exitFailure
