@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, GeneralizedNewtypeDeriving, TypeSynonymInstances #-}
-module Printer.Common (module Printer.Common, SimpleDoc, displayS, displayIO, Fixity(..)) where
+module Printer.Common (module Printer.Common, module Data.Semigroup, SimpleDoc, displayS, displayIO, Fixity(..)) where
 
-import Prelude hiding ((<$>))
+import Prelude hiding ((<$>),(<>))
 
 import Control.Monad.Reader
 import Data.Char
@@ -12,7 +12,7 @@ import Printer.WadlerLeijen (SimpleDoc, displayS, displayIO)
 import qualified Printer.WadlerLeijen as WL
 import Syntax.Common
 import Syntax.Surface (Assoc(..), dislocate, Fixity(..), Fixities(..), Id, Located(..), mergeFixities)
-
+import Data.Semigroup (Semigroup, (<>))
 -- Following Iavor's lead, basically wrapping the pretty-printing library of my choice (in this
 -- case, the Wadler-Leijen "prettier printer") in a reader monad to capture details like the current
 -- precedence, display options, etc.
@@ -40,8 +40,8 @@ defaultOptions = PO { precedence = 0
 type Doc = Printer WL.Doc
 
 -- The prettier printer
-
-p1 <> p2        = liftM2 (WL.<>) p1 p2
+instance Semigroup Doc where
+    p1 <> p2        = liftM2 (WL.<>) p1 p2
 p1 <+> p2       = liftM2 (WL.<+>) p1 p2
 p1 </> p2       = liftM2 (WL.</>) p1 p2
 p1 <//> p2      = liftM2 (WL.<//>) p1 p2
@@ -49,7 +49,7 @@ p1 <$> p2       = liftM2 (WL.<$>) p1 p2
 p1 <$$> p2      = liftM2 (WL.<$$>) p1 p2
 
 infixr 5 </>, <//>, <$>, <$$>
-infixr 6 <>, <+>
+infixr 6 <+>
 
 p1 <::> p2      = p1 <+> text "::" <+> p2
 infixr 6 <::>

@@ -14,7 +14,6 @@ module Printer.WadlerLeijen
         , Pretty, pretty
 
         , show, putDoc, hPutDoc
-
         , (<>)
         , (<+>)
         , (</>), (<//>)
@@ -48,11 +47,12 @@ module Printer.WadlerLeijen
         , displayS, displayIO
         ) where
 
-import Prelude hiding ((<$>))
+import Prelude hiding ((<$>),(<>))
 import System.IO      (Handle,hPutStr,hPutChar,stdout)
+import Data.Semigroup
 
 infixr 5 </>,<//>,<$>,<$$>
-infixr 6 <>,<+>
+infixr 6 <+>
 
 
 -----------------------------------------------------------
@@ -96,7 +96,9 @@ vcatOr s        = fold (\x y -> x <> lineOr s <> y)
 fold f []       = empty
 fold f ds       = foldr1 f ds
 
-x <> y          = x `beside` y
+instance Semigroup Doc where
+  x <> y        = x `beside` y
+
 x <+> y         = x <> space <> y
 x </> y         = x <> softline <> y
 x <//> y        = x <> softbreak <> y

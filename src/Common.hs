@@ -11,6 +11,7 @@ import Data.Maybe (fromMaybe)
 import Printer.Common
 import Syntax.Common
 import Text.Parsec (SourcePos, sourceName, sourceLine, sourceColumn)
+import Data.Semigroup
 
 concatMapM :: (Functor m, Monad m) => (a -> m [b]) -> [a] -> m [b]
 concatMapM f xs = concat `fmap` mapM f xs
@@ -44,6 +45,9 @@ instance Functor SnocList
     where fmap _ Lin         = Lin
           fmap f (Snoc ts t) = Snoc (fmap f ts) (f t)
 
+instance Semigroup (SnocList t)
+    where (<>) = mappend
+    
 instance Monoid (SnocList t)
     where mempty                 = Lin
           mappend ts Lin         = ts

@@ -22,7 +22,7 @@ Via ghc:
 
 ghc --make is your friend.  For example:
 
-  ghc --make -XOverloadedStrings -O2 -o alb -odir obj -hidir obj -isrc -main-is Driver.main Driver
+  ghc --make -XOverloadedStrings -O2 -o alb -odir obj -hidir obj -isrc src/Driver.hs   
 
 Via make w/o stack:
 
