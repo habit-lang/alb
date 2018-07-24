@@ -14,7 +14,7 @@ import System.Console.GetOpt
 import System.Directory (doesFileExist)
 import System.Environment (getArgs, getEnvironment, getProgName)
 import System.Exit
-import System.FilePath  ((</>), (<.>), dropExtension, joinDrive, splitSearchPath)
+import System.FilePath  ((</>), (<.>), dropExtension, joinDrive, splitSearchPath, takeFileName)
 import System.IO
 
 import Analyzer
@@ -352,10 +352,10 @@ buildPipeline options =
       LCed             -> codePipe toLCed
       Fidgetted        -> toFidgetted >=> pure (text . show . pprogram) >=> writeIntermediate
       Compiled         -> case output options of
-                            Nothing -> pure (const (hPutStrLn stderr "Cannot compile program without output name"))
+                            Nothing -> error "How do we not have an output name?"
                             Just s  -> toFidgetted >=> pure (compile (compCertOptions options) s)
       LCCompiled       -> case output options of
-                            Nothing -> pure (const (hPutStrLn stderr "Cannot compile program without output name"))
+                            Nothing -> error "How do we not have an output name?"
                             Just s  -> toLCed >=> pure (lccompile (lccOptions options) s)
 
 
@@ -481,7 +481,13 @@ main = do args <- getArgs
                = when (not (null warnings))
                    (mapM_ (hPutStrLn stderr . printMessage) warnings)
 
-          case runPass (buildPipeline opts) pipelineInput (1, ()) of
+              opts' =
+                  case output opts of
+                    Just _ -> opts
+                    Nothing -> let (_, Just file, _) = head inps in
+                               opts{ output = Just (dropExtension (takeFileName file)) }
+
+          case runPass (buildPipeline opts') pipelineInput (1, ()) of
             Left (err, warnings)     -> do showWarnings warnings
                                            hPutStrLn stderr (printMessage err)
                                            exitFailure
