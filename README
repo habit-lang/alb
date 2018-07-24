@@ -49,41 +49,6 @@ directory and the current directory, and will read options from those files.  Op
 line override options in files, and options in the local directory override options in your home
 directory.
 
-FIDGET OPTIMIZATIONS
-
-There are a variety of optimizations currently available at the Fidget
-level that are worth testing out. To specify the full set of available,
-believed to be correct optimizations, use the -O flag followed by an
-integer specifying the number of passes to perform. The -O flag will *not*
-run any optimization passes which are in the "known to be incorrect" list
-below. Currently something like 5 passes seems to be sufficient to reach
-a fixed point.
-
-For more precise control of the optimizations to perform, or to make use
-of the known incorrect passes, use the -F flag followed by an integer
-concatenated with a string of characters selected from the following:
-
-believed to be correct:
-    c -- constant folding
-    i -- inlining certain functions and simple let bindings
-    d -- lift delays
-    l -- letrec lift delays
-
-Possibly incorrect
-    j -- remove join points which only force their args
-    s -- straighten gotos and letlabels, do dealiasing
-
-known to be incorrect:
-    u -- do some limited uncurrying of top-level functions
-
-So for example, a sane optimization might be:
-
-   -F3cid
-
-   which performs three passes of straightening, constant folding,
-   inlining and force-only join point optimization. Each pass will do
-   each optimizaiton in the order specified.
-
 HABIT LANGUAGE EXTENSIONS
 -------------------------
 

@@ -19,18 +19,6 @@ import System.IO
 
 import Analyzer
 import Common
-import CompCert
-import Fidget.LambdaCaseToFidget
-import Fidget.Thunkify
-import Fidget.Mangle
-import Fidget.FidgetCleanup
-import Fidget.Pretty (pprogram)
-import Fidget.RenameVars
-import Fidget.RenameTypes
-import Fidget.RenameIds
-import Fidget.SpecialTypes
-import Fidget.AddExports
-import Fidget.TailCalls
 import LC.LambdaCaseToLC
 import LC.RenameTypes
 import LCC
@@ -62,10 +50,7 @@ data Stage = Desugared
            | Specialized
            | Normalized
            | Annotated
-           | Thunkified
            | LCed
-           | Fidgetted
-           | Compiled
            | LCCompiled
 
 data Input = Quiet { filename :: String}
@@ -76,7 +61,6 @@ isQuiet (Quiet _) = True
 isQuiet _         = False
 
 data Options = Options { stage                :: Stage
-                       , optimize             :: OptPasses
                        , searchPath           :: [FilePath]
                        , inputs               :: [Input]
                        , output               :: Maybe String
@@ -87,7 +71,6 @@ data Options = Options { stage                :: Stage
                        , printExportSignatures:: Bool
                        , dotFiles             :: Bool
                        , simplifyNames        :: Bool
-                       , compCertOptions      :: CompCertOptions
                        , lccOptions           :: LCCOptions
                        , populateEnvironments :: Bool
                        , traceSolver          :: Bool
@@ -106,7 +89,6 @@ data Options = Options { stage                :: Stage
 
 defaultOptions :: Options
 defaultOptions = Options { stage                = LCCompiled
-                         , optimize             = NoOpt
                          , searchPath           = [""]
                          , inputs               = []
                          , output               = Nothing
@@ -117,7 +99,6 @@ defaultOptions = Options { stage                = LCCompiled
                          , printExportSignatures= False
                          , dotFiles             = True
                          , simplifyNames        = False
-                         , compCertOptions      = defaultCompCertOptions
                          , lccOptions           = defaultLCCOptions
                          , populateEnvironments = False
                          , traceSolver          = False
@@ -154,24 +135,11 @@ options =
     , Option [] ["Sa"] (NoArg (\opt -> opt { stage = Annotated }))
         "Stop after lambda_case annotation"
 
-    , Option [] ["Sh"] (NoArg (\opt -> opt { stage = Thunkified }))
-        "Stop after thunkifying lambda_case"
-
     , Option [] ["Sc"] (NoArg (\opt -> opt { stage = LCed }))
         "Stop after generating LC"
 
-    , Option ['f'] ["Sf"] (NoArg (\opt -> opt { stage = Fidgetted }))
-        "Stop after generating Fidget"
-
     , Option [] ["lcc"] (NoArg (\opt -> opt { stage = LCCompiled }))
         "Compile using lcc rather than ccomp"
-
-    , Option ['O'] [] (ReqArg (\p opt -> opt { optimize = Full (read p) }) "PASSES")
-        "Perform PASSES passes of full optimization in Fidget"
-
-    , Option ['F'] [] (ReqArg (\opts opt -> let (n,ps) = (head . reads) opts
-                                            in opt{ optimize = Partial n ps }) "OPTIMIZATIONS")
-        "Specify number and types of Fidget optimization passes to perform, see README"
 
     , Option ['o'] [] (ReqArg (\out opt -> opt { output = Just out }) "FILE")
         "Write output to file"
@@ -242,27 +210,6 @@ options =
 
     , Option [] ["no-dot-files"] (NoArg (\opt -> opt { dotFiles = False } ))
         "Does not include preferences from any previously checked dot files"
-
-    , Option [] ["simplify-names"] (NoArg (\opt -> opt { simplifyNames = True }))
-         "Simplify the resulting Fidget names"
-
-    , Option [] ["compcert-root"] (ReqArg (\x opt -> opt { compCertOptions = (compCertOptions opt) { CompCert.root = x } }) "PATH")
-         "Root of the CompCert installation"
-
-    , Option [] ["ccomp-name"] (ReqArg (\x opt -> opt { compCertOptions = (compCertOptions opt) { ccompExe = x } }) "PATH")
-          "Name of the ccomp executable"
-
-    , Option [] ["compcert-harness"] (ReqArg (\x opt -> opt { compCertOptions = (compCertOptions opt) { harness = x } }) "PATH")
-          "Name of the harness C program"
-
-    , Option [] ["compcert-gc"] (ReqArg (\x opt -> opt { compCertOptions = (compCertOptions opt) { gc = x } }) "PATH")
-          "Name of the garbage collector object file"
-
-    , Option [] ["compcert-other"] (ReqArg (\x opt -> opt { compCertOptions = (compCertOptions opt) { CompCert.otherOptions = x } }) "STRING")
-          "Other options to ccomp"
-
-    , Option [] ["fake-compcert"] (NoArg (\opt -> opt { compCertOptions = (compCertOptions opt) { CompCert.fake = True } }))
-          "Generate fidget output and ccomp command, but do not actually invoke ccomp"
 
     , Option [] ["lcc-jar"] (ReqArg (\x opt -> opt { lccOptions = (lccOptions opt) { LCC.jarPath = Just x } }) "PATH")
          "Path to the MIL-tools JAR file"
@@ -348,12 +295,7 @@ buildPipeline options =
       Specialized      -> codePipe toSpecialized
       Normalized       -> codePipe toNormalized
       Annotated        -> codePipe toAnnotated
-      Thunkified       -> codePipe toThunkified
       LCed             -> codePipe toLCed
-      Fidgetted        -> toFidgetted >=> pure (text . show . pprogram) >=> writeIntermediate
-      Compiled         -> case output options of
-                            Nothing -> error "How do we not have an output name?"
-                            Just s  -> toFidgetted >=> pure (compile (compCertOptions options) s)
       LCCompiled       -> case output options of
                             Nothing -> error "How do we not have an output name?"
                             Just s  -> toLCed >=> pure (lccompile (lccOptions options) s)
@@ -392,28 +334,12 @@ buildPipeline options =
           toAnnotated
             = toNormalized >=> propagateLCTypes >=> checkLCProgram
 
-          toThunkified
-            = toAnnotated >=> thunkifyLC (initialize options) >=> pure etaInit >=>
-              pure (inlineProgram exported) >=> Fidget.RenameTypes.renameProgramCtors >=>
-              Fidget.RenameTypes.renameProgramTypes
-
           toLCed
             | Nothing <- mainId options = error "Unable to generate LC without main"
             | Just main <- mainId options =
                 toAnnotated >=> pure etaInit >=> pure (inlineProgram exported) >=>
                 LC.RenameTypes.renameProgramCtors >=> LC.RenameTypes.renameProgramTypes >=>
                 lambdaCaseToLC (Entrypoints exported)
-
-          toFidgetted
-            | Nothing <- mainId options = error "Unable to generate fidget without main"
-            | Just main <- mainId options =
-                toThunkified >=> transLCtoFidget main (initialize options) >=> specialTypes >=>
-                optFidget (map fst (exports options)) (optimize options) >=>
-                tailCallOpt exported >=>
-                optFidget (map fst (exports options)) (optimize options) >=>
-                renameVars (prefix options) >=>
-                addExports (prefix options) (exports options) (printExportSignatures options) >=>
-                mangleProgram >=> fixIds (map snd (exports options)) (simplifyNames options)
 
           writeIntermediate =
               pure (\d -> case output options of
