@@ -22,7 +22,7 @@ Via ghc:
 
 ghc --make is your friend.  For example:
 
-  ghc --make -XOverloadedStrings -O2 -o alb -odir obj -hidir obj -isrc src/Driver.hs   
+  ghc --make -XOverloadedStrings -O2 -o alb -odir obj -hidir obj -isrc src/Driver.hs
 
 Via make w/o stack:
 
@@ -41,8 +41,8 @@ RUNNING
 Albatross is a batch compiler, and currently lacks an interactive mode.  Flags can be listed using
 command line option --help.
 
-Without overriding flags, Alb will attempt to generate Fidget and invoke the Fidget compiler to
-produce an executable.
+Without overriding flags, Alb will attempt to generate LC and invoke the MIL tools to produce an
+executable.
 
 Unless the --no-dot-files option is specified, Alb will look for files called ".alb" in your home
 directory and the current directory, and will read options from those files.  Options on the command

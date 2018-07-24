@@ -105,7 +105,7 @@ data Options = Options { stage                :: Stage
                        , showHelp             :: Bool }
 
 defaultOptions :: Options
-defaultOptions = Options { stage                = Compiled
+defaultOptions = Options { stage                = LCCompiled
                          , optimize             = NoOpt
                          , searchPath           = [""]
                          , inputs               = []
