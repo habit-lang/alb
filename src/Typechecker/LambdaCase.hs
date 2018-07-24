@@ -151,29 +151,33 @@ updateDecls_top :: Decls -> Context -> TM Context
 updateDecls_top (Decls ds) gamma = foldM updateDecl_top gamma ds
 
 updateDecl_top :: Context -> Decl -> TM Context
-updateDecl_top g d@(Mutual _) = updateDecl g d
-updateDecl_top g d@(Nonrec def) | isLambda def = updateDecl g d
-updateDecl_top _ d = typeFail ["Non-functional top-level decl found: ", show d]
+updateDecl_top = updateDecl
+
+-- updateDecl_top g d@(Mutual _) = updateDecl g d
+-- updateDecl_top g d@(Nonrec def) | isLambda def = updateDecl g d
+-- updateDecl_top _ d = typeFail ["Non-functional top-level decl found: ", show d]
 
 -- explicitly add the  recursive occurence...
-updateMutuals :: Context -> [Defn] -> TM Context
-updateMutuals gamma defns
-    | all isLambda defns = foldM updateDefn gamma' defns
-    | otherwise          = typeFail ["Non-functional mutual declaration in declaration group: ", show defns]
+updateMutuals gamma defns = foldM updateDefn gamma' defns
     where gamma' = foldl (\g (Defn i ty _) -> update g (Term i []) ty) gamma defns
 
+-- updateMutuals :: Context -> [Defn] -> TM Context
+-- updateMutuals gamma defns
+--     | all isLambda defns = foldM updateDefn gamma' defns
+--     | otherwise          = typeFail ["Non-functional mutual declaration in declaration group: ", show defns]
+--     where gamma' = foldl (\g (Defn i ty _) -> update g (Term i []) ty) gamma defns
 
 -- updateMutuals :: Context -> Defn -> TM Context
 -- updateMutuals g d@(Defn i ty _) | isLambda d = updateDefn (update g (Term i []) ty) d
 -- updateMutuals _ d = typeFail ["Non-functional Mutual Decl. Found: " , show d]
 
 -- only manifest lambdas or machine monad types...
-isLambda :: Defn -> Bool
-isLambda (Defn _ _ (Left _)) = True -- TODO: until we get it right
-isLambda (Defn _ _ (Right (ELam _ _ _))) = True
-isLambda (Defn _ (TyApp (TyCon (Kinded "M" _)) _) (Right (EBind _ _ _ _))) = True
-isLambda (Defn _ (TyApp (TyCon (Kinded "I" _)) _) (Right (EBind _ _ _ _))) = True
-isLambda _ = False
+-- isLambda :: Defn -> Bool
+-- isLambda (Defn _ _ (Left _)) = True -- TODO: until we get it right
+-- isLambda (Defn _ _ (Right (ELam _ _ _))) = True
+-- isLambda (Defn _ (TyApp (TyCon (Kinded "M" _)) _) (Right (EBind _ _ _ _))) = True
+-- isLambda (Defn _ (TyApp (TyCon (Kinded "I" _)) _) (Right (EBind _ _ _ _))) = True
+-- isLambda _ = False
 
 updateDecls :: Decls -> Context -> TM Context
 updateDecls (Decls ds) gamma = foldM updateDecl gamma ds
