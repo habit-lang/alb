@@ -33,6 +33,7 @@ import Printer.LC
 import Solver.Trace as Solver
 import qualified Syntax.Surface as S
 import Syntax.LC
+import Syntax.MangleIds
 import Syntax.XMPEG
 import Specializer
 import Typechecker
@@ -52,6 +53,7 @@ data Stage = Desugared
            | Annotated
            | LCed
            | LCCompiled
+  deriving (Eq)
 
 data Input = Quiet { filename :: String}
            | Loud  { filename :: String }
@@ -255,8 +257,6 @@ readDotFiles =
                                    (Just homeDrive', Just homePath') -> return (Just (joinDrive homeDrive' homePath'))
                                    _ -> return Nothing
 
-
-
           readDotFile fn =
               do exists <- doesFileExist fn
                  if not exists
@@ -339,7 +339,7 @@ buildPipeline options =
             | Just main <- mainId options =
                 toAnnotated >=> pure etaInit >=> pure (inlineProgram exported) >=>
                 LC.RenameTypes.renameProgramCtors >=> LC.RenameTypes.renameProgramTypes >=>
-                lambdaCaseToLC (Entrypoints exported)
+                lambdaCaseToLC (Entrypoints exported) >=> mangleProgram
 
           writeIntermediate =
               pure (\d -> case output options of
