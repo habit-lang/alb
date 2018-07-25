@@ -407,11 +407,12 @@ main = do args <- getArgs
                = when (not (null warnings))
                    (mapM_ (hPutStrLn stderr . printMessage) warnings)
 
-              opts' =
-                  case output opts of
-                    Just _ -> opts
-                    Nothing -> let (_, Just file, _) = head inps in
-                               opts{ output = Just (dropExtension (takeFileName file)) }
+              opts' | stage opts == LCCompiled =
+                        case output opts of
+                          Just _ -> opts
+                          Nothing -> let (_, Just file, _) = head inps in
+                                     opts{ output = Just (dropExtension (takeFileName file)) }
+                    | otherwise = opts
 
           case runPass (buildPipeline opts') pipelineInput (1, ()) of
             Left (err, warnings)     -> do showWarnings warnings
