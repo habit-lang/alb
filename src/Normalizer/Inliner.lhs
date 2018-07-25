@@ -43,6 +43,7 @@ as the set of free variables in e.
 
 > instance Inliner Expr where
 >   inline env e@(EVar i t)             = fromMaybe e (lookup i env)
+>   inline env (EBitCon i fields)       = EBitCon i [(f, inline env e) | (f, e) <- fields]
 >   inline env (ELam i t e)             = ELam i t (inline (unbind i env) e)
 >   inline env (ELet (Decls ds) e)      = let (env', ds') = inlineGroups [] env ds -- NOTE: refusing to preserve let-bound values
 >                                         in case ds' of
@@ -50,8 +51,11 @@ as the set of free variables in e.
 >                                              _  -> ELet (Decls ds') (inline env' e)
 >   inline env (ECase e alts)           = ECase (inline env e) (map (inline env) alts)
 >   inline env (EApp f x)               = EApp (inline env f) (inline env x)
+>   inline env (EBitSelect e f)         = EBitSelect (inline env e) f
+>   inline env (EBitUpdate e f e')      = EBitUpdate (inline env e) f (inline env e')
 >   inline env (EFatbar l r)            = EFatbar (inline env l) (inline env r)
 >   inline env (EBind i t e e1)         = EBind i t (inline env e) (inline (unbind i env) e1)
+>   inline env (EReturn e)              = EReturn (inline env e)
 >   inline env e                        = e -- covers EPrim, EBits, ENat, ECon
 
 > instance Inliner Alt where
@@ -70,6 +74,9 @@ as the set of free variables in e.
 > inlineable EBits{} = True
 > inlineable ENat{}  = True
 > inlineable ECon{}  = True
+> inlineable EBitCon{} = True
+> inlineable EBitSelect{} = True
+> inlineable EBitUpdate{} = True
 > inlineable _       = False
 
 > inlineGroups         :: [Id] -> Env -> [Decl] -> (Env, [Decl])

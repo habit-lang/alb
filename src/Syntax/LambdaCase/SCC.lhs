@@ -23,6 +23,12 @@ of e as well as the set of free variables in e.
 >   fvsSCC e@(EVar i t)
 >     = (e, [i])
 
+>   fvsSCC (EBitCon i es)
+>     = (EBitCon i es', concat vss)
+>       where (es', vss) = unzip (map sccField es)
+>             sccField (f, e) = ((f, e'), vs)
+>                 where (e', vs) = fvsSCC e
+
 >   fvsSCC (ELam i t e)
 >     = (ELam i t e', delete i efvs)
 >       where (e', efvs) = fvsSCC e
@@ -41,6 +47,15 @@ of e as well as the set of free variables in e.
 >       where (f', ffvs) = fvsSCC f
 >             (x', xfvs) = fvsSCC x
 
+>   fvsSCC (EBitSelect e f)
+>     = (EBitSelect e' f, vs)
+>       where (e', vs) = fvsSCC e
+
+>   fvsSCC (EBitUpdate e1 f e2)
+>     = (EBitUpdate e1' f e2', vs ++ ws)
+>       where (e1', vs) = fvsSCC e1
+>             (e2', ws) = fvsSCC e2
+
 >   fvsSCC (EFatbar l r)
 >     = (EFatbar l' r', lfvs `union` rfvs)
 >       where (l', lfvs) = fvsSCC l
@@ -50,6 +65,10 @@ of e as well as the set of free variables in e.
 >     = (EBind i t e' e1', efvs `union` delete i e1fvs)
 >        where (e',  efvs)  = fvsSCC e
 >              (e1', e1fvs) = fvsSCC e1
+
+>   fvsSCC (EReturn e)
+>     = (EReturn e', vs)
+>       where (e', vs) = fvsSCC e
 
 >   fvsSCC e = (e, []) -- covers EPrim, EBits, ENat, ECon
 
@@ -71,7 +90,7 @@ list of declarations scopes over a given expression.
 >     where (e', efvs) = fvsSCC e
 
 > fvsSCCs (Nonrec d : ds) e
->   = (Nonrec d':ds', e', dfvs `union` delete (defnId d) fvs) 
+>   = (Nonrec d':ds', e', dfvs `union` delete (defnId d) fvs)
 >     where (d', dfvs)     = fvsSCC d
 >           (ds', e', fvs) = fvsSCCs ds e
 
@@ -107,4 +126,3 @@ format that is required by Data.Graph.stronglyConnComp:
 
 > -- dump nodes
 > --   = unlines [ show (i, ix, links) | (Defn i t e, ix, links) <- nodes ]
-

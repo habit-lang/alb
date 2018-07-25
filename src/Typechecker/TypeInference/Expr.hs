@@ -95,20 +95,22 @@ checkExpr (At loc (EBitCon ctor fs)) expected =
        let cty  = [ t | (_, t, _) <- fields ] `allTo` (bitdataCaseTy @@ ty @@ TyLabel ctor)
            prim = X.ELetVar (X.Inst "constructBitdata" [convert cty] [])
            cons = X.ECon (X.Inst ctor [] []) -- constructor is monomorphic
-       return (X.EApp cons (foldl X.EApp prim es'), concat pss)
+       return (X.EBitCon ctor es', concat pss)
 
-    where fieldFor :: (Id, Ty, Maybe Id) -> M (X.Expr, Preds)
+    where fieldFor :: (Id, Ty, Maybe Id) -> M ((Id, X.Expr), Preds)
           fieldFor (fieldName, fieldTy, defaultId) =
               case lookup fieldName fs of
                 Just e ->
-                    checkExpr e fieldTy -- can only substitute for variables in ty'; this ensures
-                                        -- that the value is at least as polymorphic as the field
-                                        -- type.  The big need for this is in literal types,
-                                        -- which are still fairly polymorphic.
+                    do (e', ps) <- checkExpr e fieldTy
+                       return ((fieldName, e'), ps)
+                       -- can only substitute for variables in ty'; this ensures
+                       -- that the value is at least as polymorphic as the field
+                       -- type.  The big need for this is in literal types,
+                       -- which are still fairly polymorphic.
                 Nothing ->
                     case defaultId of
                       Nothing -> failWithS ("Uninitialized field " ++ fromId fieldName)
-                      Just id -> return (X.ELetVar (X.Inst id [] []), [])
+                      Just id -> return ((fieldName, X.ELetVar (X.Inst id [] [])), [])
 
 checkExpr (At loc (EBits value size)) expected =
     do unifies expected (bitTy @@ TyNat (fromIntegral size))

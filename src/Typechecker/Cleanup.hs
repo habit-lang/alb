@@ -78,6 +78,8 @@ instance Cleanup Expr
            c (ELetVar t)                = ELetVar (cleanup vs exs evs t)
            c (EBits val size)           = EBits val size
            c (ECon t)                   = ECon (cleanup vs exs evs t)
+           c (EBitCon id es)            = EBitCon id (map (second c) es)
+               where second f (x, y) = (x, f y)
            c (ELam i t e)               = ELam i (cleanType vs t) (c e)
            c (EMethod d n ts ds)        = EMethod (cleanup vs exs evs d)
                                                   n
@@ -91,8 +93,11 @@ instance Cleanup Expr
                                                   e
            c (EMatch m)                 = EMatch (cleanup vs exs evs m)
            c (EApp f x)                 = EApp (c f) (c x)
+           c (EBitSelect e f)           = EBitSelect (c e) f
+           c (EBitUpdate e f e')        = EBitUpdate (c e) f (c e')
            c (EBind ta tb tm me v e e') = EBind (cleanType vs ta) (cleanType vs tb) (cleanType vs tm)
                                                 (cleanup vs exs evs me) v (c e) (c e')
+           c (EReturn e)                = EReturn (c e)
 
 instance Cleanup Ev
   where cleanup vs exs evs (EvVar i)         = fromMaybe (EvVar i) (cleanup vs exs evs `fmap` lookup i evs)

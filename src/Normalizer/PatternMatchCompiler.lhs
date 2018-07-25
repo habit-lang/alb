@@ -13,7 +13,7 @@ TODO:
 
 - how to handle pattern bindings?
 
-> {-# LANGUAGE FlexibleContexts, GeneralizedNewtypeDeriving, MultiParamTypeClasses, NamedFieldPuns, OverloadedStrings #-}
+> {-# LANGUAGE FlexibleContexts, GeneralizedNewtypeDeriving, MultiParamTypeClasses, NamedFieldPuns, OverloadedStrings, TupleSections #-}
 > module Normalizer.PatternMatchCompiler(patternMatch) where
 
 > import Common hiding (fresh)
@@ -130,16 +130,23 @@ preserve the order in which constructors are listed in the original program.
 > pmcExpr s (X.ELetVar (X.Inst i ts []))   = error $ "PatternMatchCompiler:36.5:" ++ fromId i
 > pmcExpr s (X.EBits bits size)            = return (LC.EBits bits size)
 > pmcExpr s (X.ECon (Inst i ts _))         = return (LC.ECon i (map convert ts) typeNotKnown)
+> pmcExpr s (X.EBitCon id es)              = LC.EBitCon id `fmap`
+>                                              mapM (\(f, e) -> (f, ) `fmap` pmcExpr s e) es
 > pmcExpr s (X.ELam i t e)                 = LC.ELam i (convert t) `fmap` pmcExpr s e
 > pmcExpr s (X.ESubst {})                  = error "PatternMatchCompiler:37"
 > pmcExpr s (X.EMethod {})                 = error "PatternMatchCompiler:38"
 > pmcExpr s (X.EApp f x)                   = liftM2 LC.EApp (pmcExpr s f) (pmcExpr s x)
+> pmcExpr s (X.EBitSelect e f)             = flip LC.EBitSelect f `fmap` pmcExpr s e
+> pmcExpr s (X.EBitUpdate e f e')          = liftM3 LC.EBitUpdate (pmcExpr s e)
+>                                                                 (return f)
+>                                                                 (pmcExpr s e')
 > pmcExpr s (X.EMatch (X.MCommit e))       = pmcExpr s e      -- (4)
 > pmcExpr s (X.EMatch m)                   = pmcMatch s m
 > pmcExpr s (X.ELet ds e)                  = liftM2 LC.ELet (pmcDecls s ds) (pmcExpr s e)
 > pmcExpr s (X.EBind ta _ _ _ v e e1)      = liftM2 (LC.EBind v (convert ta))
 >                                                   (pmcExpr s e)
 >                                                   (pmcExpr s e1)
+> pmcExpr s (X.EReturn e)                  = fmap LC.EReturn (pmcExpr s e)
 
 Pattern match compilation of an XMPEG Match produces a single LambdaCase
 expression.  Our implementation proceeds in three steps:

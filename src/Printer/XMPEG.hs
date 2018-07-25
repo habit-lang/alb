@@ -47,6 +47,7 @@ instance Printable Expr
           ppr (ELetVar inst)    = ppr inst
           ppr (EBits value size) = pprBits value size
           ppr (ECon inst)       = ppr inst
+          ppr (EBitCon id fields) = ppr id <> brackets (cat (punctuate (comma <> space) [ppr name <+> equals <+> ppr value | (name, value) <- fields]))
           ppr e@(ELam _ _ _)    = iter paramNames []
               where (params, body) = flattenLambda e
                     (paramNames, paramTypes) = unzip params
@@ -78,6 +79,9 @@ instance Printable Expr
                     getFixity' (ELetVar (Inst id _ _)) = getFixity id
                     getFixity' (ECon (Inst id _ _))    = getFixity id
                     getFixity' _                       = Nothing
+          ppr (EBitSelect e f) = withPrecedence 10 (ppr e) <> dot <> ppr f
+          ppr (EBitUpdate e f e') = ppr e <> brackets (ppr f <+> equals <+> ppr e')
+
           ppr e@(EBind {}) =
               iter binds $
               atPrecedence 0 ("do" <+> align (vcat pprBinds <$> ppr result))
@@ -88,6 +92,8 @@ instance Printable Expr
                                  | (ta, tb, tm, me, v, e) <- binds ]
                     iter [] d                   = d
                     iter ((_,_,_,_,v,_) : bs) d = bindingVar v (const (iter bs d))
+
+          ppr (EReturn e) = atPrecedence 9 ("return" <+> withPrecedence 10 (ppr e))
 
 pprSubst subst = brackets (cat (punctuate (comma <> softline) [ppr e <+> slash <+> ppr v | (v, e) <- subst]))
 

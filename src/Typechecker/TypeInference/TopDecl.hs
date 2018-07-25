@@ -154,14 +154,18 @@ checkTopDecl (Bitdatatype name mtys ctors derives) =
 
        -- Return XMPEG version of this bitdatatype decl:
        return ( X.Bitdatatype name bddpat xctors
-              , Map.fromList [(cname, (ForallK [] (Forall [] ([] :=> introduced (ctorType cname))), 0))
-                             | Ctor (At _ cname) _ _ _ <- ctors'] )
+              , Map.fromList [(cname, (ForallK [] (Forall [] ([] :=> introduced (ctorType cname fields))), 0))
+                             | Ctor (At _ cname) _ _ fields <- ctors'] )
 
     where tycon          :: Ty
           tycon           = TyCon (Kinded name KStar)
 
-          ctorType       :: Id -> Ty
-          ctorType cname  = bitdataCase name cname `to` tycon
+          ctorType       :: Id -> [Located (BitdataField KId)] -> Ty
+          ctorType cname fields
+              | all isConstantField fields = tycon
+              | otherwise = bitdataCase name cname `to` tycon
+              where isConstantField (At _ ConstantField{}) = True
+                    isConstantField _                      = False
 
           -- Construct the XMPEG representation for a bitdata constructor, including dictionaries for
           -- associated select and update instances:
