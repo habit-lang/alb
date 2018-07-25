@@ -175,7 +175,7 @@ instance Sugared S.Expr (Expr PredFN Id)
                  alt' <- desugar alt
                  name <- fresh "condition"
                  return (EMatch (MGuarded (GFrom (introduced (PVar name)) cond')
-                                 ((MGuarded (gfrom (PCon "True" ["$true"]) (EVar name)) (MCommit cons')) `MElse`
+                                 ((MGuarded (gfrom (PCon "True" []) (EVar name)) (MCommit cons')) `MElse`
                                   (MCommit alt'))))
 
           -- We begin a case by binding the scrutinee to a new value; this avoids recomputing it for
@@ -226,7 +226,7 @@ instance Sugared S.Expr (Expr PredFN Id)
                  lhs' <- desugar lhs
                  rhs' <- desugar rhs
                  return (EMatch (MGuarded (GFrom (introduced (PVar name)) lhs')
-                                          ((MGuarded (gfrom (PCon "False" ["$false"]) (EVar name)) (MCommit rhs'))
+                                          ((MGuarded (gfrom (PCon "False" []) (EVar name)) (MCommit rhs'))
                                            `MElse` MCommit (at lhs (EBitCon "True" [])))))
 
           desugar (S.EApp (At _ (S.EApp (At _ (S.EVar "&&")) lhs)) rhs) =
@@ -234,7 +234,7 @@ instance Sugared S.Expr (Expr PredFN Id)
                  lhs' <- desugar lhs
                  rhs' <- desugar rhs
                  return (EMatch (MGuarded (GFrom (introduced (PVar name)) lhs')
-                                          ((MGuarded (gfrom (PCon "True" ["$true"]) (EVar name)) (MCommit rhs'))
+                                          ((MGuarded (gfrom (PCon "True" []) (EVar name)) (MCommit rhs'))
                                            `MElse` MCommit (at lhs (EBitCon "False" [])))))
 
           desugar (S.EApp e e') = liftM2 EApp (desugar e) (desugar e')
@@ -310,7 +310,7 @@ instance Sugared S.Rhs (Match PredFN Id)
               do ps' <- mapM desugar ps
                  vs <- replicateM (length ps') (fresh "condition")
                  return (foldl1 MElse [ MGuarded (GFrom (introduced (PVar v)) condition)
-                                         (MGuarded (gfrom (PCon "True" ["$true"]) (EVar v))
+                                         (MGuarded (gfrom (PCon "True" []) (EVar v))
                                           (MCommit body))
                                       | (v, (condition, body)) <- zip vs ps' ])
 
@@ -338,7 +338,7 @@ instance Sugared S.Pattern (Pattern PredFN Id)
                                                                    (introduced (EVar var))))
                                                  (introduced l'))
                  return ((PVar var `PGuarded` GLet (Decls [Implicit [(test, [], MCommit testExpr)]]))
-                                   `PGuarded` gfrom (PCon "True" ["$true"]) (EVar test))
+                                   `PGuarded` gfrom (PCon "True" []) (EVar test))
 
           -- x@p is equivalent to the guarded pattern (x | p <- x)
           desugar (S.PAs id p) =
@@ -353,13 +353,13 @@ instance Sugared S.Pattern (Pattern PredFN Id)
           -- to its arguments; otherwise, we fail.  An additional complication is that IMPEG insists
           -- that the arguments to a PCon all be variables; fixing this is separated into
           -- buildGuardedPattern.
-          desugar (S.PCon id) =
-              do (bitCtors, _) <- ask
-                 case lookup id bitCtors of
-                   Just nullary | nullary -> do v <- fresh "v"
-                                                return (PCon id [v])
-                   _                      -> return (PCon id [])
-
+          desugar (S.PCon id) = return (PCon id [])
+--              do (bitCtors, _) <- ask
+--                 case lookup id bitCtors of
+--                   Just nullary | nullary -> do v <- fresh "v"
+--                                                return (PCon id [v])
+--                   _                      -> return (PCon id [])
+--
           desugar e@(S.PTuple _) = failWith $ text "Internal error: tuple pattern at desugaring: " <+> ppr e
           desugar e@(S.PTupleCon _) = failWith $ text "Internal error: tuple constructor pattern at desugaring: " <+> ppr e
           desugar p@(S.PApp {}) =

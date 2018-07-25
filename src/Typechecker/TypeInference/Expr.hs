@@ -95,7 +95,8 @@ checkExpr (At loc (EBitCon ctor fs)) expected =
        let cty  = [ t | (_, t, _) <- fields ] `allTo` (bitdataCaseTy @@ ty @@ TyLabel ctor)
            prim = X.ELetVar (X.Inst "constructBitdata" [convert cty] [])
            cons = X.ECon (X.Inst ctor [] []) -- constructor is monomorphic
-       return (X.EApp cons (foldl X.EApp prim es'), concat pss)
+       return (if null es' then cons else X.EApp cons (foldl X.EApp prim es'),
+               concat pss)
 
     where fieldFor :: (Id, Ty, Maybe Id) -> M (X.Expr, Preds)
           fieldFor (fieldName, fieldTy, defaultId) =

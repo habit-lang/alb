@@ -281,8 +281,12 @@ bitdata tcon dcon = tapply2 (TyCon (Kinded "BitdataCase" (KFun KStar (KFun KLabe
                     (TyLabel dcon)
 
 build_bit_ctor :: Type -> [Type] -> Context -> (Id, [BitdataField]) -> Context
-build_bit_ctor t its gamma (i, _) = update (update gamma (CaseAlt i its) t) (Term i []) conTy
-    where conTy = bitdata t i `fun` t
+build_bit_ctor t its gamma (i, fields) = update (update gamma (CaseAlt i its) t) (Term i []) conTy
+    where isConstantField ConstantField{} = True
+          isConstantField _               = False
+          conTy | all isConstantField fields = t
+                | otherwise = bitdata t i `fun` t
+
 
 buildTopDecl                              :: Context -> TopDecl -> TM Context
 buildTopDecl gamma (Datatype i tys ctors) = let ty = type_from_tcon i tys

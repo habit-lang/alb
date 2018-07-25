@@ -177,9 +177,9 @@ deriveDatatype name params ctors
       --
       --    (C a1 ... an <- $u) =>
       --      (C b1 ... bn <- $v) =>
-      --        (True [$true] <- a1 == b1) =>
+      --        (True <- a1 == b1) =>
       --          ...
-      --            (True [$true] <- a(n-1) == b(n-1)) =>
+      --            (True <- a(n-1) == b(n-1)) =>
       --              (an == bn)
       --
       eqMatch     :: Ctor tyid (PredType p tyid) (Type tyid) -> Match p tyid
@@ -187,7 +187,7 @@ deriveDatatype name params ctors
                    $ mkGuard (con (map snd args)) (EVar "$v")
                    $ case [ (EVar "==" `iEApp` EVar a) `iEApp` EVar b | (a,b) <- args ] of
                        []  -> MCommit (introduced (EBitCon "True" []))
-                       eqs -> foldr (mkGuard (PCon "True" ["$true"]))
+                       eqs -> foldr (mkGuard (PCon "True" []))
                                     (MCommit (introduced (last eqs)))
                                     (init eqs)
                      where con  = PCon (dislocate (ctorName ctor))
