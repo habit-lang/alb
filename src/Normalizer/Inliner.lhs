@@ -98,8 +98,8 @@ as the set of free variables in e.
 >     = (env', Decls ds')
 >     where (env', ds') = inlineGroups preserved env ds
 
-> inlineProgram :: [Id] -> Program -> Program
+> inlineProgram :: [(Id, Bool)] -> Program -> Program
 > inlineProgram preserved (Program decls topDecls)
 >     = Program decls' topDecls'
->     where (env, decls')   = inlineDecls preserved [] decls
+>     where (env, decls')   = inlineDecls (map fst preserved) [] decls
 >           topDecls'       = map (inline env) topDecls

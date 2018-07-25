@@ -44,8 +44,8 @@ combination of ts and es that is required in a particular program.
 
 We implement a pass suitable for combining with other portions of the front end.
 
-> specializeProgram :: [Id] -> Pass () (Program KId, (Map Id (X.Scheme X.Type, Int), SolverEnv)) Specialized
-> specializeProgram is (p, (ctors, senv)) = liftBase (specProgram [Inst i [] [] | i <- is] p ctors senv)
+> specializeProgram :: [(Id, Bool)] -> Pass () (Program KId, (Map Id (X.Scheme X.Type, Int), SolverEnv)) Specialized
+> specializeProgram is (p, (ctors, senv)) = liftBase (specProgram [(Inst i [] [], isMain) | (i, isMain) <- is] p ctors senv)
 
 -------------------------------------------------------------------------------
 -- Substitutions on Types:
@@ -792,16 +792,18 @@ functions are not needed and may cease to be valid after specialization (if,
 for example, they contain references to variables that are not a part of the
 specialized code).
 
-> specProgram :: [Inst] -> Program KId -> Map Id (Scheme Type, Int) -> SolverEnv -> Base Specialized
+> specProgram :: [(Inst, Bool)] -> Program KId -> Map Id (Scheme Type, Int) -> SolverEnv -> Base Specialized
 > specProgram tapps prog ctors senv = do
 >   (rqts, (entries, topDecls'', decls', Constructors _ (Primitives))) <-
 >     runM work (evidence prog) senv empty [] requiredTypes
 >   return (Specialized topDecls'' entries decls')
 >     where
->       doEntries c []     = return ([], c)
->       doEntries c (e:es) = do (e', c1) <- specialize c (ELetVar e)
->                               (es', c2) <- doEntries c1 es
->                               return (e':es', c2)
+>       doEntries c [] =
+>           return ([], c)
+>       doEntries c ((e, isMain) : es) =
+>           do (e', c1) <- specialize c (ELetVar e)
+>              (es', c2) <- doEntries c1 es
+>              return ((e', isMain) : es', c2)
 >       work  = do (entries, c)    <- doEntries scope tapps
 >                  (topDecls', c1) <- specialize c (topDecls prog)
 >                  (decls', c2)    <- specDecls c1

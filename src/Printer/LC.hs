@@ -11,6 +11,8 @@ import Syntax.LC
 import qualified Syntax.LambdaCase as SC
 import qualified Printer.LambdaCase as PC
 
+import Prelude hiding ((<$>))
+
 instance Printable Type
     where ppr (TyCon (Kinded id _)) = ppr id
           ppr (TyApp (TyApp (TyCon (Kinded (Ident (s@(c:_)) 0 _) _)) d) r)
@@ -119,10 +121,17 @@ instance Printable StructField
             = maybe id (\name -> (ppr name <::>)) mname (ppr ty <+> widthOffset width offset)
 
 instance Printable Entrypoints
-    where ppr (Entrypoints is) = text "entrypoint" <+> hcat (punctuate comma (map ppr is))
+    where ppr (Entrypoints []) = empty
+          ppr (Entrypoints is) = text "entrypoint" <+> hcat (punctuate comma (map (ppr . fst) is))
 
 instance Printable Program
     where ppr p = vcat (punctuate line ([text "type M = Proc"] ++
-                                        [ppr (entrypoints p)] ++
+                                        [ppr notMainEntries] ++
+                                        (if null mainEntries
+                                         then []
+                                         else ["hmain = unsafeRunProc" <+> ppr (fst (head mainEntries)) <$>
+                                               "entrypoint hmain"]) ++
                                         map ppr (topDecls p)  ++
                                         [ppr (decls p)]))
+              where mainEntries = filter snd (fromEntrypoints (entrypoints p))
+                    notMainEntries = Entrypoints (filter (not . snd) (fromEntrypoints (entrypoints p)))

@@ -84,7 +84,7 @@ data TopDecl = Datatype Id                         -- (source) name
   deriving (Eq, Typeable, Data)
 
 --data TopDecl = WrappedTopDecl C.TopDecl
---               deriving (Eq, Typeable, Data)          
+--               deriving (Eq, Typeable, Data)
 
 data BitdataField = LabeledField Id Type Int Int   -- name, type, width, offset in bits
                   | ConstantField Integer Int Int  -- value, width, offset
@@ -97,8 +97,8 @@ type TopDecls = [TopDecl]
 
 --------------------------------------------------------------------------------
 
-data Entrypoints = Entrypoints [Id]
-                   deriving (Eq, Typeable, Data)          
+data Entrypoints = Entrypoints {fromEntrypoints :: [(Id, Bool)]}
+                   deriving (Eq, Typeable, Data)
 
 data Program = Program { entrypoints  :: Entrypoints
                        , decls        :: Decls

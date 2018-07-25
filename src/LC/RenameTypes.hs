@@ -21,7 +21,7 @@ import Syntax.LambdaCase
 import Typechecker.LambdaCasePrims
 import Typechecker.LambdaCaseTyping
 import Printer.LambdaCase
-import Fidget.Mangle (mangleId)
+import Syntax.MangleIds (mangleId)
 
 --------------------------------------------------------------------------------
 

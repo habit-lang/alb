@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
-module Fidget.Mangle (mangleProgram, mangleId) where
+module Syntax.MangleIds (mangleProgram, mangleId) where
 
 --------------------------------------------------------------------------------
 -- This module mangles variable names to be compatible with the CompCert back-end
@@ -12,7 +12,7 @@ import Data.Generics
 
 import Common
 import Syntax.Common
-import Fidget.AST
+import Syntax.LC
 
 {-
 This mangling scheme is not perfect (i.e., it is not injective) because
@@ -74,5 +74,8 @@ mangleId id@(Ident (c:cs) n f) =
           mangleChar _ ')'              = "RParen"
           mangleChar _ c                = "Ord"++show (ord c)
 
-mangleProgram :: Pass () Program Program
-mangleProgram = pure (everywhere (mkT mangleId))
+mangleType :: Type -> Bool
+mangleType = const True
+
+mangleProgram :: (Typeable t, Data t) => Pass () t t
+mangleProgram = pure (everywhereBut (mkQ False mangleType) (mkT mangleId))

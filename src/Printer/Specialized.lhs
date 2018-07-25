@@ -8,7 +8,7 @@
 >   ppr (Specialized topdecls entries decls)
 >     = vcat (punctuate line [ppr topdecls,
 >                             ppr decls,
->                             text "entry points:" <+> cat (punctuate (comma <> space) (map ppr entries))])
+>                             text "entry points:" <+> cat (punctuate (comma <> space) (map (ppr . fst) entries))])
 
 > {- The definitions of Primtives and DApp are now local to Specializer.lhs
 > instance Printable Primitives where
