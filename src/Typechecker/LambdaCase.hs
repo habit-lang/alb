@@ -114,6 +114,7 @@ type Context = ContextEntry -> TM Type
 
 data ContextEntry = Term Id [Type]
                   | CaseAlt Id [Type]
+                  | BitConField Id Id
                     deriving (Show, Eq)
 
 empty :: Context
@@ -202,6 +203,16 @@ checkExpr gamma t@(ECon i tys ty)  = do ty' <- gamma (Term i tys)
                                         if ty' == ty
                                            then return ty'
                                            else typeFailIn "Type mismatch in constructor annotation" $ typeError ty ty' (show t)
+checkExpr gamma t@(EBitCon i es)
+    | null es                      = gamma (Term i [])
+    | otherwise                    = do mapM_ checkField es
+                                        TyApp (TyApp _ _) ty <- gamma (Term i [])
+                                        return ty
+    where checkField (name, e) = do ty <- checkExpr gamma e
+                                    ty' <- gamma (BitConField i name)
+                                    if ty == ty'
+                                    then return ty
+                                    else typeFailIn "Type mismatch in bitdata constructor" $ typeError ty ty' (show t)
 checkExpr _       (EBits _ s)      = return $ bitsT s
 checkExpr _       (ENat n)         = return $ natT n
 checkExpr gamma t@(ELam i ty e)    = do ty' <- checkExpr (update gamma (Term i []) ty) e
@@ -224,6 +235,21 @@ checkExpr gamma t@(EApp e1 e2)     = do t1 <- checkExpr gamma e1
                                         t2 <- checkExpr gamma e2
                                         app t1 t2 t `orTypeFail` ["Failed to type App of: ", show e1
                                                                  ,"To: ", show e2]
+checkExpr gamma t@(EBitSelect e f) = do t1 <- checkExpr gamma e
+                                        case t1 of
+                                          TyApp (TyApp (TyCon (Kinded "BitdataCase" _)) _) (TyLabel ctor) ->
+                                              gamma (BitConField ctor f)
+                                          _ -> typeFail ["Invalid bitdata selection: argument not a BitdataCase. ", show t]
+checkExpr gamma t@(EBitUpdate e f e') =
+    do t1 <- checkExpr gamma e
+       case t1 of
+         TyApp (TyApp (TyCon (Kinded "BitdataCase" _)) _) (TyLabel ctor) ->
+             do t2 <- checkExpr gamma e'
+                t2' <- gamma (BitConField ctor f)
+                if t2 == t2'
+                then return t2
+                else typeFailIn "Invalid update type: " $ typeError t2 t2' (show t)
+
 checkExpr gamma t@(EFatbar e1 e2)  = do t1 <- checkExpr gamma e1
                                         t2 <- checkExpr gamma e2
                                         if t1 == t2
@@ -236,6 +262,8 @@ checkExpr gamma t@(EBind i ty e1 e2) = do ty1 <- checkExpr gamma e1
                                             (TyApp m' _) | m == m'   -> return ty2
                                                          | otherwise -> typeFailIn "Monad type mis-match in EBind, " $ typeError m m' (show t)
                                             _                        -> typeFail ["Invalid type in EBind ", show t]
+checkExpr gamma (EReturn e)          = do ty1 <- checkExpr gamma e
+                                          return (TyApp (TyCon (Kinded "M" (KFun KStar KStar))) ty1)
 
 extractMonad                              :: Expr -> Type -> Type -> TM Type
 extractMonad _ ty (TyApp m ty') | ty == ty' = return m
@@ -281,8 +309,10 @@ bitdata tcon dcon = tapply2 (TyCon (Kinded "BitdataCase" (KFun KStar (KFun KLabe
                     (TyLabel dcon)
 
 build_bit_ctor :: Type -> [Type] -> Context -> (Id, [BitdataField]) -> Context
-build_bit_ctor t its gamma (i, fields) = update (update gamma (CaseAlt i its) t) (Term i []) conTy
-    where isConstantField ConstantField{} = True
+build_bit_ctor t its gamma (i, fields) = update (update (foldr addField gamma fields) (CaseAlt i its) t) (Term i []) conTy
+    where addField ConstantField{} gamma = gamma
+          addField (LabeledField name ty _ _) gamma = update gamma (BitConField i name) ty
+          isConstantField ConstantField{} = True
           isConstantField _               = False
           conTy | all isConstantField fields = t
                 | otherwise = bitdata t i `fun` t

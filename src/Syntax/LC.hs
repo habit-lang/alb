@@ -29,13 +29,17 @@ data Expr = EVar Id Type
           | EBits Integer Int -- EBits n s :: Bit s
           | ENat Integer      -- ENat n    :: Nat n
           | ECon Id [Type] Type -- constructor name, type arguments, result type
+          | EBitCon Id [(Id, Expr)]
           | ELam Id Type Expr
           | ELet Decls Expr
           | ECase Expr [Alt]  -- [Alt] never empty
           | EApp Expr Expr
+          | EBitSelect Expr Id
+          | EBitUpdate Expr Id Expr
           | EFatbar Expr Expr
           | EBind Id Type Expr Expr -- (id :: t) <- e ; e
           | EDo Expr                -- do (sequence of binds)
+          | EReturn Expr
   deriving (Eq, Typeable, Data)
 
 --data Expr = WrappedExpr C.Expr
@@ -84,7 +88,7 @@ data TopDecl = Datatype Id                         -- (source) name
   deriving (Eq, Typeable, Data)
 
 --data TopDecl = WrappedTopDecl C.TopDecl
---               deriving (Eq, Typeable, Data)          
+--               deriving (Eq, Typeable, Data)
 
 data BitdataField = LabeledField Id Type Int Int   -- name, type, width, offset in bits
                   | ConstantField Integer Int Int  -- value, width, offset
@@ -98,7 +102,7 @@ type TopDecls = [TopDecl]
 --------------------------------------------------------------------------------
 
 data Entrypoints = Entrypoints [Id]
-                   deriving (Eq, Typeable, Data)          
+                   deriving (Eq, Typeable, Data)
 
 data Program = Program { entrypoints  :: Entrypoints
                        , decls        :: Decls

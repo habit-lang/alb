@@ -120,6 +120,8 @@ instance HasTypeVariables Expr
           s # ELetVar tapp   = ELetVar (s # tapp)
           s # e@(EBits {})   = e
           s # ECon tapp      = ECon (s # tapp)
+          s # EBitCon i fields = EBitCon i (map substField fields)
+              where substField (f, e) = (f, s # e)
           s # ELam v t e     = ELam v (s # t) (s # e)
           s # ELet ds e      = ELet (s # ds) (s # e)
           s # ELetTypes (Left cs) e =
@@ -132,8 +134,11 @@ instance HasTypeVariables Expr
               where apply s ps = [(v, s # x) | (v, x) <- ps]
           s # EMatch m       = EMatch (s # m)
           s # EApp e e'      = EApp (s # e) (s # e')
+          s # EBitSelect e f = EBitSelect (s # e) f
+          s # EBitUpdate e f e' = EBitUpdate (s # e) f (s # e')
           s # EBind ta tb tm me v e e' =
               EBind (s # ta) (s # tb) (s # tm) (s # me) v (s # e) (s # e')
+          s # EReturn e      = EReturn (s # e)
           s # EMethod ev n ts evs =
               EMethod (s # ev) n (s # ts) (s # evs)
 
@@ -142,6 +147,7 @@ instance HasEvidenceVariables Expr
           fevs (ELetVar tapp)                  = fevs tapp
           fevs (EBits {})                      = []
           fevs (ECon tapp)                     = fevs tapp
+          fevs EBitCon{}                       = []
           fevs (ELam _ _ body)                 = fevs body
           fevs (ELet ds body)                  = fevs ds ++ fevs body
           fevs (ELetTypes _ e)                 = fevs e
@@ -150,7 +156,10 @@ instance HasEvidenceVariables Expr
               where bound = map fst evSubst
           fevs (EMatch m)                      = fevs m
           fevs (EApp e e')                     = fevs e ++ fevs e'
+          fevs (EBitSelect e f)                = fevs e
+          fevs (EBitUpdate e f e')             = fevs e ++ fevs e'
           fevs (EBind ta tb tm me v e e')      = fevs me ++ fevs e ++ fevs e'
+          fevs (EReturn e)                     = fevs e
 
 instance HasTypeVariables Ev
     where s # e@(EvVar {})      = e

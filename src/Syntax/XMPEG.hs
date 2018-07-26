@@ -68,6 +68,7 @@ data Expr      = ELamVar Id
                | ELetVar Inst
                | EBits Integer Int
                | ECon Inst
+               | EBitCon Id [(Id, Expr)]     -- do we still need field names?
                | ELam Id Type Expr
                | EMethod Ev Int [Type] [Ev]  -- dictionary method typarams evparams
                | ELet Decls Expr
@@ -75,7 +76,10 @@ data Expr      = ELamVar Id
                | ESubst ExprSubst EvSubst Expr
                | EMatch Match
                | EApp Expr Expr
+               | EBitSelect Expr Id
+               | EBitUpdate Expr Id Expr
                | EBind Type Type Type Ev Id Expr Expr -- {ta,tb,tm}{me :: Proc tm} (id :: ta) <- e ; (e' :: tm tb)
+               | EReturn Expr
 
 type TypeBinding = Either [([(KId, Type)], [(KId, Type)])] ([KId], [KId], [Type] -> [Type])
 type ExprSubst = [(Id, Expr)]
@@ -86,13 +90,18 @@ instance HasVariables Expr
           freeVariables (ELetVar (Inst id _ _)) = [id]
           freeVariables (EBits {})              = []
           freeVariables (ECon {})               = []
+          freeVariables (EBitCon _ es)          = freeVariables (map snd es)
           freeVariables (ELam id _ body)        = filter (id /=) (freeVariables body)
           freeVariables (ELet ds body)          = freeVariables ds ++ withoutBound ds (freeVariables body)
           freeVariables (ESubst ps _ body  )    = concatMap freeVariables exprs ++ filter (`notElem` ids) (freeVariables body)
               where (ids, exprs) = unzip ps
           freeVariables (EMatch m)              = freeVariables m
           freeVariables (EApp e e')             = freeVariables e ++ freeVariables e'
+          freeVariables (EBitSelect e _)        = freeVariables e
+          freeVariables (EBitUpdate e _ e')     = freeVariables e ++ freeVariables e'
           freeVariables (EBind _ _ _ _ id e e') = freeVariables e ++ filter (id /=) (freeVariables e')
+          freeVariables (EReturn e)             = freeVariables e
+
           rename _ = id
 
 flattenApp :: Expr -> (Expr, [Expr])

@@ -40,6 +40,7 @@ instance Printable Expr
           ppr (ENat n)          = integer n
           ppr (ECon id ts ty)   = atPrecedence 9 $
                                   ppr id <> commaBraces (map ppr ts)
+          ppr (EBitCon id es)   = ppr id <> brackets (cat (punctuate (comma <> space) [ppr f <+> equals <+> ppr e | (f, e) <- es]))
           ppr (ELam id ty body) = parens $ atPrecedence 9 $
                                   ((backslash <> ppr id <+> text "::" <+> ppr ty <+> text "-> ") <//> ppr body)
           ppr (ELet ds body)    = atPrecedence 9
@@ -49,11 +50,14 @@ instance Printable Expr
                                 $ ((text "case" <+> withPrecedence 9 (ppr e) <+> text "of") <$$>
                                    indent 2 (align $ hcat $ punctuate (line <> bar) $ map ppr alts))
           ppr (EApp e e')       = parens $ atPrecedence 9 (ppr e <+> (withPrecedence 10 (ppr e')))
+          ppr (EBitSelect e f)  = atPrecedence 10 (ppr e) <> dot <> ppr f
+          ppr (EBitUpdate e f e') = atPrecedence 10 (ppr e) <> brackets (ppr f <+> equals <+> ppr e')
           ppr (EFatbar e e')    = brackets (align (ppr e) </> text "||" <+> align (ppr e'))  -- could use precedence here
           ppr (EBind "_" _ e body)
                                 = align ((align (ppr e) <> semi) <$$> ppr body)
           ppr (EBind var varty e body)
                                 = align ((ppr var <+> text "::" <+> ppr varty <+> text "<-" <+> align (ppr e) <> semi) <$$> ppr body)
+          ppr (EReturn e)       = atPrecedence 9 ("return" <+> withPrecedence 10 (ppr e))
 
 instance Printable Alt
     where ppr (Alt c [] [] e)   = ppr c <+> text "->" <+> (align (ppr e))

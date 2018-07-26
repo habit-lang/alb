@@ -487,6 +487,17 @@ instance declaration:
 >   specialize c (ECon tapp)
 >     = dictify tapp >>= specDApp c
 
+>   specialize c (EBitCon id es)
+>     = do (c', es') <- mapAccumM specializeField c es
+>          return (EBitCon id es', c')
+>       where mapAccumM f z []     = return (z, [])
+>             mapAccumM f z (x:xs) = do (z', y) <- f z x
+>                                       (z'', ys) <- mapAccumM f z' xs
+>                                       return (z'', y : ys)
+>             specializeField c (f, e)
+>               = do (e', c') <- specialize c e
+>                    return (c', (f, e'))
+
 >   specialize c (ELam i t e)
 >     = do (e', c') <- specialize c e
 >          t'       <- substitute t
@@ -525,6 +536,15 @@ instance declaration:
 >          (x', c2) <- specialize c1 x
 >          return (EApp f' x', c2)
 
+>   specialize c (EBitSelect e f)
+>     = do (e', c') <- specialize c e
+>          return (EBitSelect e' f, c')
+
+>   specialize c (EBitUpdate e1 f e2)
+>     = do (e1', c1) <- specialize c e1
+>          (e2', c2) <- specialize c e2
+>          return (EBitUpdate e1' f e2', c2)
+
 >   specialize c (EBind ta tb tm procEvid v e e')
 >     = do (e1, c1) <- specialize c e
 >          (e1',c2) <- specialize c1 e'
@@ -543,6 +563,10 @@ instance declaration:
 >         isMachineMonad (TyCon (Kinded "M" _)) = True
 >         isMachineMonad (TyCon (Kinded "I" _)) = True
 >         isMachineMonad _                      = False
+
+>   specialize c (EReturn e)
+>     = do (e', c') <- specialize c e
+>          return (EReturn e', c')
 
 Specialization of Match constructs:
 
@@ -738,7 +762,26 @@ name for the current Inst or else defers to the enclosing context:
 >             requireType t'
 >             return ((dapp, i, (Forall [] [] t', body')), c')
 >     where DApp _ typeArgs dictArgs = dapp
->           specBody (Left (id, args)) = return (Left (id, args ++ typeArgs), c)
+>           bitdataCase ty conid = TyApp (TyApp (TyCon (Kinded "BitdataCase" (KFun KStar (KFun KLabel KStar)))) ty) conid
+>           proxy lab            = TyApp (TyCon (Kinded "Proxy" (KFun (KVar "k") KStar))) (TyLabel lab)
+>           specBody (Left (id, args))
+>               | id == "bitdataSelect" =
+>                   let [ty, conid, TyLabel field, result] = typeArgs
+>                   in return (Right (Gen [] [] (ELam "$x" (bitdataCase ty conid)
+>                                                 (ELam "$y" (proxy field)
+>                                                   (EBitSelect (ELamVar "$x") field)))),
+>                              c)
+>               | id == "bitdataUpdate" =
+>                   let [ty, conid, TyLabel field, argType] = typeArgs
+>                   in return (Right (Gen [] [] (ELam "x" (bitdataCase ty conid)
+>                                                 (ELam "y" (proxy field)
+>                                                    (ELam "z" argType
+>                                                      (EBitUpdate (ELamVar "x") field (ELamVar "z")))))),
+>                              c)
+>               | id == "primReturnM" =
+>                   let [ty] = typeArgs
+>                   in return (Right (Gen [] [] (ELam "x" ty (EReturn (ELamVar "x")))), c)
+>               | otherwise = return (Left (id, args ++ typeArgs), c)
 >           specBody (Right (Gen typeIds dictIds e)) = do
 >               (e', Constructing _ _ c') <- extend tys dcs
 >                   (specialize (Constructing dapp i c) e)

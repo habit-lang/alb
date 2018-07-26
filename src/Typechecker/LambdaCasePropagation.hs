@@ -14,6 +14,9 @@ prop_expr g (EVar i _) = g (Term i []) >>= \t -> return (EVar i t)
 prop_expr _ (EBits n s) = return $ EBits n s
 prop_expr _ (ENat i) = return $ ENat i
 prop_expr g (ECon i ts _) = g (Term i ts) >>= \t -> return (ECon i ts t)
+prop_expr g (EBitCon i es) = EBitCon i `fmap` mapM (prop_field g) es
+    where prop_field g (f, e) = do e' <- prop_expr g e
+                                   return (f, e')
 prop_expr g (ELam i t e) =
   do
     e' <- prop_expr (update g (Term i []) t) e
@@ -30,6 +33,10 @@ prop_expr g (ECase e alts) = do e' <- prop_expr g e
 prop_expr g (EApp e1 e2) = do e1' <- prop_expr g e1
                               e2' <- prop_expr g e2
                               return $ EApp e1' e2'
+prop_expr g (EBitSelect e f) = flip EBitSelect f `fmap` prop_expr g e
+prop_expr g (EBitUpdate e1 f e2) = do e1' <- prop_expr g e1
+                                      e2' <- prop_expr g e2
+                                      return (EBitUpdate e1' f e2')
 prop_expr g (EFatbar e1 e2) = do e1' <- prop_expr g e1
                                  e2' <- prop_expr g e2
                                  return $ EFatbar e1' e2'
@@ -39,6 +46,7 @@ prop_expr g (EFatbar e1 e2) = do e1' <- prop_expr g e1
 prop_expr g e@(EBind i t e1 e2) = do e1' <- prop_expr g e1
                                      e2' <- prop_expr (update g (Term i []) t) e2
                                      return (EBind i t e1' e2')
+prop_expr g (EReturn e) = EReturn `fmap` prop_expr g e
 
 prop_decls :: Context -> Decls -> TM Decls
 prop_decls g (Decls ds) = do ds' <- prop_decls' g ds
