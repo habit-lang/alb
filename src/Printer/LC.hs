@@ -13,8 +13,10 @@ import qualified Printer.LambdaCase as PC
 
 instance Printable Type
     where ppr (TyCon (Kinded id _)) = ppr id
-          ppr (TyApp (TyApp (TyCon (Kinded (Ident (s@(c:_)) 0 _) _)) d) r)
+          ppr (TyApp (TyApp (TyCon (Kinded (Ident (s@(c:_)) _ _) _)) d) r)
            | not (isAlpha c)        = atPrecedence 5 (withPrecedence 6 (ppr d) <+> text s <+> ppr r)
+          ppr (TyApp (TyApp (TyCon (Kinded (Ident "BitdataCase" _ _) _)) ty) (TyLabel l))
+                                    = atPrecedence 10 (ppr ty) <> dot <> ppr l
           ppr (TyApp t t')          = atPrecedence 9 (ppr t <+> withPrecedence 10 (ppr t'))
           ppr (TyLit i)             = integer i
           ppr (TyLabel l)           = dquotes (ppr l)
