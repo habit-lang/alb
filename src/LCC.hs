@@ -14,10 +14,12 @@ import System.IO
 
 -- Options for invoking the LC Compiler
 data LCCOptions = LCCOptions { jarPath      :: Maybe String,
+                               extraMilFiles :: [FilePath],
                                otherOptions :: String,
                                fake         :: Bool }
 
 defaultLCCOptions = LCCOptions { jarPath      = Nothing,
+                                 extraMilFiles = [],
                                  otherOptions = "",
                                  fake         = False }
 
@@ -29,11 +31,12 @@ lccompile lcco outputFileName prog =
        let jarPath' = case jarPath lcco of
                         Nothing   -> takeDirectory execPath </> "mil-tools.jar"
                         Just path -> path
-           lccCmd = intercalate " " [ "java",
-                                      "-jar", jarPath',
-                                      lcFileName,
-                                      "-l" ++ llFileName,
-                                      otherOptions lcco ]
+           lccCmd = intercalate " " $ [ "java",
+                                        "-jar", jarPath' ] ++
+                                      extraMilFiles lcco ++
+                                      [ lcFileName,
+                                        "-l" ++ llFileName,
+                                        otherOptions lcco ]
        if fake lcco
        then putStrLn lccCmd
        else do exitCode <- system lccCmd

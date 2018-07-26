@@ -219,8 +219,11 @@ options =
     , Option [] ["lcc-other"] (ReqArg (\x opt -> opt { lccOptions = (lccOptions opt) { LCC.otherOptions = x } }) "STRING")
           "Other options to lcc"
 
+    , Option [] ["include-mil"] (ReqArg (\x opt -> opt{ lccOptions = (lccOptions opt){ extraMilFiles = extraMilFiles (lccOptions opt) ++ [x] } }) "FILE")
+          "Additional MIL files to pass to MIL-tools"
+
     , Option [] ["fake-lcc"] (NoArg (\opt -> opt { lccOptions = (lccOptions opt) { LCC.fake = True } }))
-          "Generate LC output and lcc command, but do not actually invoke lcc"
+          "Generate LC output and MIL-tools command, but do not actually invoke MIL-tools"
 
     , Option [] ["verbose"] (NoArg (\opt -> opt { verbose = True }))
          "Be verbose"
