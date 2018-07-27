@@ -13,8 +13,9 @@ lambdaCaseToLC entries (C.Program decls topDecls) =
                                (filter (not . builtin) (mTopDecls topDecls)))
         -- hack to get around the fact that Unit is built-in
         -- in lcc.
-  where builtin (L.Datatype (Ident "Unit" _ _) _ _) = True
-        builtin _                                   = False
+  where builtin (L.Datatype (Ident "Unit" _ _) _ _)    = True
+        builtin (L.Bitdatatype (Ident "Bool" _ _) _ _) = True
+        builtin _                                      = False
 
 -- hack to get around the fact that (not bitdata) Bool is built into lcc.
 -- don't need to worry about capture since nothing on the left is a valid
