@@ -101,7 +101,7 @@ type TopDecls = [TopDecl]
 
 --------------------------------------------------------------------------------
 
-data Entrypoints = Entrypoints [Id]
+data Entrypoints = Entrypoints {fromEntrypoints :: [(Id, Bool)]}
                    deriving (Eq, Typeable, Data)
 
 data Program = Program { entrypoints  :: Entrypoints

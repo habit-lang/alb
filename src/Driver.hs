@@ -1,4 +1,4 @@
-{-# LANGUAGE Rank2Types, OverloadedStrings, PatternGuards #-}
+{-# LANGUAGE Rank2Types, OverloadedStrings, PatternGuards, TupleSections #-}
 module Main where
 
 import Prelude hiding ((<$>), pure)
@@ -313,8 +313,8 @@ buildPipeline options =
           printFile quiet | quiet && not (noQuiet options) = pure (const empty)
                           | otherwise = pure (withShortenedNames (shortenInternalNames options) . withShowKinds (showKinds options) . ppr)
 
-          exported :: [Id]
-          exported = nub (maybe id (:) (mainId options) (map fst (exports options)))
+          exported :: [(Id, Bool)]
+          exported = nub (maybe id (:) ((, True) `fmap` mainId options) (map ((, False) . fst) (exports options)))
 
           toDesugar
             = fixityProgram >=> freshenProgram >=> eliminateTuplesProgram >=>
