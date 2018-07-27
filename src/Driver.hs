@@ -21,7 +21,7 @@ import Analyzer
 import Common
 import LC.LambdaCaseToLC
 import LC.RenameTypes
-import LCC
+import MILTools
 import Normalizer.EtaInit
 import Normalizer.Inliner
 import Normalizer.PatternMatchCompiler
@@ -73,7 +73,7 @@ data Options = Options { stage                :: Stage
                        , printExportSignatures:: Bool
                        , dotFiles             :: Bool
                        , simplifyNames        :: Bool
-                       , lccOptions           :: LCCOptions
+                       , milOptions           :: MILOptions
                        , populateEnvironments :: Bool
                        , traceSolver          :: Bool
                        , traceSolverInputs    :: Bool
@@ -101,7 +101,7 @@ defaultOptions = Options { stage                = LCCompiled
                          , printExportSignatures= False
                          , dotFiles             = True
                          , simplifyNames        = False
-                         , lccOptions           = defaultLCCOptions
+                         , milOptions           = defaultMILOptions
                          , populateEnvironments = False
                          , traceSolver          = False
                          , traceSolverInputs    = False
@@ -213,17 +213,23 @@ options =
     , Option [] ["no-dot-files"] (NoArg (\opt -> opt { dotFiles = False } ))
         "Does not include preferences from any previously checked dot files"
 
-    , Option [] ["lcc-jar"] (ReqArg (\x opt -> opt { lccOptions = (lccOptions opt) { LCC.jarPath = Just x } }) "PATH")
+    , Option [] ["mil-jar"] (ReqArg (\x opt -> opt { milOptions = (milOptions opt) { MILTools.jarPath = Just x } }) "PATH")
          "Path to the MIL-tools JAR file"
 
-    , Option [] ["lcc-other"] (ReqArg (\x opt -> opt { lccOptions = (lccOptions opt) { LCC.otherOptions = x } }) "STRING")
+    , Option [] ["mil-opt"] (ReqArg (\x opt -> opt { milOptions = (milOptions opt) { MILTools.otherOptions = x ++ otherOptions (milOptions opt) }}) "STRING")
           "Other options to lcc"
 
-    , Option [] ["include-mil"] (ReqArg (\x opt -> opt{ lccOptions = (lccOptions opt){ extraMilFiles = extraMilFiles (lccOptions opt) ++ [x] } }) "FILE")
+    , Option [] ["include-mil"] (ReqArg (\x opt -> opt{ milOptions = (milOptions opt){ extraMilFiles = extraMilFiles (milOptions opt) ++ [x] } }) "FILE")
           "Additional MIL files to pass to MIL-tools"
 
-    , Option [] ["fake-lcc"] (NoArg (\opt -> opt { lccOptions = (lccOptions opt) { LCC.fake = True } }))
+    , Option [] ["fake-mil"] (NoArg (\opt -> opt { milOptions = (milOptions opt) { MILTools.fake = True } }))
           "Generate LC output and MIL-tools command, but do not actually invoke MIL-tools"
+
+    , Option [] ["clang"] (ReqArg (\x opt -> opt{ milOptions = (milOptions opt){ clangPath = Just x } }) "FILE")
+          "Path to clang binary (or replacement script)"
+
+    , Option [] ["clang-opt"] (ReqArg (\x opt -> opt{ milOptions = (milOptions opt){clangOptions = x ++ clangOptions (milOptions opt) }}) "STRING")
+          "Other options to clang"
 
     , Option [] ["verbose"] (NoArg (\opt -> opt { verbose = True }))
          "Be verbose"
@@ -301,7 +307,7 @@ buildPipeline options =
       LCed             -> codePipe toLCed
       LCCompiled       -> case output options of
                             Nothing -> error "How do we not have an output name?"
-                            Just s  -> toLCed >=> pure (lccompile (lccOptions options) s)
+                            Just s  -> toLCed >=> pure (milCompile (milOptions options) s)
 
 
     where --filePipe' :: (s -> q -> Pass _ x y) -> (Pass () [(s, (q, x))] [y])
