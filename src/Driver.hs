@@ -140,9 +140,6 @@ options =
     , Option [] ["Sc"] (NoArg (\opt -> opt { stage = LCed }))
         "Stop after generating LC"
 
-    , Option [] ["lcc"] (NoArg (\opt -> opt { stage = LCCompiled }))
-        "Compile using lcc rather than ccomp"
-
     , Option ['o'] [] (ReqArg (\out opt -> opt { output = Just out }) "FILE")
         "Write output to file"
 
@@ -217,7 +214,7 @@ options =
          "Path to the MIL-tools JAR file"
 
     , Option [] ["mil-opt"] (ReqArg (\x opt -> opt { milOptions = (milOptions opt) { MILTools.otherOptions = x ++ otherOptions (milOptions opt) }}) "STRING")
-          "Other options to lcc"
+          "Other options to MIL-tools"
 
     , Option [] ["include-mil"] (ReqArg (\x opt -> opt{ milOptions = (milOptions opt){ extraMilFiles = extraMilFiles (milOptions opt) ++ [x] } }) "FILE")
           "Additional MIL files to pass to MIL-tools"
@@ -310,8 +307,7 @@ buildPipeline options =
                             Just s  -> toLCed >=> pure (milCompile (milOptions options) s)
 
 
-    where --filePipe' :: (s -> q -> Pass _ x y) -> (Pass () [(s, (q, x))] [y])
-          filePipe' = initial initialState . mapM . (\f -> \(s, (q, p)) -> f s q p)
+    where filePipe' = initial initialState . mapM . (\f -> \(s, (q, p)) -> f s q p)
 
           codePipe f = f >=> pure (withShowKinds (showKinds options) . ppr) >=> writeIntermediate
           filePipe f = filePipe' (\s q -> f s q >=> printFile q) >=> pure vcat >=> writeIntermediate
