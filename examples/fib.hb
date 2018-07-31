@@ -1,4 +1,4 @@
-requires miniprelude
+requires prelude
 requires list
 requires io
 
