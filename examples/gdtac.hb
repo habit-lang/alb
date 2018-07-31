@@ -1,7 +1,6 @@
 requires prelude
+requires io
 
-id x = x
-const x y = x
 compose f g x = f (g x)
 
 data (f :+: g) (e :: *) = Inl (f e) | Inr (g e)
@@ -109,6 +108,7 @@ four :: ExprFour
 four = sum_ (const_ 1) (double_ (const_ 2))
 w    = evalTwo (desugar four)
 
--- For specialization (probably the wrong type..)
-
-main = (x, y, z, w)
+main = do putint x
+          putint y
+          putint z
+          putint w
