@@ -498,10 +498,14 @@ primitive builtin_volatile_write_int16unsigned :: (ByteSize (Stored t) <= 2) => 
 primitive builtin_volatile_write_int32         :: (ByteSize (Stored t) <= 4) => Ref (Stored t) -> t -> M ()
 -}
 
+{-
 primitive readRef  :: Ref (Stored t) -> M t
 primitive writeRef :: Ref (Stored t) -> t -> M ()
 primitive memZero  :: ARef l a -> M ()
+-}
+
 primitive (@)      :: Ref (Array n a) -> Ix n -> Ref a
+
 
 -- Initialization: ----------------------------------------------
 

@@ -72,7 +72,7 @@ area nia <- myinit :: Ref (Array 3 (Stored Unsigned))
 myinit :: Init (Array 3 (Stored Unsigned))
 myinit = initArray (\x -> initStored (unsigned x))
 
-(@) = (@@)
+-- (@) = (@@)
 
 mania :: M Unsigned
 mania = do v <- readRef (nia @ 2)
