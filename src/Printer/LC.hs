@@ -49,6 +49,7 @@ instance Printable Expr
           ppr (ENat n)          = integer n
           ppr (ECon id ts ty)   = atPrecedence 9 $
                                   ppr id {- <> commaBraces (map ppr ts) -}
+          ppr (EBitCon id [])   = ppr id
           ppr (EBitCon id es)   = ppr id <> brackets (cat (punctuate (comma <> space) [ppr f <+> equals <+> ppr e | (f, e) <- es]))
           ppr (ELam id ty body) = atPrecedence 9 $
                                   ((backslash <+>
