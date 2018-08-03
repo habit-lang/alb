@@ -38,6 +38,6 @@ compile cco outputFileName prog =
        then putStrLn ccompCmd
        else do exitCode <- system ccompCmd
                if exitCode /= ExitSuccess
-               then hPutStrLn stderr ("ccomp invokation failed (" ++ show exitCode ++ ")")
+               then hPutStrLn stderr ("ccomp invocation failed (" ++ show exitCode ++ ")")
                else return ()
     where fidgetFileName = replaceExtension outputFileName "fidget"
