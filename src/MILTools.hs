@@ -51,11 +51,11 @@ milCompile milo outputFileName prog =
        then putStrLn milCmd
        else do exitCode <- system milCmd
                if exitCode /= ExitSuccess
-               then hPutStrLn stderr ("mil-tools invokation failed (" ++ show exitCode ++ ")")
+               then hPutStrLn stderr ("mil-tools invocation failed (" ++ show exitCode ++ ")")
                else do removeFile lcFileName
                        exitCode <- system clangCmd
                        if exitCode /= ExitSuccess
-                       then hPutStrLn stderr ("clang invokation failed (" ++ show exitCode ++")")
+                       then hPutStrLn stderr ("clang invocation failed (" ++ show exitCode ++")")
                        else removeFile llFileName
 
     where lcFileName = replaceExtension outputFileName "lc"
