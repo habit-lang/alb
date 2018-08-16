@@ -551,8 +551,10 @@ areaDecl = do v <- option False (reserved "volatile" >> return True)
 primitive :: ParseM [Primitive]
 primitive = do reserved "primitive"
                choice [ do reserved "type"
-                           t <- located type_
-                           return [PrimType t]
+                           names <- commaSep (located tycon)
+                           reservedOp "::"
+                           k <- located kind
+                           return [PrimType (At l (TyKinded (fmap TyCon name) k)) | name@(At l _) <- names]
                       , do public <- option True (reserved "private" >> return False)
                            ss <- typeSignatures (varid <|> conid)
                            let (ctors, values) = partition (\(Signature name _) -> isConId name) ss

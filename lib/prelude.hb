@@ -150,7 +150,7 @@ class Width (n :: nat)
 instance Width n if n <= 32
 else     Width n fails
 
-primitive type Bit (n :: nat)
+primitive type Bit :: nat -> *
 
 primitive (:#) :: (Width n, Width m, Width p, n + m = p)
                     => Bit n -> Bit m -> Bit p
@@ -420,26 +420,35 @@ primitive primRelaxIx :: (0 < n, n < m, Index m) => Ix n -> Ix m
 
 -- Stored Data: -------------------------------------------------
 
-class BE (t :: *) = (a :: area) | t -> a
---instance BE t = _ if ToBits t, BitSize t = 8 * n
-
-class LE (t :: *) = (a :: area) | t -> a
---instance LE t = _ if ToBits t, BitSize t = 8 * n
 
 {-
+
+There's a problem with treating Stored etc. as type synonyms: we can't define
+instances for them, as they might overlap with anything else.  I think the
+original intention was to capture the additional ToBits and BitSize constaints.
+If so, this is actually an embryonic partial data type, and should use that
+mechanism instead.
+
+When it exists, that is.
+
+
+class BE (t :: *) = (a :: area) | t -> a
+instance BE t = _ if ToBits t, BitSize t = 8 * n
+
+class LE (t :: *) = (a :: area) | t -> a
+instance LE t = _ if ToBits t, BitSize t = 8 * n
+
+
 class Stored (t :: *) = (a :: area) | t -> a
 instance Stored Unsigned = _
 
 instance Stored (Ix m) = _     -- BOGUS!
 -}
 
-primitive type Stored :: type -> area
+primitive type Stored, BE, LE :: type -> area
 
 class Storable t where
   initStored :: t -> Init (Stored t)
-
-instance NumLit n (Init (Stored t)) if NumLit n t, Storable t
-  where fromLiteral n = initStored (fromLiteral n)
 
 {-
 
@@ -449,10 +458,6 @@ could be hidden in some way that would prevent direct calls to it, which might o
 degree of assurance.
 
 -}
-
-
-primitive primInitStored :: t -> Init (Stored t)
-
 
 instance Storable Unsigned where
   initStored = primInitStored
@@ -480,74 +485,58 @@ else     ByteSize (Stored (Bit n)) = 2 if n <= 16
 else     ByteSize (Stored (Bit n)) = 4 if n <= 32
 else     ByteSize (Stored (Bit n)) = n fails
 
-{-
-class Writable t where
-  writeRef :: Ref (Stored t) -> t -> M ()
-
--- Should really be <=1, <=2, <=4, but the solver isn't smart enough yet
-instance Writable t if ByteSize (Stored t) < 2 where writeRef = builtin_volatile_write_int8unsigned
-else     Writable t if ByteSize (Stored t) < 3 where writeRef = builtin_volatile_write_int16unsigned
-else     Writable t if ByteSize (Stored t) < 5 where writeRef = builtin_volatile_write_int32
-else     Writable t fails
-
-primitive builtin_volatile_read_int8unsigned  :: (ByteSize (Stored t) <= 1) => Ref (Stored t) -> M t
-primitive builtin_volatile_read_int16unsigned :: (ByteSize (Stored t) <= 2) => Ref (Stored t) -> M t
-primitive builtin_volatile_read_int32         :: (ByteSize (Stored t) <= 4) => Ref (Stored t) -> M t
-primitive builtin_volatile_write_int8unsigned  :: (ByteSize (Stored t) <= 1) => Ref (Stored t) -> t -> M ()
-primitive builtin_volatile_write_int16unsigned :: (ByteSize (Stored t) <= 2) => Ref (Stored t) -> t -> M ()
-primitive builtin_volatile_write_int32         :: (ByteSize (Stored t) <= 4) => Ref (Stored t) -> t -> M ()
--}
-
-{-
-primitive readRef  :: Ref (Stored t) -> M t
-primitive writeRef :: Ref (Stored t) -> t -> M ()
-primitive memZero  :: ARef l a -> M ()
--}
-
 primitive (@)      :: Ref (Array n a) -> Ix n -> Ref a
 
 
 -- Initialization: ----------------------------------------------
 
-primitive type Init :: area -> *
-primitive type I :: * -> *
+primitive type Init      :: area -> *
 
-instance Monad I
-    where return  = primReturnI
-          c >>= f = do v <- c; f v
+primitive initArray      :: Index n => (Ix n -> Init a) -> Init (Array n a)
+primitive initSelf       :: (Ref a -> Init a) -> Init a
 
-primitive primReturnI :: t -> I t
+primitive primInitStored :: t -> Init (Stored t)
+primitive primInitLE     :: t -> Init (LE t)
+primitive primInitBE     :: t -> Init (BE t)
 
--- WARNING: to make this meet back-end expections, I've unpacked the Ref type synonym.  Should its
--- meaning change, these will break.
+instance NumLit n (Init (Stored t)) if NumLit n t, Storable t where
+  fromLiteral n = initStored (fromLiteral n)
+instance NumLit n (Init (BE t)) if NumLit n t where
+  fromLiteral n = primInitBE (fromLiteral n)
+instance NumLit n (Init (LE t)) if NumLit n t where
+  fromLiteral n = primInitLE (fromLiteral n)
 
-primitive private init :: (ARef 1 a -> I ()) -> Init a
-primitive private uninit :: Init a -> ARef 1 a -> I ()
-
-primNoInitStored :: Init (Stored a)
-primNoInitStored = init (\r -> return ())
-
-initArray :: Index n => (Ix n -> Init a) -> Init (Array n a)
-initArray elem = init (loop 0)
- where loop i a = do uninit (elem i) (a @ i)
-                     case incIx i of
-                       Just j  -> loop j  a
-                       Nothing -> return ()
+-- Null initialization: -----------------------------------------
 
 class NullInit a
   where nullInit :: Init a
 
-instance NullInit (Array n a) if 0<n, NullInit a
-  where nullInit = initArray (\i -> nullInit)
-else     NullInit (Array 0 a)
-  where nullInit = primInitZeroArray
+instance NullInit (Array n a) if NullInit a, Index n where
+  nullInit = initArray (const nullInit)
+
+-- Here is the previous prelude NullInit instance for arrays.  I've commented it
+-- out because it seems to introduce a silly extra primitive (primInitZeroArray)
+-- that could equally well be handled in the existing primInitArray primitive.
+-- (This doesn't even make sense if we were expanding initArray... surely we
+-- could still handle a 0-ary loop without needing to add primitives.  instance
+-- NullInit (Array n a) if 0<n, NullInit a where nullInit = initArray (\i ->
+-- nullInit) else NullInit (Array 0 a) where nullInit = primInitZeroArray
 
 instance NullInit (Pad n a) fails
 
+-- The language report calls for the following instance.  It does _not_,
+-- however, call for an instance of Storable (Aptr l a), so the call to
+-- initStored fails.  Leaving this for now ...
+--
+-- instance NullInit (Stored (APtr l a)) where
+--    nullInit = initStored Null
+
 instance NullInit (Stored (Ix n)) if Storable (Ix n), 0 < n where
    nullInit = initStored 0
-else NullInit (Stored Unsigned) where
+instance NullInit (Stored Unsigned) where
    nullInit = initStored 0
+
+-- Non-initalization: -------------------------------------------
 
 class NoInit a
   where noInit :: Init a
@@ -555,24 +544,38 @@ instance NoInit (Pad n a)   if NoInit a
   where noInit  = primNoInitPad
 instance NoInit (Array n a) if NoInit a
   where noInit  = primNoInitArray
+instance NoInit (Stored t) if FromBits t
+  where noInit  = primNoInitStored
+instance NoInit (BE t) if FromBits t
+  where noInit  = primNoInitBE
+instance NoInit (LE t) if FromBits t
+  where noInit  = primNoInitLE
 
-primitive primNoInitPad     :: NoInit a => Init (Pad n a)    -- I think these are safe, but
-primitive primNoInitArray   :: NoInit a => Init (Array n a)  -- should they be exposed?
-primitive primInitZeroArray :: Init (Array 0 a)
+
+-- The language report omits these primitives, instead just defining the
+-- instances above without methods.  That seems like a mistake to me.
+
+-- The previous versions of these primitives had class constraints.  My
+-- intuition is that we should never have class constraints on primitives---what
+-- would it mean to pass evidence to a primitive operation?
+
+primitive primNoInitPad    :: Init (Pad n a)    -- I think these are safe, but
+primitive primNoInitArray  :: Init (Array n a)  -- should they be exposed?
+primitive primNoInitStored :: Init (Stored a)
+primitive primNoInitBE     :: Init (BE a)
+primitive primNoInitLE     :: Init (LE a)
+
+
+-- Default initialization: --------------------------------------
 
 class Initable a
   where initialize :: Init a
 
-instance Initable (Array n a) if Initable a, 0 < n
+instance Initable (Array n a) if Initable a, Index n
   where initialize = initArray (\i -> initialize)
-else     Initable (Array 0 a)
-  where initialize = primInitZeroArray
 
 instance Initable (Pad n a) if NoInit a
   where initialize = noInit
-
-primitive initSelf :: (Ref a -> Init a) -> Init a
-
 
 -- Numerics: ----------------------------------------------------
 bitdata Unsigned = Unsigned [ bits :: Bit 32 ]
@@ -638,7 +641,7 @@ class Monad m
   where return :: a -> m a
         (>>=)  :: m a -> (a -> m b) -> m b
 
-primitive type M (a :: *) -- The machine monad:
+primitive type M :: * -> *     -- The "M"achine monad
 
 primitive primReturnM :: a -> M a
 
@@ -648,7 +651,6 @@ instance Monad M
 
 class Proc p | Monad p  -- super class required!
 instance Proc M
-else     Proc I
 else     Proc m if Monad m
 else     Proc m fails
 
@@ -660,7 +662,7 @@ else     Select (m r) f = m (Select r f) if Monad m
 -- more to come ...
 
 -- TODO: TypeInference.hs should really be the one to introduce these
-primitive type BitdataCase (r::type) (f::lab)
+primitive type BitdataCase :: * -> lab -> *
 primitive structSelect
   :: Select (ARef m s) f (ARef n t) => ARef m s -> #f -> ARef n t
 primitive bitdataSelect
@@ -670,8 +672,7 @@ primitive bitdataUpdate
        => BitdataCase r c -> #f -> Select (BitdataCase r c) f -> BitdataCase r c
 primitive constructBitdata :: t
 
--- type Foo = Bit 5
--- bitdata T = T [ x :: Foo ]
+
 
 const :: a -> b -> a
 const x y = x
@@ -679,7 +680,7 @@ const x y = x
 id :: a -> a
 id x = x
 
--- otherwise :: Bool
--- otherwise = True
+otherwise :: Bool
+otherwise = True
 
 primitive undefined :: a
