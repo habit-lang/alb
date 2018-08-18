@@ -81,7 +81,7 @@ instance Printable Expr
                     getFixity' _                       = Nothing
           ppr (EBitSelect e f) = withPrecedence 10 (ppr e) <> dot <> ppr f
           ppr (EBitUpdate e f e') = ppr e <> brackets (ppr f <+> equals <+> ppr e')
-
+          ppr (EStructInit c es) = ppr c <> brackets (cat (punctuate (comma <> space) [ppr f <+> "<-" <+> ppr e | (f, e) <- es]))
           ppr e@(EBind {}) =
               iter binds $
               atPrecedence 0 ("do" <+> align (vcat pprBinds <$> ppr result))

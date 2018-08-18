@@ -316,12 +316,6 @@ updateFails r f                      = predf "Update" (map introduced [r, f])
 xforall = X.Forall [] []
 xgen   = X.Gen [] []
 
--- Construct an XMPEG expression for a structure initializer.  The first Ty argument is the
--- structure type, the two lists are matching sequences of initializer types and expressions.
-structInit :: Ty -> [Ty] -> [X.Expr] -> X.Expr
-structInit ty ts es
-  = foldl X.EApp (X.ELetVar (X.Inst "primStructInit" (map convert (ty:ts)) [])) es -- TODO: revisit
-
 ----------------------------------------------------------------------------------------------------
 -- Utility functions: environment variables
 

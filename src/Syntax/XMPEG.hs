@@ -78,6 +78,7 @@ data Expr      = ELamVar Id
                | EApp Expr Expr
                | EBitSelect Expr Id
                | EBitUpdate Expr Id Expr
+               | EStructInit Id [(Id, Expr)]
                | EBind Type Type Type Ev Id Expr Expr -- {ta,tb,tm}{me :: Proc tm} (id :: ta) <- e ; (e' :: tm tb)
                | EReturn Expr
 
@@ -99,6 +100,7 @@ instance HasVariables Expr
           freeVariables (EApp e e')             = freeVariables e ++ freeVariables e'
           freeVariables (EBitSelect e _)        = freeVariables e
           freeVariables (EBitUpdate e _ e')     = freeVariables e ++ freeVariables e'
+          freeVariables (EStructInit _ es)      = concatMap (freeVariables . snd) es
           freeVariables (EBind _ _ _ _ id e e') = freeVariables e ++ filter (id /=) (freeVariables e')
           freeVariables (EReturn e)             = freeVariables e
 

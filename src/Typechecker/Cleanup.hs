@@ -95,6 +95,7 @@ instance Cleanup Expr
            c (EApp f x)                 = EApp (c f) (c x)
            c (EBitSelect e f)           = EBitSelect (c e) f
            c (EBitUpdate e f e')        = EBitUpdate (c e) f (c e')
+           c (EStructInit k fs)         = EStructInit k [(f, c e) | (f, e) <- fs]
            c (EBind ta tb tm me v e e') = EBind (cleanType vs ta) (cleanType vs tb) (cleanType vs tm)
                                                 (cleanup vs exs evs me) v (c e) (c e')
            c (EReturn e)                = EReturn (c e)

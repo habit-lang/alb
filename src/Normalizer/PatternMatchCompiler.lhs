@@ -131,7 +131,7 @@ preserve the order in which constructors are listed in the original program.
 > pmcExpr s (X.EBits bits size)            = return (LC.EBits bits size)
 > pmcExpr s (X.ECon (Inst i ts _))         = return (LC.ECon i (map convert ts) typeNotKnown)
 > pmcExpr s (X.EBitCon id es)              = LC.EBitCon id `fmap`
->                                              mapM (\(f, e) -> (f, ) `fmap` pmcExpr s e) es
+>                                              mapM (\(f, e) -> (f,) `fmap` pmcExpr s e) es
 > pmcExpr s (X.ELam i t e)                 = LC.ELam i (convert t) `fmap` pmcExpr s e
 > pmcExpr s (X.ESubst {})                  = error "PatternMatchCompiler:37"
 > pmcExpr s (X.EMethod {})                 = error "PatternMatchCompiler:38"
@@ -143,6 +143,8 @@ preserve the order in which constructors are listed in the original program.
 > pmcExpr s (X.EMatch (X.MCommit e))       = pmcExpr s e      -- (4)
 > pmcExpr s (X.EMatch m)                   = pmcMatch s m
 > pmcExpr s (X.ELet ds e)                  = liftM2 LC.ELet (pmcDecls s ds) (pmcExpr s e)
+> pmcExpr s (X.EStructInit k fs)           = LC.EStructInit k `fmap`
+>                                               mapM (\(f, e) -> (f,) `fmap` pmcExpr s e) fs
 > pmcExpr s (X.EBind ta _ _ _ v e e1)      = liftM2 (LC.EBind v (convert ta))
 >                                                   (pmcExpr s e)
 >                                                   (pmcExpr s e1)

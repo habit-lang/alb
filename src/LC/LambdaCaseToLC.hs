@@ -60,6 +60,7 @@ mExpr (C.EBits n s)       = L.EBits n s
 mExpr (C.ENat n)          = L.ENat n
 mExpr (C.ECon i ts t)     = L.ECon (sid i) (map (st . convert) ts) (st . convert $ t)
 mExpr (C.EBitCon i es)    = L.EBitCon (sid i) (map (\(f, e) -> (f, mExpr e)) es)
+mExpr (C.EStructInit k fs) = L.EStructInit (sid k) (map (\(f, e) -> (f, mExpr e)) fs)
 mExpr (C.ELam i t e)      = L.ELam i (st . convert $ t) (mExpr e)
 mExpr (C.ELet dcs e)      = L.ELet (mDecls dcs) (mExpr e)
 mExpr (C.ECase e as)      = L.ECase (mExpr e) (map mAlt as)

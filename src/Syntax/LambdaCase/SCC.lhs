@@ -29,6 +29,12 @@ of e as well as the set of free variables in e.
 >             sccField (f, e) = ((f, e'), vs)
 >                 where (e', vs) = fvsSCC e
 
+>   fvsSCC (EStructInit k fs)
+>     = (EStructInit k fs', concat vss)
+>       where (fs', vss) = unzip (map sccField fs)
+>             sccField (f, e) = ((f, e'), vs)
+>                 where (e', vs) = fvsSCC e
+
 >   fvsSCC (ELam i t e)
 >     = (ELam i t e', delete i efvs)
 >       where (e', efvs) = fvsSCC e
