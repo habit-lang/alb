@@ -3,101 +3,28 @@
 
 The code in this module implements a walk over the AST of a LambdaCase program
 that:
-(1) replaces any type expression of the form "Init t" in the abstract syntax
-    tree with a function type "ARef 1 t -> Result"
-(2) Eta-expand any top-level definitions that have function type (after the
-    transformations of Step (1) are complete) with right hand sides that are
-    not already lambdas.
+
+Eta-expands any top-level definitions that have function type with right hand
+sides that are not already lambdas.
 
 These transformations are designed to align generated LambdaCase code with the
-requirements of the current back-end.
+requirements of the previous back-end, and may now be entirely unnecessary.
 
 > import Syntax.Common
 > import Syntax.LambdaCase
 
 > etaInit :: Program -> Program
-> etaInit  = eta . deInit
+> etaInit  = eta
 
 -- Expand uses of Init: ------------------------------------------------------
 
 AST fragments and constructors:
-
-> initKId   :: Kinded Id
-> initKId    = Kinded "Init" (KFun KArea KStar)
-
-> initTyCon :: Type
-> initTyCon  = TyCon initKId
 
 > arrKId    :: Kinded Id
 > arrKId     = Kinded "->" (KFun KStar (KFun KStar KStar))
 
 > arrTyCon  :: Type
 > arrTyCon   = TyCon arrKId
-
-> arefTy    :: Type
-> arefTy     = TyCon (Kinded "ARef" (KFun KNat (KFun KArea KStar))) `TyApp` TyLit 1
-
-> resultTy  :: Type
-> resultTy   = TyApp (TyCon (Kinded "I" (KStar `KFun` KStar)))
->                    (TyCon (Kinded "Unit" KStar))
-
-AST walker:
-
-> class DeInit a where deInit :: a -> a
-
-> instance DeInit Type where
->   deInit (TyApp l r)
->      | l == initTyCon = (arrTyCon `TyApp` (arefTy `TyApp` r)) `TyApp` resultTy
->      | otherwise      = TyApp (deInit l) (deInit r)
->   deInit t
->      | t == initTyCon = error "partially applied Init"  -- correct behavior?
->      | otherwise      = t
-
-> instance DeInit a => DeInit [a] where
->   deInit = map deInit
-
-> instance DeInit Expr where
->   deInit (EVar i t)          = EVar i (deInit t)
->   deInit (ECon i ts t)       = ECon i (deInit ts) (deInit t)
->   deInit (ELam i t e)        = ELam i (deInit t) (deInit e)
->   deInit (ELet ds e)         = ELet (deInit ds) (deInit e)
->   deInit (ECase e alts)      = ECase (deInit e) (deInit alts)
->   deInit (EApp f x)          = EApp (deInit f) (deInit x)
->   deInit (EFatbar l r)       = EFatbar (deInit l) (deInit r)
->   deInit (EBind i t e e1)    = EBind i (deInit t) (deInit e) (deInit e1)
->   deInit e                   = e -- covers EBits, ENat
-
-> instance DeInit Alt where
->   deInit (Alt c ts is e)     = Alt c (deInit ts) is (deInit e)
-
-> instance DeInit Defn where
->   deInit (Defn i t (Left impl))  = Defn i (deInit t) (Left impl)
->   deInit (Defn i t (Right e)) = Defn i (deInit t) (Right (deInit e))
-
-> instance DeInit Decl where
->   deInit (Mutual defns)      = Mutual (deInit defns)
->   deInit (Nonrec defn)       = Nonrec (deInit defn)
-
-> instance DeInit Decls where
->   deInit (Decls decls)       = Decls (deInit decls)
-
-> instance DeInit TopDecl where
->   deInit (Datatype i ts ctors)
->                              = Datatype i (deInit ts) [ (i, deInit as) | (i, as) <- ctors ]
->   deInit (Bitdatatype i w ctors)
->                              = Bitdatatype i w [ (i, deInit fs) | (i, fs) <- ctors ]
->   deInit (Struct i w fields) = Struct i w (deInit fields)
->   deInit (Area i v e t s a)  = Area i v (deInit e) (deInit t) s a
-
-> instance DeInit BitdataField where
->   deInit (LabeledField i t w o) = LabeledField i (deInit t) w o
->   deInit constantField          = constantField
-
-> instance DeInit StructField where
->   deInit (StructField mi t w o) = StructField mi (deInit t) w o
-
-> instance DeInit Program where
->   deInit (Program ds tops)      = Program (deInit ds) (deInit tops)
 
 -- Eta-expand top-level decls: -----------------------------------------------
 
@@ -143,4 +70,3 @@ programs:
 >   eta (Program decls tops) = Program (eta decls) tops
 
 ------------------------------------------------------------------------------
-

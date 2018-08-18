@@ -44,6 +44,7 @@ as the set of free variables in e.
 > instance Inliner Expr where
 >   inline env e@(EVar i t)             = fromMaybe e (lookup i env)
 >   inline env (EBitCon i fields)       = EBitCon i [(f, inline env e) | (f, e) <- fields]
+>   inline env (EStructInit k fields)   = EStructInit k [(f, inline env e) | (f, e) <- fields]
 >   inline env (ELam i t e)             = ELam i t (inline (unbind i env) e)
 >   inline env (ELet (Decls ds) e)      = let (env', ds') = inlineGroups [] env ds -- NOTE: refusing to preserve let-bound values
 >                                         in case ds' of

@@ -163,10 +163,10 @@ checkExpr (At loc (EStructInit name inits)) expected =
          failWithS ("There are no fields called " ++ commaSep notFields ++ " for structure " ++ fromId name)
 
        -- Compute a full list of initializers for this structure:
-       (es, pss, ts) <- unzip3 `fmap` mapM initFor regions
-       return ( structInit ty ts es, concat pss )
+       (fs, pss) <- unzip `fmap` mapM initFor regions
+       return (X.EStructInit name (catMaybes fs), concat pss)
 
-    where initFor :: (Maybe Id, Ty, Maybe Id) -> M (X.Expr, Preds, Ty)
+    where initFor :: (Maybe Id, Ty, Maybe Id) -> M (Maybe (Id, X.Expr), Preds)
           initFor (mregName, regTy, mregInit)
             = case mregName of
                 Nothing      ->  -- unnamed region, use default initializer
@@ -176,18 +176,16 @@ checkExpr (At loc (EStructInit name inits)) expected =
                     (e : _) ->
                       do (e', ps) <- checkExpr e initType -- confirm that initializer has correct type
                                                           -- TODO: is this correct?
-                         return (e', ps, initType)
+                         return (Just (regName, e'), ps)
                     [] ->
                       case mregInit of -- look for an initializer in the structure definition
-                        Just defInit -> return (X.ELetVar (X.Inst defInit [] []), [], initType)
+                        Just defInit -> return (Just (regName, X.ELetVar (X.Inst defInit [] [])), [])
                         Nothing      -> defaultInitializer
               where
                 initType = TyApp (At loc initTy) (At loc regTy)
-                defaultInitializer :: M (X.Expr, Preds, Ty)
+                defaultInitializer :: M (Maybe (Id, X.Expr), Preds)
                 defaultInitializer  = do evar <- fresh "e"      -- evidence for Init ty
-                                         return (X.EMethod (X.EvVar evar) 0 [] [],
-                                                 [(evar, At loc (initablePred (At loc regTy)))],
-                                                 initType)
+                                         return (Nothing, [(evar, At loc (initablePred (At loc regTy)))])
 
 ----------------------------------------------------------------------------------------------------
 

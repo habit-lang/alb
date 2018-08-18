@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 module Typechecker.LambdaCasePropagation where
 
 import Common
@@ -17,6 +18,8 @@ prop_expr g (ECon i ts _) = g (Term i ts) >>= \t -> return (ECon i ts t)
 prop_expr g (EBitCon i es) = EBitCon i `fmap` mapM (prop_field g) es
     where prop_field g (f, e) = do e' <- prop_expr g e
                                    return (f, e')
+prop_expr g (EStructInit k fs) = EStructInit k `fmap` mapM (prop_field g) fs
+    where prop_field g (f, e) = (f,) `fmap` prop_expr g e
 prop_expr g (ELam i t e) =
   do
     e' <- prop_expr (update g (Term i []) t) e

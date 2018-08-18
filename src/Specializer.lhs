@@ -473,6 +473,12 @@ the abstract syntax tree:
 The cases for specialization of an expression are given in the following
 instance declaration:
 
+> mapAccumM :: Monad m => (a -> b -> m (a, c)) -> a -> [b] -> m (a, [c])
+> mapAccumM f z []     = return (z, [])
+> mapAccumM f z (x:xs) = do (z', y) <- f z x
+>                           (z'', ys) <- mapAccumM f z' xs
+>                           return (z'', y : ys)
+
 > instance Specialize Expr where
 
 >   specialize c (ELamVar i)
@@ -490,11 +496,7 @@ instance declaration:
 >   specialize c (EBitCon id es)
 >     = do (c', es') <- mapAccumM specializeField c es
 >          return (EBitCon id es', c')
->       where mapAccumM f z []     = return (z, [])
->             mapAccumM f z (x:xs) = do (z', y) <- f z x
->                                       (z'', ys) <- mapAccumM f z' xs
->                                       return (z'', y : ys)
->             specializeField c (f, e)
+>       where specializeField c (f, e)
 >               = do (e', c') <- specialize c e
 >                    return (c', (f, e'))
 
@@ -544,6 +546,13 @@ instance declaration:
 >     = do (e1', c1) <- specialize c e1
 >          (e2', c2) <- specialize c e2
 >          return (EBitUpdate e1' f e2', c2)
+
+>   specialize c (EStructInit k fs)
+>     = do (c', fs') <- mapAccumM specializeField c fs
+>          return (EStructInit k fs', c')
+>       where specializeField c (f, e)
+>               = do (e', c') <- specialize c e
+>                    return (c', (f, e'))
 
 >   specialize c (EBind ta tb tm procEvid v e e')
 >     = do (e1, c1) <- specialize c e
@@ -935,10 +944,10 @@ this cause problems later in the pipeline?
 >        return (catMaybes areas' ++ topDecls')
 >   where iter built [] = return (map snd built)
 >         iter built (rq : rqs)
->             | kindOf rq /= KStar = iter built rqs
 >             | rq `elem` map fst built = iter built rqs
 >             | otherwise = case topDeclFor rq topDecls of
->                             Nothing -> iter built (concatMap requestedBy (snd (flattenType rq)) ++ rqs)
+>                             Nothing -> trace ("Skipping requested top-level type " ++ show (ppr rq)) $
+>                                        iter built (concatMap requestedBy (snd (flattenType rq)) ++ rqs)
 >                                        -- avoid attempting to build primitive types, but include arguments to primitive types
 >                             Just d  -> do (d', newRqs) <- specTopDecl d rq
 >                                           let builtTys     = map fst built

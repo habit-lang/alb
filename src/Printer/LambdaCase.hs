@@ -40,7 +40,8 @@ instance Printable Expr
           ppr (ENat n)          = integer n
           ppr (ECon id ts ty)   = atPrecedence 9 $
                                   ppr id <> commaBraces (map ppr ts)
-          ppr (EBitCon id es)   = ppr id <> brackets (cat (punctuate (comma <> space) [ppr f <+> equals <+> ppr e | (f, e) <- es]))
+          ppr (EBitCon id es)   = ppr id <> brackets (cat (punctuate " | " [ppr f <+> equals <+> ppr e | (f, e) <- es]))
+          ppr (EStructInit k fs) = ppr k <> brackets (cat (punctuate " | " [ppr f <+> "<-" <+> ppr e | (f, e) <- fs]))
           ppr (ELam id ty body) = parens $ atPrecedence 9 $
                                   ((backslash <> ppr id <+> text "::" <+> ppr ty <+> text "-> ") <//> ppr body)
           ppr (ELet ds body)    = atPrecedence 9
@@ -95,7 +96,7 @@ instance Printable TopDecl
                           (first : rest) -> equals <+> align (pprCtor first <> cat [ softline <> bar <+> pprCtor ctor | ctor <- rest ])
 
           ppr (Struct name size fields) =
-              nest 4 (ppr name <> int size <+> brackets (cat (punctuate (softline <> bar <> space) (map ppr fields))) )
+              nest 4 ("struct" <+> ppr name <+> "/" <+> int size <+> brackets (cat (punctuate (softline <> bar <> space) (map ppr fields))) )
 
           ppr (Area name v init ty size align) =
               nest 4 ((if v then text "volatile" <> space else empty) <>

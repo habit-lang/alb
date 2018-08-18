@@ -115,6 +115,7 @@ type Context = ContextEntry -> TM Type
 data ContextEntry = Term Id [Type]
                   | CaseAlt Id [Type]
                   | BitConField Id Id
+                  | StructInitField Id Id
                     deriving (Show, Eq)
 
 empty :: Context
@@ -213,6 +214,15 @@ checkExpr gamma t@(EBitCon i es)
                                     if ty == ty'
                                     then return ty
                                     else typeFailIn "Type mismatch in bitdata constructor" $ typeError ty ty' (show t)
+checkExpr gamma t@(EStructInit k fs)
+    | null fs = gamma (Term k [])
+    | otherwise = do mapM_ checkField fs
+                     return (TyApp (TyCon (Kinded "Init" (KFun KStar KStar))) (TyCon (Kinded k KArea)))
+    where checkField (name, e) = do ty <- checkExpr gamma e
+                                    ty' <- gamma (StructInitField k name)
+                                    if ty == ty'
+                                    then return ty
+                                    else typeFailIn "Type mismatch in structure initializer" $ typeError ty ty' (show t)
 checkExpr _       (EBits _ s)      = return $ bitsT s
 checkExpr _       (ENat n)         = return $ natT n
 checkExpr gamma t@(ELam i ty e)    = do ty' <- checkExpr (update gamma (Term i []) ty) e
@@ -326,8 +336,9 @@ buildTopDecl gamma (Bitdatatype i _ ps)   = let ty = (TyCon (Kinded i KStar))
                                                 ctxt = foldl (build_bit_ctor ty []) gamma ps
                                             in return  ctxt
 buildTopDecl gamma (Area i _ _ ty _ _)    =  return $ update gamma (Term i []) ty
-
-buildTopDecl gamma t@(Struct _ _ _)       = return gamma -- typeFail ["Unimplemented top level declaration:", show t]
+buildTopDecl gamma t@(Struct k _ fs)      = return (foldl addField gamma fs)
+  where addField gamma (StructField (Just f) t _ _) = update gamma (StructInitField k f) (TyApp (TyCon (Kinded "Init" (KFun KArea KStar))) t)
+        addField gamma _                            = gamma
 
 buildTopDecls :: TopDecls -> Context -> TM Context
 buildTopDecls tds gamma = foldM buildTopDecl gamma tds
@@ -337,21 +348,15 @@ buildTopDecls tds gamma = foldM buildTopDecl gamma tds
 -- expression accepts the proper ref type as an argument (and returns
 -- some monadic unit type as well, I suppose, TODO).
 checkInitializer :: Context -> TopDecl -> TM Context
-checkInitializer gamma t@(Area i _ e ty s a) =
+checkInitializer gamma t@(Area i _ e refTy s a) =
     do ty' <- checkExpr gamma e `orTypeFail` ["typing initializer: ", show t]
        case ty' of
-         (TyApp (TyApp (TyCon (Kinded "->" _)) arg)
-          (TyApp (TyCon (Kinded "I" _)) (TyCon (Kinded "Unit" _)))) ->
+         TyApp (TyCon (Kinded "Init" (KFun KArea KStar))) arg ->
            if arg == ty
            then return gamma
            else typeFail ["Initializer type mis-match in: ", show t, show arg, show ty]
-         (TyApp (TyApp (TyCon (Kinded "->" _)) arg)
-           (TyApp (TyApp (TyCon (Kinded "->" _)) (TyCon (Kinded "Unit" _)))
-             (TyCon (Kinded "Unit" _)))) ->
-           if arg == ty
-           then return gamma
-           else typeFail ["Thunkified initializer type mis-match in: ", show t, show arg, show ty]
          _ -> typeFail ["Ill typed initializer in: ", show t]
+    where TyApp _ ty = refTy -- TODO: this feels incredibly fragile
 checkInitializer gamma _ = return gamma
 
 checkInitializers :: TopDecls -> Context -> TM Context

@@ -1,5 +1,4 @@
 requires prelude
-requires list
 requires io
 
 fib :: Unsigned -> Unsigned

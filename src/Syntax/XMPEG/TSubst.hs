@@ -136,6 +136,7 @@ instance HasTypeVariables Expr
           s # EApp e e'      = EApp (s # e) (s # e')
           s # EBitSelect e f = EBitSelect (s # e) f
           s # EBitUpdate e f e' = EBitUpdate (s # e) f (s # e')
+          s # EStructInit c es = EStructInit c [(f, s # e) | (f, e) <- es]
           s # EBind ta tb tm me v e e' =
               EBind (s # ta) (s # tb) (s # tm) (s # me) v (s # e) (s # e')
           s # EReturn e      = EReturn (s # e)
@@ -158,6 +159,7 @@ instance HasEvidenceVariables Expr
           fevs (EApp e e')                     = fevs e ++ fevs e'
           fevs (EBitSelect e f)                = fevs e
           fevs (EBitUpdate e f e')             = fevs e ++ fevs e'
+          fevs (EStructInit _ es)              = concatMap (fevs . snd) es
           fevs (EBind ta tb tm me v e e')      = fevs me ++ fevs e ++ fevs e'
           fevs (EReturn e)                     = fevs e
 
