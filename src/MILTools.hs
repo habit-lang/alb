@@ -16,6 +16,7 @@ import System.Process
 
 -- Options for invoking the LC Compiler
 data MILOptions = MILOptions { jarPath       :: Maybe FilePath,
+                               llvmMain      :: Maybe String,
                                extraMilFiles :: [FilePath],
                                otherOptions  :: String,
                                clangPath     :: Maybe FilePath,
@@ -23,14 +24,15 @@ data MILOptions = MILOptions { jarPath       :: Maybe FilePath,
                                fake          :: Bool }
 
 defaultMILOptions = MILOptions { jarPath       = Nothing,
+                                 llvmMain      = Nothing,
                                  extraMilFiles = [],
                                  otherOptions  = "",
                                  clangPath     = Nothing,
                                  clangOptions  = "",
                                  fake          = False }
 
-milCompile :: MILOptions -> String -> Program -> IO ()
-milCompile milo outputFileName prog =
+milCompile :: MILOptions -> String -> Bool -> Program -> IO ()
+milCompile milo outputFileName invokeClang prog =
     do writeFile lcFileName (show (ppr prog))
        execPath <- getExecutablePath
 
@@ -40,6 +42,7 @@ milCompile milo outputFileName prog =
                                       extraMilFiles milo ++
                                       [ lcFileName,
                                         "-l" ++ llFileName,
+                                        maybe "" ("--llvm-main=" ++) (llvmMain milo),
                                         otherOptions milo ]
            clang = fromMaybe ("clang") (clangPath milo)
            exeName = replaceExtension outputFileName (takeExtension execPath)
@@ -53,10 +56,12 @@ milCompile milo outputFileName prog =
                if exitCode /= ExitSuccess
                then hPutStrLn stderr ("mil-tools invocation failed (" ++ show exitCode ++ ")")
                else do removeFile lcFileName
-                       exitCode <- system clangCmd
-                       if exitCode /= ExitSuccess
-                       then hPutStrLn stderr ("clang invocation failed (" ++ show exitCode ++")")
-                       else removeFile llFileName
+                       if invokeClang
+                       then do exitCode <- system clangCmd
+                               if exitCode /= ExitSuccess
+                               then hPutStrLn stderr ("clang invocation failed (" ++ show exitCode ++")")
+                               else removeFile llFileName
+                       else return ()
 
     where lcFileName = replaceExtension outputFileName "lc"
           llFileName = replaceExtension outputFileName "ll"
