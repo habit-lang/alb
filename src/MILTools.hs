@@ -5,6 +5,7 @@ module MILTools (MILOptions(..), milCompile, defaultMILOptions) where
 import Data.List
 import Data.Maybe
 import Printer.LC
+import Syntax.Common(fromId)
 import Syntax.LC
 import System.Directory
 import System.Environment
@@ -42,8 +43,10 @@ milCompile milo outputFileName invokeClang prog =
                                       extraMilFiles milo ++
                                       [ lcFileName,
                                         "-l" ++ llFileName,
+                                        "--mil-main=" ++ main,
                                         maybe "" ("--llvm-main=" ++) (llvmMain milo),
                                         otherOptions milo ]
+           main = fromId (head [ id | (id, b) <- fromEntrypoints (entrypoints prog), b ])
            clang = fromMaybe ("clang") (clangPath milo)
            exeName = replaceExtension outputFileName (takeExtension execPath)
            clangCmd = intercalate " " [ clang,

@@ -137,8 +137,7 @@ instance Printable Program
                                         [ppr notMainEntries] ++
                                         (if null mainEntries
                                          then []
-                                         else ["hmain = unsafeRunProc" <+> ppr (fst (head mainEntries)) <$>
-                                               "entrypoint hmain"]) ++
+                                         else ["export" <+> ppr (fst (head mainEntries))]) ++
                                         map ppr (topDecls p)  ++
                                         [ppr (decls p)]))
               where mainEntries = filter snd (fromEntrypoints (entrypoints p))
