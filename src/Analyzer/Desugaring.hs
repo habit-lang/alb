@@ -368,7 +368,7 @@ instance Sugared S.Pattern (Pattern PredFN Id)
                 _ -> failWith $ text "Pattern must be the application of a constructor to a list of arguments: " <+> ppr p
               where (op, ps) = S.flattenPattern (introduced p)
 
-          desugar (S.PBitdata ctor fieldPatterns) =
+          desugar (S.PLabeled ctor fieldPatterns) =
               do rejectDuplicates [ At loc f | At loc (S.FieldPattern f p) <- fieldPatterns ]
                  n <- fresh "n"
                  foldM (addFieldGuards n) (PCon ctor [n]) fieldPatterns
@@ -798,6 +798,7 @@ instance Sugared S.Synonym [Top]
                         | otherwise  = findParam (n + 1) rest id'
 
 
+-- TODO: generalizing over one (1) case here...
 desugarCtor :: (Sugared p p', Sugared t t', HasTypeVariables p' Id, HasTypeVariables t' Id) =>
                [Id] -> Ctor Id p t -> M (Ctor Id p' t')
 desugarCtor enclosing (Ctor name _ quals fields) =
@@ -821,6 +822,9 @@ instance Sugared S.Datatype [Top]
                                           topDecls' <- desugarInterface name params' [] rhs ds
                                           return (Datatype name' params' ctors' drv : topDecls')
                    _ -> failWithS "Invalid datatype LHS"
+
+instance Sugared S.DataField (Type Id)
+    where desugar (S.DataField _ (At l t)) = desugar t
 
 toMaybeScheme = maybe Nothing (Just . toScheme [])
 

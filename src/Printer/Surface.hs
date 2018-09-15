@@ -94,7 +94,7 @@ instance Printable Pattern
           ppr (PApp (At _ (PApp (At _ (PVar op)) lhs)) rhs)
               | isOperator op = printInfix eitherFixity op lhs rhs
           ppr (PApp p p') = atPrecedence 9 (ppr p <+> withPrecedence 10 (ppr p'))
-          ppr (PBitdata name fields) = ppr name <+> brackets (align (cat (punctuate (space <> bar <> space) (map ppr fields))))
+          ppr (PLabeled name fields) = ppr name <+> brackets (align (cat (punctuate (space <> bar <> space) (map ppr fields))))
           ppr (PInfix first rest) = atPrecedence 8 (withPrecedence 9 (ppr first <+> hsep [ ppr op <+> ppr e | (op, e) <- rest ]))
 
 instance Printable FieldPattern
@@ -165,8 +165,16 @@ instance Printable Synonym
 instance Printable Datatype
     where ppr (Datatype lhs ctors drv interface) = nest 4 ((if isJust interface then text "opaque" <> space else empty) <>
                                                            text "data" <+> ppr lhs <> pprCtors <> pprDrvs <> nest 4 (printMaybeDecls interface))
-              where pprCtor (Ctor name _ [] fields) = ppr name <+> sep (map (atPrecedence 10 . ppr) fields)
-                    pprCtor (Ctor name _ preds fields) = ppr name <+> sep (map (atPrecedence 10 . ppr) fields) <+> text "if" <+> cat (punctuate comma (map ppr preds))
+              where pprCtor (Ctor name _ [] fields) = ppr name <+> pprFields fields
+                    pprCtor (Ctor name _ preds fields) = ppr name <+> pprFields fields <+> text "if" <+> cat (punctuate comma (map ppr preds))
+                    pprFields fs
+                        | all unlabeled fs = sep (map (atPrecedence 10 . pprField) fs)
+                        | otherwise        = brackets (cat (punctuate " | " (map pprField fs)))
+                        where unlabeled (At _ (DataField Nothing _)) = True
+                              unlabeled _                     = False
+                              pprField (At _ (DataField (Just l) t)) = ppr l <+> "::" <+> ppr t
+                              pprField (At _ (DataField Nothing t))  = ppr t
+
                     pprCtors =
                         case ctors of
                           [] -> empty

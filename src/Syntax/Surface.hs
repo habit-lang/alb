@@ -76,7 +76,7 @@ data Pattern = PVar Id
              | PTuple [Located Pattern]
              | PTupleCon Int
              | PApp (Located Pattern) (Located Pattern)
-             | PBitdata Id [Located FieldPattern]
+             | PLabeled Id [Located FieldPattern]
              | PInfix (Located Pattern) [(Located Id, Located Pattern)]
                deriving (Eq, Show, Typeable, Data)
 
@@ -91,7 +91,7 @@ instance Binder Pattern
           bound (PTyped p _)        = bound p
           bound (PTuple ps)         = concatMap bound ps
           bound (PApp p p')         = bound p ++ bound p'
-          bound (PBitdata _ ps)     = concatMap bound ps
+          bound (PLabeled _ ps)     = concatMap bound ps
           bound (PInfix first rest) = bound first ++ filter (not . isConId) (map dislocate operators) ++ bound operands
               where (operators, operands) = unzip rest
           bound p                   = []
@@ -171,10 +171,13 @@ data Requirement = Require [Located Pred] [Located Pred]
 data Synonym = Synonym (Located Type) (Qual Type) (Maybe Decls)
                deriving (Eq, Show, Typeable, Data)
 
+data DataField = DataField (Maybe Id) (Located Type)
+                 deriving (Eq, Show, Typeable, Data)
+
 data Datatype = Datatype (Located Type)                 -- name and params
-                         [Ctor Id Pred Type]
+                         [Ctor Id Pred DataField]
                          [Id]                           -- deriving list
-                         (Maybe Decls)
+                         (Maybe Decls)                  -- opaque interface (should be sorted out)
                 deriving (Eq, Show, Typeable, Data)
 
 --------------------------------------------------------------------------------
