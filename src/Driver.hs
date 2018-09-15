@@ -329,8 +329,8 @@ buildPipeline options =
 
           toDesugar
             = fixityProgram >=> freshenProgram >=> eliminateTuplesProgram >=>
-              desugarProgram >=> patternTuplesProgram >=> generateTuples >=>
-              rewriteFunctionalNotation
+              desugarLabeledFields >=> desugarProgram >=> patternTuplesProgram >=>
+              generateTuples >=> rewriteFunctionalNotation
 
           toInferKinds
             = toDesugar >=> inferKinds
@@ -361,12 +361,14 @@ buildPipeline options =
                             Just s -> do when (verbose options) (putStrLn ("Writing \"" ++ s ++ "\":"))
                                          writeFile s (show d))
 
-          emptyDesugaringState :: (((S.Fixities, ScopeEnv),
-                                    DesugaringState),
-                                   TupleState)
-          emptyDesugaringState = (((S.Fixities Map.empty Map.empty, ([], [])),
-                                   ([], ([], []))),
-                                  (Set.empty, Set.empty))
+          emptyDesugaringState :: ((((S.Fixities, ScopeEnv),
+                                     DesugaringState),
+                                    TupleState),
+                                   LabeledFields)
+          emptyDesugaringState = ((((S.Fixities Map.empty Map.empty, ([], [])),
+                                    ([], ([], []))),
+                                   (Set.empty, Set.empty)),
+                                  emptyLabeledFields)
 
           initialState = (((emptyDesugaringState,
                             emptyFunctionalNotationState),

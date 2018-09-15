@@ -142,7 +142,7 @@ declsExternalVars Decls{ equations = es } =
         bound (At s (PTyped p _))        = bound p
         bound (At s (PTuple ps))         = concatMap bound ps
         bound (At s (PApp p p'))         = bound p ++ bound p'
-        bound (At s (PBitdata _ ps))     = concatMap (\(At _ (FieldPattern _ p)) -> bound p) ps
+        bound (At s (PLabeled _ ps))     = concatMap (\(At _ (FieldPattern _ p)) -> bound p) ps
         bound (At s (PInfix first rest)) = bound first ++
                                            filter (not . isConId . dislocate) operators ++
                                            concatMap bound operands
@@ -250,7 +250,7 @@ freshenProgram' = rec where
         -- Types containing patterns
         `extM` alt `extM` equation
   pattern e@(PCon _) = return e
-  pattern (PBitdata ctor ps) = return PBitdata `ap` return ctor `ap` mapM rec ps
+  pattern (PLabeled ctor ps) = return PLabeled `ap` return ctor `ap` mapM rec ps
   pattern e = gmapM rec e
   fieldPattern (FieldPattern id p) = return (FieldPattern id) `ap` rec p
   id i = do env <- ask; freshenId env i
