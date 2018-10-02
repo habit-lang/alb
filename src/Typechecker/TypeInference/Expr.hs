@@ -457,9 +457,12 @@ checkTypingGroup (Pattern (At l p) m signatures) =
                 Just tys -> Explicit f tys
 
 checkTypingGroup (PrimValue (Signature name expectedTyS) str) =
-    do return ( [X.Defn name (convert expectedTyS) (Left (str, []))]
-              , []
-              , Map.singleton name (LetBound expectedTyS))
+    do tys'@(ForallK _ (Forall _ (ps :=> _))) <- simplifyScheme expectedTyS
+       if not (null ps)
+       then failWith (hang 4 ("After simplification, primitive" <+> ppr name <+> "has illegal qualified type" <$> ppr expectedTyS))
+       else return ( [X.Defn name (convert expectedTyS) (Left (str, []))]
+                   , []
+                   , Map.singleton name (LetBound expectedTyS))
 
 ----------------------------------------------------------------------------------------------------
 
