@@ -142,7 +142,7 @@ class NumLit (n :: nat) t where
 
 instance NumLit n (Bit m) if n < 2^m
   where fromLiteral = primBitFromLiteral
-primitive primBitFromLiteral :: (n < 2^m) => #n -> Bit m
+primitive primBitFromLiteral :: #n -> Bit m
 
 -- Bit vectors: -------------------------------------------------
 
@@ -324,8 +324,8 @@ instance Shift (Ix p) if Index p, 2^n = p
  where shiftL x y = primIxShiftL x y
        shiftR x y = primIxShiftR x y
 
-primitive primIxShiftL :: Ix n -> Ix (BitSize (Ix n)) -> Ix n
-primitive primIxShiftR :: Ix n -> Ix (BitSize (Ix n)) -> Ix n
+primitive primIxShiftL :: Ix n -> Ix m -> Ix n
+primitive primIxShiftR :: Ix n -> Ix m -> Ix n
 
 -- References and memory areas: ---------------------------------
 
@@ -392,7 +392,7 @@ instance Num (Ix n) fails
 instance NumLit i (Ix n) if Index n, i < n
   where fromLiteral = primIxFromLiteral
 
-primitive primIxFromLiteral :: (n < m) => #n -> Ix m
+primitive primIxFromLiteral :: #n -> Ix m
 
 class Index n | 0 < n where
   incIx, decIx :: Ix n -> Maybe (Ix n)
@@ -409,14 +409,12 @@ instance Index n if 0 < n   -- TODO: needs more
         x <=? y   = primLeqIx x.bits y
         relaxIx   = primRelaxIx
 
-primitive primIncIx   :: (0 < n) => Ix n -> Maybe (Ix n)
-primitive primDecIx   :: (0 < n) => Ix n -> Maybe (Ix n)
-primitive primMaybeIx :: (0 < n) => Bit WordSize -> Maybe (Ix n)
-primitive primModIx   :: (0 < n) => Bit WordSize -> Ix n
-primitive primLeqIx   :: (0 < n) => Bit WordSize -> Ix n -> Maybe (Ix n)
-primitive primRelaxIx :: (0 < n, n < m, Index m) => Ix n -> Ix m
-
-
+primitive primIncIx   :: Ix n -> Maybe (Ix n)
+primitive primDecIx   :: Ix n -> Maybe (Ix n)
+primitive primMaybeIx :: Bit w -> Maybe (Ix n)
+primitive primModIx   :: Bit w -> Ix n
+primitive primLeqIx   :: Bit w -> Ix n -> Maybe (Ix n)
+primitive primRelaxIx :: Ix n -> Ix m
 
 -- Stored Data: -------------------------------------------------
 
@@ -492,7 +490,7 @@ primitive (@)      :: Ref (Array n a) -> Ix n -> Ref a
 
 primitive type Init      :: area -> *
 
-primitive initArray      :: Index n => (Ix n -> Init a) -> Init (Array n a)
+primitive initArray      :: (Ix n -> Init a) -> Init (Array n a)
 primitive initSelf       :: (Ref a -> Init a) -> Init a
 
 primitive primInitStored :: t -> Init (Stored t)
@@ -664,15 +662,12 @@ else     Select (m r) f = m (Select r f) if Monad m
 -- TODO: TypeInference.hs should really be the one to introduce these
 primitive type BitdataCase :: * -> lab -> *
 primitive structSelect
-  :: Select (ARef m s) f (ARef n t) => ARef m s -> #f -> ARef n t
+  :: ARef m s -> #f -> ARef n t
 primitive bitdataSelect
-  :: Select (BitdataCase r c) f t => BitdataCase r c -> #f -> t
+  :: BitdataCase r c -> #f -> t
 primitive bitdataUpdate
-  :: Update (BitdataCase r c) f
-       => BitdataCase r c -> #f -> Select (BitdataCase r c) f -> BitdataCase r c
+  :: BitdataCase r c -> #f -> t -> BitdataCase r c
 primitive constructBitdata :: t
-
-
 
 const :: a -> b -> a
 const x y = x
