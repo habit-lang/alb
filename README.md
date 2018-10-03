@@ -1,23 +1,22 @@
 ```
-                                                              
-          QQQQQQQQQ                        BBBBBBBBBBBBBBBBB   
-        QQ:::::::::QQ                      B::::::::::::::::B  
-      QQ:::::::::::::QQ                    B::::::BBBBBB:::::B 
-     Q:::::::QQQ:::::::Q                   BB:::::B     B:::::B
-     Q::::::O   Q::::::Q uuuuuu    uuuuuu    B::::B     B:::::B
-     Q:::::O     Q:::::Q u::::u    u::::u    B::::B     B:::::B
-     Q:::::O     Q:::::Q u::::u    u::::u    B::::BBBBBB:::::B 
-     Q:::::O     Q:::::Q u::::u    u::::u    B:::::::::::::BB  
-     Q:::::O     Q:::::Q u::::u    u::::u    B::::BBBBBB:::::B 
-     Q:::::O     Q:::::Q u::::u    u::::u    B::::B     B:::::B
-     Q:::::O  QQQQ:::::Q u::::u    u::::u    B::::B     B:::::B
-     Q::::::O Q::::::::Q u:::::uuuu:::::u    B::::B     B:::::B
-     Q:::::::QQ::::::::Q u:::::::::::::::uuBB:::::BBBBBB::::::B
-      QQ::::::::::::::Q   u:::::::::::::::uB:::::::::::::::::B 
-        QQ:::::::::::Q     uu::::::::uu:::uB::::::::::::::::B  
-          QQQQQQQQ::::QQ     uuuuuuuu  uuuuBBBBBBBBBBBBBBBBB   
-                  Q:::::Q                                      
-                   QQQQQQ                                      
+                              QQQQQQQQQ                        BBBBBBBBBBBBBBBBB
+                            QQ:::::::::QQ                      B::::::::::::::::B
+                          QQ:::::::::::::QQ                    B::::::BBBBBB:::::B
+                         Q:::::::QQQ:::::::Q                   BB:::::B     B:::::B
+                         Q::::::O   Q::::::Q uuuuuu    uuuuuu    B::::B     B:::::B
+                         Q:::::O     Q:::::Q u::::u    u::::u    B::::B     B:::::B
+                         Q:::::O     Q:::::Q u::::u    u::::u    B::::BBBBBB:::::B
+                         Q:::::O     Q:::::Q u::::u    u::::u    B:::::::::::::BB
+                         Q:::::O     Q:::::Q u::::u    u::::u    B::::BBBBBB:::::B
+                         Q:::::O     Q:::::Q u::::u    u::::u    B::::B     B:::::B
+                         Q:::::O  QQQQ:::::Q u::::u    u::::u    B::::B     B:::::B
+                         Q::::::O Q::::::::Q u:::::uuuu:::::u    B::::B     B:::::B
+                         Q:::::::QQ::::::::Q u:::::::::::::::uuBB:::::BBBBBB::::::B
+                          QQ::::::::::::::Q   u:::::::::::::::uB:::::::::::::::::B
+                            QQ:::::::::::Q     uu::::::::uu:::uB::::::::::::::::B
+                              QQQQQQQQ::::QQ     uuuuuuuu  uuuuBBBBBBBBBBBBBBBBB
+                                      Q:::::Q
+                                       QQQQQQ
 ```
 
 
@@ -27,7 +26,7 @@ ALBATROSS
 This is Albatross, a tool for compiling relatively efficient implementations of priority queues.  It
 has consumed instancelab, which was an interface for playing with advanced type class features.
 
-DEPENDENCIES
+### DEPENDENCIES
 
 Albatross attempts to be relatively self-contained; however, it does require some packages that may
 or may not be installed on your machine.  The alb.cabal file should have up-to-date dependencies.
@@ -35,31 +34,32 @@ or may not be installed on your machine.  The alb.cabal file should have up-to-d
 Alb compiles using GHC 7.10, and hopefully later versions, but does not compile on version 7.8 or
 earlier (as a result of having to work around the Applicative Monad Phoolishness).
 
-BUILDING
+### BUILDING
 
 Via cabal:
-
+```
   cabal install
-
+```
 Via ghc:
 
 ghc --make is your friend.  For example:
-
+```
   ghc --make -XOverloadedStrings -O2 -o alb -odir obj -hidir obj -isrc -main-is Driver.main Driver
-
+```
 Via make w/o stack:
-
+```
   make alb
-
+```
 Via make with stack:
-
+```
   make stack && make alb
-
+```
 Stop using stack:
-
+```
   make nostack
+```
 
-RUNNING
+### RUNNING
 
 Albatross is a batch compiler, and currently lacks an interactive mode.  Flags can be listed using
 command line option --help.
@@ -72,7 +72,7 @@ directory and the current directory, and will read options from those files.  Op
 line override options in files, and options in the local directory override options in your home
 directory.
 
-FIDGET OPTIMIZATIONS
+### FIDGET OPTIMIZATIONS
 
 There are a variety of optimizations currently available at the Fidget
 level that are worth testing out. To specify the full set of available,
@@ -110,15 +110,15 @@ So for example, a sane optimization might be:
 HABIT LANGUAGE EXTENSIONS
 -------------------------
 
-IMPORT CHASING
+### IMPORT CHASING
 
 This extension adds two features:
 
 1) You can set a "search path" for Habit source files by using a command something like the
 following:
-
+```
   ./alb --path=folder1:folder2 X Y Z
-
+```
 The front end will then try each of the names in the list X, folder1/X.hb, folder1/X.lhb,
 folder2/X.hb, folder2/X.lhb in an attempt to find the source for file X.  Once X has been loaded, Y
 and Z will be loaded in the same way.
@@ -126,13 +126,13 @@ and Z will be loaded in the same way.
 If you don't set a search path using --path, then the default setting [""] is used.  The front end
 uses the conventions of the host, so, for example, syntax for the command above on a Windows machine
 should look more like the following (untested):
-
+```
   .\alb --path=folder1;folder2 X Y Z
-
+```
 2) You can annotate individual habit source files with statements of the form:
-
+```
   requires Name[, Name]
-
+```
 (Name can be any sequence of one or more Habit identifiers (varids or conids) separated by periods,
 but can't include any other punctuation or symbols.)  If the file X contains a declaration like
 this, then the front end will automatically load the file for Name before it actually processes X.
@@ -140,13 +140,13 @@ Each Name will be interpreted in the same way as if you had typed it on the comm
 that any periods will be replaced with the appropriate file path separator for your OS (typically
 either / or \).  For example, if X.hb and Name.hb are valid Habit source files in the current
 directory, then:
-
+```
   ./alb Name.hb X.hb ... other command line arguments
-
+```
 and
-
+```
   ./alb X            ... other command line arguments
-
+```
 should have exactly the same effect.  Similarly, if X contains a line "requires foo.bar", and
 there is a file called "bar.hb" in the "foo" subdirectory, then the front end will attempt to
 load that file before loading X.
@@ -157,21 +157,21 @@ named more than once without causing an error.
 INSTANCELAB
 ===========
 
-BUILDING
+### BUILDING
 
 ghc --make is your friend.  I use:
-
+```
 ghc --make -XOverloadedStrings -O2 -o ilab -odir obj -hidir obj -isrc -main-is Solver.REPL.main Solver.REPL
-
+```
 Dependencies are as above.
 
-RUNNING
+### RUNNING
 
 ilab has both batch and interactive modes.  To run ilab over a set of files, specify them on the
 command line:
-
-> ./ilab tests/1 tests/2
-
+```
+./ilab tests/1 tests/2
+```
 Note: ilab reads all axioms from all the files, then checks any predicate queries.  So in the above
 examples, predicates in tests/1 will be able to see axioms in tests/2.
 
@@ -202,7 +202,7 @@ At the prompt ('>'), you may type:
  * A predicate query - which ilab attempts to prove using the axioms and
    functional dependencies in its working set.
 
-SYNTAX
+### SYNTAX
 
 Concrete syntax is between single quotes.
 
@@ -212,7 +212,7 @@ Tyvar - any alphanumeric string starting with a lowercase letter.
 Clname - same as Tycon
 Ident - same as Tyvar
 Natural - any natural number
-
+```
 Type        ::= AType | AType Type
 AType       ::= Tycon | Tyvar | '(' Type ')' | Natural | 'P'Natural
 X           ::= | 'fails'
@@ -224,47 +224,47 @@ FunDepRule  ::= Clname Tyvar+ '|' FunDep+ '.'
 FunDep      ::= Tyvar* '~>' Tyvar+
 Requirement ::= Pred 'requires' Pred+
 PredQuery   ::= QPred '?'
-
+```
 All qpreds in an axiom must refer to the same class.  Instances must not overlap - context and
 functional dependencies are considered when making this determination - and must meet the covering
 condition for their functional dependencies.
 
-PROOFS
+### PROOFS
 
 Proofs are displayed as evidence expressions.  For instance, with two axioms:
-
+```
 eq_int: Eq Int.
 eq_list: Eq t => Eq (List t).
-
+```
 Then a proof that Eq (List (List Int)) holds would be:
-
+```
 eq_list(eq_list(eq_int))
-
+```
 Rules from an axiom are selected with the '!' operator.  For instance with the
 axioms:
-
+```
 eq_int: Eq Int.
 eq_t_fails: Eq T fails.
 eq_list: Eq t => Eq (List t); Eq t fails -> Eq (List t) fails.
-
+```
 then a proof that Eq (List T) fails would be:
 
 eq_list!1(eq_t_fails)
 
-EXAMPLE
+### EXAMPLE
 
 The tests/solver/tests directory contains some sample files.
 
-TESTS
+### TESTS
 
 A crude testing framework is implemented in RunTests.hs.  This file reads tests from
 ./tests/solver/catalog, and compares the result of each test to the output saved in the results
 directory.  Examine the RunTests.hs file for more detail on the data types used.  To run the tests,
 use:
-
+```
   runghc RunTests.hs
-
-  (Or runghc src/Solver/RunTests.hs if you're in the compiler/ directory)
+```
+  (Or `runghc src/Solver/RunTests.hs` if you're in the compiler/ directory)
 
 This has been tested on both Windows and Mac OS.  The test framework requires some version
 of the process package - I currently seem to be using 1.0.1.1.  I assume this is in the
@@ -277,13 +277,13 @@ Members of the HASP project at Portland State University contributed to the deve
 of Alb before it was made publicly visible.  They are listed here.  Corrections/additions are
 welcomed.
 
-Andrew Sackville-West
-Andrew Tolmach
-Caylee Hogg
-J. Garrett Morris
-James Hook
-Justin Bailey
-Lewis Coates
-Mark P. Jones
-Michael D. Adams
-Thomas M. DuBuisson
+- Andrew Sackville-West
+- Andrew Tolmach
+- Caylee Hogg
+- J. Garrett Morris
+- James Hook
+- Justin Bailey
+- Lewis Coates
+- Mark P. Jones
+- Michael D. Adams
+- Thomas M. DuBuisson
