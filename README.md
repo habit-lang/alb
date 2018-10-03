@@ -1,3 +1,26 @@
+```
+                                                              
+          QQQQQQQQQ                        BBBBBBBBBBBBBBBBB   
+        QQ:::::::::QQ                      B::::::::::::::::B  
+      QQ:::::::::::::QQ                    B::::::BBBBBB:::::B 
+     Q:::::::QQQ:::::::Q                   BB:::::B     B:::::B
+     Q::::::O   Q::::::Q uuuuuu    uuuuuu    B::::B     B:::::B
+     Q:::::O     Q:::::Q u::::u    u::::u    B::::B     B:::::B
+     Q:::::O     Q:::::Q u::::u    u::::u    B::::BBBBBB:::::B 
+     Q:::::O     Q:::::Q u::::u    u::::u    B:::::::::::::BB  
+     Q:::::O     Q:::::Q u::::u    u::::u    B::::BBBBBB:::::B 
+     Q:::::O     Q:::::Q u::::u    u::::u    B::::B     B:::::B
+     Q:::::O  QQQQ:::::Q u::::u    u::::u    B::::B     B:::::B
+     Q::::::O Q::::::::Q u:::::uuuu:::::u    B::::B     B:::::B
+     Q:::::::QQ::::::::Q u:::::::::::::::uuBB:::::BBBBBB::::::B
+      QQ::::::::::::::Q   u:::::::::::::::uB:::::::::::::::::B 
+        QQ:::::::::::Q     uu::::::::uu:::uB::::::::::::::::B  
+          QQQQQQQQ::::QQ     uuuuuuuu  uuuuBBBBBBBBBBBBBBBBB   
+                  Q:::::Q                                      
+                   QQQQQQ                                      
+```
+
+
 ALBATROSS
 =========
 
