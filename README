@@ -16,6 +16,17 @@ BUILDING
 
 Via cabal:
 
+Optionally, set up a cabal sandbox:
+
+  cabal sandbox init
+
+If you haven't already installed the dependencies:
+
+  cabal configure
+  cabal install --dependencies-only
+
+Otherwise, proceed to installation with:
+
   cabal install
 
 Via ghc:
