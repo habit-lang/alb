@@ -74,8 +74,8 @@ Executable alb
                  , Fidget.Env
                  , LC.LambdaCaseToLC
                  , LC.RenameTypes
-                 , LCC
                  , Literate
+                 , MILTools
                  , Normalizer.EtaInit
                  , Normalizer.Inliner
                  , Normalizer.PatternMatchCompiler
