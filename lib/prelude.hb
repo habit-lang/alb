@@ -219,7 +219,7 @@ instance FromBits Unsigned
          isJunk bs   = False
 
 instance ToBits  (Ix p)      if Index p, 2^n = p  -- OVERLY RESTRICTIVE
- where toBits = primIxToBits
+ where toBits = primIxToBit
 
 instance FromBits (Ix p)     if Index p, 2^n = p
  where fromBits = primIxFromBits
@@ -600,7 +600,7 @@ instance ToUnsigned (Bit n) if n < 33 -- not Width n
  where unsigned x = Unsigned [ bits = 0 :# x ]
 
 instance ToUnsigned (Ix n)  if Index n
- where unsigned x = Unsigned [ bits = primIxToBits x ]
+ where unsigned x = Unsigned [ bits = primIxToBit x ]
 
 instance Ord Unsigned where
   x <  y = x.bits <  y.bits
@@ -610,7 +610,7 @@ instance Ord Unsigned where
   max x y = Unsigned [bits = max x.bits y.bits]
   min x y = Unsigned [bits = min x.bits y.bits]
 
-primitive primIxToBits :: Ix n -> Bit m
+primitive primIxToBit :: Ix n -> Bit m
 
 {-
 bitdata Signed   = Signed [ bits :: Bit 32 ]
