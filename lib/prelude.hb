@@ -593,8 +593,8 @@ class ToUnsigned t where
 
 instance ToUnsigned Unsigned
  where unsigned x = x
---instance ToUnsigned Signed
--- where unsigned x = Unsigned [ bits = x.bits ]
+instance ToUnsigned Signed
+ where unsigned x = Unsigned [ bits = x.bits ]
 
 instance ToUnsigned (Bit n) if n < 33 -- not Width n
  where unsigned x = Unsigned [ bits = 0 :# x ]
@@ -612,11 +612,30 @@ instance Ord Unsigned where
 
 primitive primIxToBit :: Ix n -> Bit m
 
-{-
+-----------------------------------------------------------------
+
 bitdata Signed   = Signed [ bits :: Bit 32 ]
 
 instance NumLit i Signed   if i < 2^(WordSize - 1)
- where fromLiteral n = Unsigned [ bits = fromLiteral n ]
+ where fromLiteral n = Signed [ bits = fromLiteral n ]
+
+instance Eq Signed
+  where x == y = x.bits == y.bits
+
+primitive primBitSGt, primBitSGe, primBitSLt, primBitSLe :: Bit w -> Bit w -> Bool
+
+instance Ord Signed
+  where x <  y = primBitSLt x.bits y.bits
+        x <= y = primBitSLe x.bits y.bits
+        x >  y = primBitSGt x.bits y.bits
+        x >= y = primBitSGe x.bits y.bits
+
+instance Num Signed
+  where x + y    = Signed [bits = x.bits + y.bits]
+        x - y    = Signed [bits = x.bits - y.bits]
+        x * y    = Signed [bits = x.bits * y.bits]
+        negate x = Signed [bits = negate x.bits]
+
 
 class ToSigned t where
   signed :: t -> Signed
@@ -625,14 +644,17 @@ instance ToSigned Unsigned
  where signed x = Signed [ bits = x.bits ]
 instance ToSigned Signed
  where signed x = x
-instance ToSigned (Bit n) if Width n
- where signed x = Signed [ bits = primBitSignExtend x ]
-instance ToSigned (Ix n)  if Index n
- where signed x = Signed [ bits = primIxToSigned x ]
+--
+-- Unclear on what the right behavior here should be---do we interpret signed
+-- (111) as being an operation on the unsigned 3-bit value 7 or the signed 3-bit
+-- value -1?  Leaving unimplemented for the time being.
+--
+-- instance ToSigned (Bit n) if Width n
+--  where signed x = Signed [ bits = primBitSignExtend x ]
+instance ToSigned (Ix n)  if Index n, n < 2^(WordSize - 1)
+ where signed x = Signed [ bits = primIxToBit x ]
 
-primitive primBitSignExtend :: Bit n -> Bit WordSize
-primitive primIxToSigned    :: Ix n -> Bit WordSize
--}
+
 
 -- Monads and Procedures: ---------------------------------------
 class Monad m
