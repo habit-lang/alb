@@ -46,8 +46,10 @@ True `xor` False = True
 False `xor` True = True
 _ `xor` _        = False
 
-known :: (Pred -> Bool) -> Tactic Bool
-known f = trail (\tr -> return (any (\(i, _, p) -> not (i `Set.member` ignored tr) && f (substitution tr ## p)) (assumptions tr)))
+ifKnown :: (Pred -> Bool) -> Tactic a -> Tactic a -> Tactic a
+ifKnown b t f = trail (\tr -> if any (\(i, _, p) -> not (i `Set.member` ignored tr) && b (substitution tr ## p)) (assumptions tr)
+                              then t
+                              else f)
 
 ----------------------------------------------------------------------------------------------------
 
@@ -64,15 +66,20 @@ arithmetic name goal@(Pred className ts flag loc) =
     where lt (TyLit i) (TyLit j)
               | i < j `xor` flag == Exc = return (empty, prove "Oracles_arithmetic_lt")
               | otherwise               = return (empty, disprove "Oracles_arithmetic_lt")
-          lt (TyVar v) (TyLit c)        = do b <- known sumPred
-                                             if b then return (empty, prove "Oracles_summand_less_than_sum")
-                                                  else noProgress
+          lt (TyVar v) (TyLit c)        = ifKnown sumPred
+                                            (return (empty, prove "Oracles_summand_less_than_sum"))
+                                            (ifKnown transitive
+                                               (return (empty, prove "Oracles_lt_transitive"))
+                                               noProgress)
               where sumPred (Pred "+" [t, t', TyLit c'] Inc _) =
                         (t == TyVar v && c' < c) || (t' == TyVar v && c' < c)
                     sumPred _ = False
-          lt (TyLit 0) (TyVar v)        = do b <- known expPred
-                                             if b then return (empty, prove "Oracles_zero_less_than_exp")
-                                                  else noProgress
+                    transitive (Pred "<" [TyVar w, TyLit d] Inc _) =
+                        v == w && d < c
+                    transitive _ = False
+          lt (TyLit 0) (TyVar v)        = ifKnown expPred
+                                            (return (empty, prove "Oracles_zero_less_than_exp"))
+                                            noProgress
                 where -- check for a predicate of the form x^y = v, having already
                       -- seen 0 < v.
                       expPred (Pred "^" [_, _, TyVar w] Inc _) = v==w
