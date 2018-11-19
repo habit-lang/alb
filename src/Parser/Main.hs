@@ -3,7 +3,7 @@
 module Parser.Main where
 
 import Control.Monad
-import Data.Char (digitToInt, isUpper, isLower, isOctDigit, isHexDigit)
+import Data.Char (digitToInt, isUpper, isLower, isOctDigit, isHexDigit, ord)
 import Data.Either (partitionEithers)
 import Data.List (partition)
 import qualified Data.Map as Map
@@ -82,6 +82,14 @@ bitLiteral = lexeme (choice [octalBitLiteral, hexBitLiteral, binaryBitLiteral]) 
           octalBitLiteral  = genericBitLiteral "O" 8 octDigit 3
           hexBitLiteral    = genericBitLiteral "X" 16 hexDigit 4
           binaryBitLiteral = genericBitLiteral "B" 2 (oneOf "01") 1
+
+
+stringExpr = do At loc cs <- located stringLiteral
+                let e @@ e' = EApp (At loc e) (At loc e')
+                return (foldr (\c e -> (cons @@ ordExpr c) @@ e) nil cs)
+                    where cons      = ECon "Cons"
+                          nil       = ECon "Nil"
+                          ordExpr c = ELit (Numeric (fromIntegral (ord c)))
 
 literal :: ParseM Literal
 literal = choice [ Numeric `fmap` intLiteral
@@ -165,6 +173,14 @@ qual p = do context <- option [] $ try $
 
 {- 3.5: Patterns -}
 
+
+stringPat  = do At loc cs <- located stringLiteral
+                let e @@ e' = PApp (At loc e) (At loc e')
+                return (foldr (\c e -> (cons @@ ordExpr c) @@ e) nil cs)
+                    where cons      = PCon "Cons"
+                          nil       = PCon "Nil"
+                          ordExpr c = PLit (Numeric (fromIntegral (ord c)))
+
 pattern :: ParseM Pattern
 pattern = dislocate `fmap` chain patApp (varsym <|> consym) PInfix <?> "pattern"
 
@@ -186,6 +202,7 @@ aPattern = choice [ do v <- try (varid `followedBy` reservedOp "@")
                   , reservedOp "_" >> return PWild
                   , try (reserved "()") >> return (PCon "Unit")
                   , try (PCon `fmap` conid)
+                  , stringPat
                   , try (PLit `fmap` literal)
                   , try (PVar `fmap` varid)
                   , try (parens (do n <- many1 (reservedOp ",")
@@ -224,6 +241,7 @@ sInfix    = chain sApp (varsym <|> consym) EInfix
 sApp     :: ParseM Expr
 sApp      = choice [ letStmt, ifStmt, caseStmt, applic ] <?> "statement"
 
+
 optType  :: Located Expr -> ParseM Expr
 optType e = do t <- optionMaybe (reservedOp "::" >> qual type_)
                return $ case t of
@@ -260,6 +278,7 @@ aExpr = (do e <- located $ choice [ try (reserved "()") >> return (ECon "Unit")
                                             EStructInit name `fmap` brackets ((located varid +++ (reservedOp "<-" >> located expr)) `sepBy1` reservedOp "|"))
                                   , ECon `fmap` conid
                                   , ELit `fmap` try literal
+                                  , stringExpr
                                   , try (parens (do e <- located aExpr
                                                     op <- located (varsym <|> consym)
                                                     return (ELeftSection e op)))

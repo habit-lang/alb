@@ -58,3 +58,9 @@ readInts :: M (List (Bit 32))
 readInts = do
   x <- getint
   if x == (negate 1) then return Nil else do { xs <- readInts; return (Cons x.bits xs) }
+
+
+putStr :: List Unsigned -> M Unsigned
+putStr Nil = return (0)
+putStr (Cons x xs) = do putchar x
+                        putStr xs
