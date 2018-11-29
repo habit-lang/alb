@@ -234,7 +234,7 @@ checkTopDecl (Bitdatatype name mtys ctors derives) =
                  let pat = BDD.pIntMod w n
                  return (X.ConstantField n pat o, pat)
 
-checkTopDecl (Struct name mtys ctor derives) =
+checkTopDecl (Struct name mtys ctor _align derives) =
     -- Checking a structure declaration is parallel to checking a bitdata declaration: generate and
     -- solve size constraints, generate XMPEG structure declaration, and generate Select and Updated
     -- instances for (references to) the structure type.  As with bitdata declarations, the error
@@ -249,7 +249,8 @@ checkTopDecl (Struct name mtys ctor derives) =
 
        -- Extract declared types for each region:
        regionTypes <- mapM regionType regions
-       n <- solveForNat (byteSize (introduced tycon))
+       size <- solveForNat (byteSize (introduced tycon))
+       align <- solveForNat (alignment (introduced tycon))
        sizes <- mapM (solveForNat . byteSize) regionTypes
 
        -- Add structure details to to the StructRegionEnv:
@@ -264,7 +265,7 @@ checkTopDecl (Struct name mtys ctor derives) =
 
        -- Compute XMPEG version of the struct decl, including width and offset information:
        let regions' = zipWith3 (\(lab, ty, _) -> X.StructField lab (convert ty)) regionInfo sizes (scanl (+) 0 sizes)
-       return ( X.Struct name (fromIntegral n) regions'
+       return ( X.Struct name (fromIntegral size) (fromIntegral align) regions'
               , Map.empty)
     where
       tycon = TyCon (Kinded name KArea)
@@ -272,7 +273,7 @@ checkTopDecl (Struct name mtys ctor derives) =
       regionType :: StructRegion KId -> M (Located Ty)
       regionType (StructRegion _ ty) = return ty
 
-checkTopDecl (Area v inits tys) =
+checkTopDecl (Area v inits tys _align) =
     appendFailureContextS ("In the definition for the areas " ++ intercalate ", " (map (fromId . dislocate . fst) inits)) $
     do tys'   <- simplifyScheme (ForallK [] tys)
        inits' <- mapM checkInit inits
@@ -554,7 +555,7 @@ checkProgram fn p =
                               addDecl d (types, areas, classes, instances, requirements)
                                 = (d : types, areas, classes, instances, requirements)
 
-          areaTypes = [(name, At loc tys) | At loc (Area _ inits tys) <- areaDecls,
+          areaTypes = [(name, At loc tys) | At loc (Area _ inits tys _) <- areaDecls,
                                             name <- [name | (At _ name, _) <- inits]]
 
           simplifyAreaType (At loc tys) =

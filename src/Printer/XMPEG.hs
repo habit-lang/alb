@@ -205,8 +205,10 @@ instance Printable typaram => Printable (TopDecl typaram)
                           []             -> empty
                           (first : rest) -> space <> equals <+> align (pprCtor first <> cat [ softline <> bar <+> pprCtor ctor | ctor <- rest ])
 
-          ppr (Struct name size fields) =
-              hang 4 (text "struct" <+> ppr name <+> slash <+> int size <+> brackets (cat (punctuate (softline <> bar <> space) (map ppr fields))))
+          ppr (Struct name size align fields) =
+              hang 4 (text "struct" <+> ppr name <+> slash <+> int size <+>
+                      brackets (cat (punctuate (softline <> bar <> space) (map ppr fields))) <+>
+                      "aligned" <+> ppr align)
 
           ppr (Area v ids ty size align) =
               hang 4 ((if v then text "volatile " else empty) <>

@@ -60,8 +60,10 @@ arithmetic name goal@(Pred className ts flag loc) =
       ("+",   [a, b, c]) -> add a b c flag
       ("*",   [a, b, c]) -> mult a b c flag
       ("/",   [a, b, c]) -> div a b c flag
+      ("Div", [a, b])   -> divisible a b flag
       ("^",   [a, b, c]) -> exp a b c flag
       ("GCD", [a, b, c]) -> gcdP a b c flag
+      ("LCM", [a, b, c]) -> lcmP a b c flag
       _                  -> noProgress
     where lt (TyLit i) (TyLit j)
               | i < j `xor` flag == Exc = return (empty, prove "Oracles_arithmetic_lt")
@@ -147,6 +149,11 @@ arithmetic name goal@(Pred className ts flag loc) =
               return (singleton s (TyLit (b * c)), prove "Oracles_arithmetic_div")
           div _ _ _ _ = noProgress
 
+          divisible (TyLit a) (TyLit b) flag
+              | b `rem` a == 0 `xor` flag == Exc = return (empty, prove "Oracles_arithmetic_divisible")
+              | otherwise = return (empty, disprove "Oracles_arithmetic_divisible")
+          divisible _ _ _ = noProgress
+
           exp (TyLit a) (TyLit b) (TyLit c) flag
               | a ^ b == c `xor` flag == Exc = return (empty, prove "Oracles_arithmetic_exp")
               | otherwise = return (empty, disprove "Oracles_arithmetic_exp")
@@ -192,6 +199,15 @@ arithmetic name goal@(Pred className ts flag loc) =
               = return (singleton s (TyLit (gcd a b)), prove "Oracles_arithmetic_gcd")
           gcdP _ _ _ _ = noProgress
 
+          lcmP (TyLit a) (TyLit b) (TyLit c) _
+              | lcm a b == c `xor` flag == Exc = return (empty, prove "Oracles_arithmetic_lcm")
+              | otherwise                      = return (empty, disprove "Oracles_arithmetic_lcm")
+          lcmP (TyLit a) (TyLit b) (TyVar s) Inc
+             = return (singleton s (TyLit (lcm a b)), prove "Oracles_arithmetic_lcm")
+          lcmP _ _ _ _ = noProgress
+
+
+
 ----------------------------------------------------------------------------------------------------
 
 solveByOracles = node oracles'
@@ -216,4 +232,5 @@ fundeps :: FunDeps
 fundeps = [ ("+", [[0, 1] :~> [2], [0, 2] :~> [1], [1, 2] :~> [0]])
           , ("*", [[0, 1] :~> [2]])
           , ("^", [[0, 1] :~> [2]])
-          , ("GCD", [[0, 1] :~> [2]]) ]
+          , ("GCD", [[0, 1] :~> [2]])
+          , ("LCM", [[0, 1] :~> [2]]) ]

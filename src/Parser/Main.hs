@@ -14,11 +14,8 @@ import Text.Parsec.Indentation
 import Syntax.Surface hiding (decls, kind)
 import qualified Syntax.Surface as AST
 import Parser.Lexer
---import Parser.Monad
 
 {- Section 3.2: Identifiers, symbols, and literals -}
--- FIXME: the names of the functions here don't quite match the names used
--- in the language report.
 
 aConid  :: ParseM Id           -- basic form of constructor name
 aConid   = try $ do
@@ -536,7 +533,8 @@ structDecl = do reserved "struct"
                 width <- optionMaybe (reservedOp "/" >> qual type_)
                 fields <- brackets (field `sepBy` reservedOp "|")
                 ps <- option [] $ reserved "if" >> commaSep1 (located predicate)
-                Struct id width (Ctor lid [] ps (concat fields)) `fmap` deriveList
+                align <- optionMaybe $ reserved "aligned" >> located (qual type_)
+                Struct id width (Ctor lid [] ps (concat fields)) align `fmap` deriveList
 
     where field = (do idInits <- commaSep1 (located varid +++ optionMaybe (reservedOp "<-" >> located exprApp))
                       reservedOp "::"
@@ -553,8 +551,9 @@ areaDecl = do v <- option False (reserved "volatile" >> return True)
                                    return (id, minit)
               reservedOp "::"
               t <- qual type_
+              align <- optionMaybe $ reserved "aligned" >> located (qual type_)
               mdecls <- optionMaybe $ reserved "where" >> decls
-              return (Area v ids t mdecls)
+              return (Area v ids t align mdecls)
 
 primitive :: ParseM [Primitive]
 primitive = do reserved "primitive"

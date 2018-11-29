@@ -32,7 +32,7 @@ languageDef  = T.LanguageDef {
                , T.identLetter   = alphaNum <|> oneOf "_'"
                , T.opStart       = T.opLetter languageDef
                , T.opLetter      = oneOf ":!#$%&*+./<=>?@\\^|-~"
-               , T.reservedNames = [ "area","bitdata","case", "class"
+               , T.reservedNames = [ "area", "aligned", "bitdata","case", "class"
                                    , "data", "deriving", "do", "else"
                                    , "extends", "fails", "if", "in"
                                    , "infix", "infixl", "infixr"

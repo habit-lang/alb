@@ -184,8 +184,8 @@ instance (HasKinds tyid, HasKinds (PredType p tyid)) => HasKinds (Pattern p tyid
 instance (HasKinds tyid, HasKinds typaram, HasKinds (PredType p tyid)) => HasKinds (TopDecl p tyid typaram)
     where vars (Datatype name params ctors _) = nub (vars name ++ vars params ++ vars ctors)
           vars (Bitdatatype _ size ctors _)   = nub (vars size ++ vars ctors)
-          vars (Struct _ size regions _)      = nub (vars size ++ vars regions)
-          vars (Area _ _ ty)                  = vars ty
+          vars (Struct _ size regions align _) = nub (vars size ++ vars regions ++ vars align)
+          vars (Area _ _ ty align)            = nub (vars ty ++ vars align)
           vars (Class _ params constraints methods defaults) =
               nub (vars params ++ vars methods ++ vars defaults)
           vars (Instance _ _ chain)           = vars chain
@@ -193,8 +193,8 @@ instance (HasKinds tyid, HasKinds typaram, HasKinds (PredType p tyid)) => HasKin
 
           s # Datatype name params ctors drv  = Datatype (s # name) (s # params) (s # ctors) drv
           s # Bitdatatype name size ctors drv = Bitdatatype name (s # size) (s # ctors) drv
-          s # Struct name size regions drv    = Struct name (s # size) (s # regions) drv
-          s # Area v inits ty                 = Area v inits (s # ty)
+          s # Struct name size regions align drv = Struct name (s # size) (s # regions) (s # align) drv
+          s # Area v inits ty align           = Area v inits (s # ty) (s # align)
           s # Class name params constraints methods defaults =
               Class name (s # params) constraints (s # methods) (map (s #) defaults)
           s # Instance name className chain   = Instance name className [ (s # head, map (s #) body) | (head, body) <- chain ]

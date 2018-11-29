@@ -194,7 +194,7 @@ fixityProgram' = rec where
   alt e@(pat :-> _) = withFixity pat $ gmapM rec e
   rhs e@(Unguarded _ d) = withFixity d $ gmapM rec e
   rhs e@(Guarded _ d) = withFixity d $ gmapM rec e
-  area e@(Area _ _ _ d) = withFixity d $ gmapM rec e
+  area e@(Area _ _ _ _ d) = withFixity d $ gmapM rec e
   primitive e@(PrimClass _ _ _ d) = withFixity d $ gmapM rec e
   primitive e = gmapM rec e
 -- TODO: do when (not (fixitiesEmpty (fixities decls))) $ failWithS "Unexpected fixity declaration in class declaration"

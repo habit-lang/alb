@@ -878,7 +878,7 @@ specialized code).
 > instance Specialize (TopDecl KId) where
 >   specialize c d@(Datatype id params ctors) = return (d, c)
 >   specialize c d@(Bitdatatype id w ctors)   = return (d, c)
->   specialize c d@(Struct id w fields)       = return (d, c)
+>   specialize c d@(Struct id w fields a)     = return (d, c)
 >   specialize c d@(Area v ids ty w a)
 >    = do (ids', c') <- specIds c ids
 >         return (Area v ids' ty w a, c')
@@ -970,7 +970,7 @@ this cause problems later in the pipeline?
 >             | id == id' = Just d
 >           lookFor id (d@(Bitdatatype id' _ _) : _)
 >             | id == id' = Just d
->           lookFor id (d@(Struct id' _ _) : _)
+>           lookFor id (d@(Struct id' _ _ _) : _)
 >             | id == id' = Just d
 >           lookFor id (_ : ds) = lookFor id ds
 
@@ -994,7 +994,7 @@ this cause problems later in the pipeline?
 
 > specTopDecl (Bitdatatype name size conSpecs) _ = return (Bitdatatype name size conSpecs, requested)
 >     where requested = concatMap requestedBy [ty | (_, fields, _) <- conSpecs, LabeledField _ ty _ _ <- fields]
-> specTopDecl (Struct name size fields) _ = return (Struct name size fields, requested)
+> specTopDecl (Struct name size align fields) _ = return (Struct name size align fields, requested)
 >     where requested = concatMap requestedBy [ty | StructField _ ty _ _ <- fields]
 > specTopDecl d t = error ("Unexpected call to specTopDecl for declaration\n    " ++ show (ppr d) ++ "\nat type " ++ show (ppr t))
 

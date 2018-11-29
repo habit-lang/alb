@@ -35,7 +35,10 @@ data Unit    = Unit
 infixl type 6 +, -
 infixl type 7 *, /
 infixl type 8 ^
-infixl type 4 <=, <
+infixl type 4 <=, <, ==
+
+class (==) (a :: k) (b :: k) | a -> b, b -> a
+instance a == a
 
 class (+) (a :: nat) (b :: nat) = (c::nat)
    | a b -> c, b c -> a, c a -> b
@@ -52,11 +55,14 @@ class (*) (a :: nat) (b :: nat) = (c::nat)
 class (/) (a :: nat) (b :: nat) = (c::nat)
    | a b -> c, b c -> a
 
+class Div (a :: nat) (b :: nat)
+
 class (^) (a :: nat) (b :: nat) = (c :: nat)
    | a b -> c, a c -> b
 
 class GCD (n :: nat) (m :: nat) = (p :: nat)
-   | m n -> p
+
+class LCM (n :: nat) (m :: nat) = (p :: nat)
 
 class (<=) (n :: nat) (m :: nat)
 class (<) (n :: nat) (m :: nat)
@@ -329,32 +335,48 @@ primitive primIxShiftR :: Ix n -> Ix m -> Ix n
 
 -- References and memory areas: ---------------------------------
 
-primitive type ARef  :: nat -> area -> *
-type Ref = ARef MinAlign
+-- primitive type ARef  :: nat -> area -> *
+-- type Ref = ARef MinAlign
 
-instance ByteSize (Stored (ARef n a)) = 4
+primitive type Ref :: area -> *
 
-primitive type APtr  :: nat -> area -> *
-type Ptr a = APtr MinAlign a
+-- instance ByteSize (Stored (ARef n a)) = 4
+instance ByteSize (Stored (Ref a)) = 4
 
-primitive Null :: APtr l a
-primitive Ref  :: ARef l a -> APtr l a
+-- primitive type APtr  :: nat -> area -> *
+primitive type Ptr :: area -> *
 
-instance ByteSize (Stored (APtr n a)) = 4
+primitive Null :: Ptr a
+primitive Ref  :: Ref a -> Ptr a
+
+-- instance ByteSize (Stored (APtr n a)) = 4
+instance ByteSize (Stored (Ptr a)) = 4
 
 type MinAlign = 1
 
 class AreaOf (t :: *) = (a :: area)
-instance AreaOf (ARef l a) = a
-else     AreaOf (APtr l a) = a
-else     AreaOf t a fails
+instance AreaOf (Ref a) = a
+else     AreaOf (Ptr a) = a
+else     AreaOf a n fails -- why?
+
+-- instance AreaOf (ARef l a) = a
+-- else     AreaOf (APtr l a) = a
+-- else     AreaOf t a fails
 
 class AlignOf (t :: *) = (l :: nat)
-instance AlignOf (ARef l a) = l
-else     AlignOf (APtr l a) = l
-else     AlignOf t a fails
+instance AlignOf (Ref a) = Alignment a
+else     AlignOf (Ptr a) = Alignment a
+else     AlignOf t a fails -- again, why?
+
+-- instance AlignOf (ARef l a) = l
+-- else     AlignOf (APtr l a) = l
+-- else     AlignOf t a fails
 
 class ByteSize (a :: area) = (n :: nat)
+class Alignment (a :: area) = (n :: nat)
+
+-- Good enough in general?
+instance Alignment (Stored t) = ByteSize (Stored t)
 
 class ValIn (a :: area) = (t :: type) | a -> t
 instance ValIn (Stored Unsigned) = Unsigned
@@ -363,8 +385,10 @@ instance ValIn (Stored Unsigned) = Unsigned
 
 primitive type Array :: nat -> area -> area
 primitive type Pad   :: nat -> area -> area
-instance ByteSize (Array n a) = n * ByteSize a
-instance ByteSize (Pad n a)   = n * ByteSize a
+instance ByteSize (Array n a)  = n * ByteSize a
+instance ByteSize (Pad n a)    = n * ByteSize a
+instance Alignment (Pad n a)   = 1
+instance Alignment (Array n a) = Alignment a
 
 -- Indexes: -----------------------------------------------------
 
@@ -684,7 +708,7 @@ else     Select (m r) f = m (Select r f) if Monad m
 -- TODO: TypeInference.hs should really be the one to introduce these
 primitive type BitdataCase :: * -> lab -> *
 primitive structSelect
-  :: ARef m s -> #f -> ARef n t
+  :: Ref s -> #f -> Ref t
 primitive bitdataSelect
   :: BitdataCase r c -> #f -> t
 primitive bitdataUpdate

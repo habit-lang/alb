@@ -126,8 +126,8 @@ scc topDecls = map flattenSCC sccs
 
           nodeFrom d@(At _ (Datatype name _ ctors _))       = (d, [name], concatMap references ctors)
           nodeFrom d@(At _ (Bitdatatype name size ctors _)) = (d, [name], references size ++ concatMap references ctors )
-          nodeFrom d@(At _ (Struct name size ctor _))       = (d, [name], references size ++ references ctor)
-          nodeFrom d@(At _ (Area _ namesAndInits ty))       = (d, [name | (At _ name, _) <- namesAndInits], references ty)
+          nodeFrom d@(At _ (Struct name size ctor align _)) = (d, [name], references size ++ references ctor ++ references align)
+          nodeFrom d@(At _ (Area _ namesAndInits ty align)) = (d, [name | (At _ name, _) <- namesAndInits], references ty ++ references align)
           nodeFrom d@(At _ (Class name _ _ methods _))      = (d, [name], concat [references t | Signature _ t <- methods])
           nodeFrom d@(At _ (Instance name _ chain))         = (d, [name], concat [references qp | (qp, _) <- chain])
           nodeFrom d@(At _ (Require ps qs))                 = (d, map fst ps, concatMap (references . snd) ps ++ references qs)
@@ -178,7 +178,7 @@ buildKindEnvironment (Datatype name params _ _) =
     where params' = map dislocate params
 buildKindEnvironment (Bitdatatype name _ _ _) =
     return (Map.singleton name (Left KStar))
-buildKindEnvironment (Struct name _ _ _) =
+buildKindEnvironment (Struct name _ _ _ _) =
     return (Map.singleton name (Left KArea))
 buildKindEnvironment (Area {}) =
     return Map.empty
@@ -381,15 +381,18 @@ checkTopDecl (At loc tdecl) =
                        return (At loc (LabeledField fname ty' init))
                 checkField (At loc (ConstantField lit)) =
                     return (At loc (ConstantField lit))
-      Struct name size ctor drv ->
+      Struct name size ctor align drv ->
           do size' <- checkSize size
              ctor' <- checkCtor checkRegion ctor
-             return (At loc (Struct name size' ctor' drv))
+             align' <- checkAlign align
+             return (At loc (Struct name size' ctor' align' drv))
           where checkRegion (At loc (StructRegion field ty)) =
                     failAt loc $ (At loc . StructRegion field) `fmap` checkType KArea ty
-      Area v ps tys ->
+      Area v ps tys align ->
           failAt loc $
-          (At loc . Area v ps) `fmap` checkScheme KStar tys
+          do tys' <- checkScheme KStar tys
+             align' <- checkAlign align
+             return (At loc (Area v ps tys' align'))
       Class name params constraints methods defaults ->
           failAt loc $
           withGeneric gkvars $
@@ -426,6 +429,9 @@ checkTopDecl (At loc tdecl) =
           where vs = tvs (map snd ps ++ qs)
     where checkSize Nothing     = return Nothing
           checkSize (Just size) = Just `fmap` checkScheme KNat size
+
+          checkAlign Nothing = return Nothing
+          checkAlign (Just (At loc align)) = (Just . At loc) `fmap` checkScheme KNat align
 
           checkCtor f (Ctor name qvars preds xs) =
               do knames <- freshFor "k" qvars

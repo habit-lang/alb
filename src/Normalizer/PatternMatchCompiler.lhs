@@ -309,7 +309,7 @@ TRANSLATION OF TOP-LEVEL DECLARATIONS:
 >                bfield (X.ConstantField value pat offset)
 >                  = LC.ConstantField value (BDD.width pat) offset
 
->      lcTopDecl (X.Struct i width fields)
+>      lcTopDecl (X.Struct i width _align fields)
 >        = [LC.Struct i width (map sfield fields)]
 >          where sfield (X.StructField id ty width offset)
 >                  = LC.StructField id (convert ty) width offset

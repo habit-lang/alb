@@ -257,24 +257,26 @@ instance (TyId tyid, TyParam typaram, Printable (PredType p tyid), HasTypeVariab
                     pprDrvs | null drv = empty
                             | otherwise = softline <> text "deriving" <+> parens (cat (punctuate comma (map ppr drv)))
 
-          ppr (Struct name size (Ctor _ ks ps regions) drv) =
+          ppr (Struct name size (Ctor _ ks ps regions) align drv) =
               nest 4 (text "struct" <+>
                       ppr name <>
                       maybe empty (\t -> slash <> ppr t) size <+>
                       brackets (cat (punctuate (softline <> bar <> space) (map ppr regions))) <>
-                      pprQuant <> pprPreds <> pprDrvs)
+                      pprQuant <> pprPreds <> pprAlign <> pprDrvs)
               where pprQuant | null ks = empty
                              | otherwise = softline <> text "forall" <+> cat (punctuate (comma <> space) (map ppr ks))
                     pprPreds | null ps = empty
                              | otherwise = softline <> text "if" <+> cat (punctuate (comma <> softline) (map ppr ps))
+                    pprAlign = maybe empty (\qt -> text "aligned" <+> ppr qt) align
                     pprDrvs  | null drv = empty
                              | otherwise = softline <> text "deriving" <+> parens (cat (punctuate comma (map ppr drv)))
 
 
-          ppr (Area v ids ty) =
+          ppr (Area v ids ty align) =
               nest 4 ((if v then text "volatile " else empty) <>
                       text "area" <+> cat (punctuate (comma <> softline) [ ppr name <+> text "<-" <+> ppr init | (name, init) <- ids ])
-                               </> text "::" <+> ppr ty)
+                               </> text "::" <+> ppr ty <>
+                               (maybe empty (\qt -> softline <> "aligned" <+> ppr qt) align))
 
 instance TyId tyid => Printable (BitdataField tyid)
     where ppr (LabeledField name ty init) =

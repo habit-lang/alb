@@ -215,17 +215,24 @@ instance HasTypeFunctions (TopDecl PredFN Id (Either KId Id)) (TopDecl Pred Id (
                     rewriteBitdataField (At loc (ConstantField e))           = return (At loc (ConstantField e))
                     rewriteBitdataField (At loc (LabeledField name ty init)) = do ty' <- rewriteType ty
                                                                                   return (At loc (LabeledField name ty' init))
-          rewrite (Struct name size ctor drv) =
+          rewrite (Struct name size ctor align drv) =
               do size' <- case size of
                             Nothing -> return Nothing
                             Just size -> Just `fmap` rewriteScheme [] size
                  ctor' <- rewriteCtor (runWriterT . mapM rewriteStructRegion) ctor
-                 return (Struct name size' ctor' drv)
+                 align' <- case align of
+                             Nothing -> return Nothing
+                             Just (At loc align) -> (Just . At loc) `fmap` rewriteScheme [] align
+                 return (Struct name size' ctor' align' drv)
               where rewriteStructRegion :: Located (StructRegion Id) -> WriterT [(Located (PredType Pred Id), Id)] M (Located (StructRegion Id))
                     rewriteStructRegion (At loc (StructRegion nameInit ty)) = do ty' <- rewriteType ty
                                                                                  return (At loc (StructRegion nameInit ty'))
-          rewrite (Area v namesAndInits ty) =
-              liftM (Area v namesAndInits) (rewriteScheme [] ty)
+          rewrite (Area v namesAndInits ty align) =
+              do ty' <- rewriteScheme [] ty
+                 align' <- case align of
+                             Nothing -> return Nothing
+                             Just (At loc align) -> (Just . At loc) `fmap` rewriteScheme [] align
+                 return (Area v namesAndInits ty' align')
 
           rewrite (Class id params constraints methods defaults) =
               liftM2 (Class id params constraints) (mapM rewriteSignature methods) (mapM rewrite defaults)
@@ -272,7 +279,7 @@ rewriteFunctionalNotation = up (\p -> PassM (StateT (\env0 -> let env = build p 
 
           arities (Datatype name params _ _)          = Just (name, TypeArity (length params))
           arities (Bitdatatype name _ _ _)            = Just (name, TypeArity 0)
-          arities (Struct name _ _ _)                 = Just (name, TypeArity 0)
+          arities (Struct name _ _ _ _)               = Just (name, TypeArity 0)
           arities (Area {})                           = Nothing
           arities (Class name params constraints _ _) = Just (name, ClassArity n isFunctional)
               where n            = length params

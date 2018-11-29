@@ -256,10 +256,8 @@ instance HasEvidenceVariables Decls
     where fevs (Decls gs) = concatMap fevs gs
 
 instance HasTypeVariables (TopDecl KId)
-  where s # d@(Datatype id params ctors)   = d
-        s # d@(Bitdatatype id width ctors) = d
-        s # d@(Struct id width fields)     = d
-        s # d@(Area v ids t w o)           = Area v [(id, s # tapp) | (id, tapp) <- ids] (s # t) w o
+  where s # Area v ids t w o = Area v [(id, s # tapp) | (id, tapp) <- ids] (s # t) w o
+        s # d                = d
 
 ----------------------------------------------------------------------------------------------------
 

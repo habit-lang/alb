@@ -827,6 +827,7 @@ instance Sugared S.DataField (Type Id)
     where desugar (S.DataField _ (At l t)) = desugar t
 
 toMaybeScheme = maybe Nothing (Just . toScheme [])
+toMaybeLocatedScheme = maybe Nothing (\(At loc qt) -> Just (At loc (toScheme [] qt)))
 
 unzipLocated :: [Located (a, b)] -> ([Located a], [b])
 unzipLocated lps = (as, map dislocate bs)
@@ -867,10 +868,11 @@ instance Sugared S.BitdataField (BitdataField Id, Maybe (Id, Located (Type Id), 
               return (ConstantField lit, Nothing)
 
 instance Sugared S.Struct (Top, [TypingGroup PredFN Id])
-    where desugar (S.Struct name size ctor drv) =
+    where desugar (S.Struct name size ctor align drv) =
               do size' <- toMaybeScheme `fmap` desugar size
+                 align' <- toMaybeLocatedScheme `fmap` desugar align
                  (ctor', inits) <- desugarCtorWithInit [] ctor
-                 return (Struct name size' ctor' drv,
+                 return (Struct name size' ctor' align' drv,
                          [Explicit (v, [], MCommit e) tys | (v, tys, e) <- inits])
 
 instance Sugared S.StructRegion (StructRegion Id, Maybe (Id, Located (Type Id), Located (Expr PredFN Id)))
@@ -893,17 +895,18 @@ instance Sugared S.StructField (StructField, Maybe (Id, Located (Expr PredFN Id)
                  return (StructField name (Just v), Just (v, At loc init'))
 
 instance Sugared S.Area (Top, [TypingGroup PredFN Id])
-    where desugar (S.Area v namesAndInits ty mdecls) =
+    where desugar (S.Area v namesAndInits ty align mdecls) =
               do qty@(ps :=> t) <- desugar ty
                  let tys    = toScheme [] qty
                      initTy = toKScheme [] [] (ps :=> introduced (TyApp (introduced (TyCon "Init"))
                                                                         (introduced (TyApp (introduced (TyCon "AreaOf")) t))))
+                 align' <- toMaybeLocatedScheme `fmap` desugar align
                  Decls groups <-
                      case mdecls of
                        Nothing -> return (Decls [])
                        Just decls -> desugar decls
                  (ps, inits) <- unzip `fmap` mapM rewriteInit namesAndInits
-                 return ( Area v ps tys
+                 return ( Area v ps tys align'
                         , groups ++ [Explicit (v, [], MCommit e) initTy | (v, e) <- inits] )
 
               where rewriteInit (At loc name, Nothing) =
@@ -982,7 +985,7 @@ desugarProgram = up (\p -> PassM (StateT (f p)))
           typeDeclNames = catMaybes . map nameFrom
               where nameFrom (At l (Datatype name _ _ _))    = Just (At l name)
                     nameFrom (At l (Bitdatatype name _ _ _)) = Just (At l name)
-                    nameFrom (At l (Struct name _ _ _))      = Just (At l name)
+                    nameFrom (At l (Struct name _ _ _ _))    = Just (At l name)
                     nameFrom (At l (Area {}))                = Nothing
                     nameFrom (At l (Class name _ _ _ _))     = Just (At l name)
                     nameFrom (At l (Instance {}))            = Nothing
@@ -1030,7 +1033,7 @@ desugarProgram = up (\p -> PassM (StateT (f p)))
                                       ++ globalBitCtors
                     nullary fields  = null [n | At _ (S.LabeledField n _ _) <- fields]
 
-                    structCtorNames = [name | At _ (S.Struct _ _ (Ctor _ _ _ regions) _) <- S.structures p,
+                    structCtorNames = [name | At _ (S.Struct _ _ (Ctor _ _ _ regions) _ _) <- S.structures p,
                                               At _ (S.StructRegion (Just (S.StructField (At _ name) _)) _) <- regions]
                                       ++ globalStructCtors
 
@@ -1043,7 +1046,7 @@ desugarProgram = up (\p -> PassM (StateT (f p)))
                                 [map ctorName ctors | At _ (S.Bitdatatype _ _ ctors _) <- S.bitdatatypes p])
                     ctorNames = map dislocate locatedCtorNames
                     areaNames =
-                        concat [map dislocate (fst (unzip inits)) | At _ (S.Area _ inits _ _) <- S.areas p]
+                        concat [map dislocate (fst (unzip inits)) | At _ (S.Area _ inits _ _ _) <- S.areas p]
                     primitiveNames =
                         [id | At _ (S.PrimValue (S.Signature id _) _ _) <- S.primitives p]
                     primitiveNamesAndVisibilities =

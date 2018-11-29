@@ -6,6 +6,7 @@ import Common
 import Control.Monad.State
 import Data.Graph
 import Data.List (intercalate, partition)
+import Data.Maybe (isJust)
 import Printer.Common
 import Printer.IMPEG
 import Syntax.IMPEG
@@ -27,7 +28,7 @@ deriveInstances p = concatMapM deriveL (topDecls p)
 derive                                   :: TDecl -> M [TDecl]
 derive (Datatype name params ctors drv)   = deriveDatatype name params ctors drv
 derive (Bitdatatype name msize ctors drv) = deriveBitdatatype name msize ctors drv
-derive (Struct name msize ctor drv)       = deriveStruct name msize ctor drv
+derive (Struct name msize ctor align drv) = deriveStruct name msize ctor align drv
 derive _                                  = return []
 
 makeInstances      :: (Deriving -> M Deriving) -> [Id] -> M [TDecl]
@@ -89,47 +90,45 @@ freshParams kids = do let (vs, ks) = unzipKinded kids
 ----------------------------------------------------------------------------------------------------
 -- Construct predicates for computing sizes in bitdata and struct types:
 
-sums :: [Located Ty] -> Located Ty -> M [Located (PredType Pred KId)]
-sums [n1, n2] size =
-    return [introduced (sumP n1 n2 size)]
-sums (n1 : n2 : rest) size =
+nary :: (Located Ty -> Located Ty -> Located Ty -> PredType Pred KId)
+     -> [Located Ty] -> Located Ty -> M [Located (PredType Pred KId)]
+nary bin [n1, n2] size =
+    return [introduced (bin n1 n2 size)]
+nary bin (n1 : n2 : rest) size =
     do n <- introduced `fmap` newTyVar KNat
-       ps <- sums (n : rest) size
-       return (introduced (sumP n1 n2 n) : ps)
+       ps <- nary bin (n : rest) size
+       return (introduced (bin n1 n2 n) : ps)
 
--- sizeConstraints takes a list of types and generates a set of constraints that
+-- natConstraints takes a list of types and generates a set of constraints that
 -- computes the size of each type and requires that their sum be the size from
 -- the bitdata declaration.
-sizeConstraints :: (Located Ty -> Located Ty -> PredType Pred KId)     -- construct a predicate from type & size params
-                    -> Located Ty                             -- total size
-                    -> [Located Ty]                           -- field types
-                    -> Bool                                   -- Whether the field sizes should be equal to (true) or just less than (false) the total size
-                    -> M ([Located Ty], [Located (PredType Pred KId)]) -- size variables, predicates
-sizeConstraints _ _ [] _ =
+natConstraints :: (Located Ty -> Located Ty -> PredType Pred KId) -- construct a predicate from type & size params
+               -> Located Ty                                      -- Declared "total"
+               -> (Located Ty -> Located Ty -> Located Ty -> PredType Pred KId) -- "Binary" predicate to combine values
+               -> [Located Ty]                                    -- field types
+               -> (Located Ty -> Located Ty -> PredType Pred KId) -- Relationship between declared "total" and actual "total"
+               -> M ([Located Ty], [Located (PredType Pred KId)]) -- size variables, predicates
+natConstraints _ _ _ [] _ =
     return ([], [])
-sizeConstraints sizePred size [t] True =
-    return ([size], [introduced (sizePred t size)])
-sizeConstraints sizePred size [t] False =
+natConstraints sizePred size _ [t] rel =
     do v <- (introduced . TyVar . flip Kinded KNat) `fmap` fresh "size"
-       return ([size], [introduced (sizePred t v), introduced (lte v size)])
-sizeConstraints sizePred size ts True =
-    do vs <- freshFor "size" ts
-       let sizes = [introduced (TyVar (Kinded v KNat)) | v <- vs]
-       ps <- sums sizes size
-       return (sizes, map introduced (zipWith sizePred ts sizes) ++ ps)
-sizeConstraints sizePred size ts False =
-    do vs <- freshFor "size" ts
+       return ([size], [introduced (sizePred t v), introduced (rel v size)])
+natConstraints sizePred size bin ts rel =
+    do vs <- freshFor "n" ts
        let sizes = [introduced (TyVar (Kinded v KNat)) | v <- vs]
        v <- (introduced . TyVar . flip Kinded KNat) `fmap` fresh "size"
-       ps <- sums sizes v
-       return (sizes, introduced (lte v size) : map introduced (zipWith sizePred ts sizes) ++ ps)
+       ps <- nary bin sizes v
+       return (sizes, introduced (rel v size) : map introduced (zipWith sizePred ts sizes) ++ ps)
 
 -- Generate a simple type from a bitdata/struct size annotation:
-sizeType           :: Maybe TyS -> M ([Located (PredType Pred KId)], Located Ty)
-sizeType (Just tys) = do (_, kids, sizePreds :=> size) <- instantiate (ForallK [] tys)
-                         return (sizePreds, size)
-sizeType Nothing    = do v <- fresh "size"
-                         return ([], introduced (TyVar (Kinded v KNat)))
+natType                :: Id -> Maybe TyS -> M ([Located (PredType Pred KId)], Located Ty)
+natType _ (Just tys)    = do (_, kids, sizePreds :=> size) <- instantiate (ForallK [] tys)
+                             return (sizePreds, size)
+natType name Nothing    = do v <- fresh name
+                             return ([], introduced (TyVar (Kinded v KNat)))
+
+sizeType = natType "size"
+alignType = natType "align"
 
 ----------------------------------------------------------------------------------------------------
 -- Deriving for types introduced in data declarations:
@@ -411,8 +410,8 @@ deriveBitdatatype name msize ctors drv
              fieldTypes <- mapM fieldType [ f | At _ f <- fields ]
              let (determined, undetermined) = partition sizeDetermined fieldTypes
              (_, qs) <- case length undetermined of
-                          0 -> sizeConstraints bitSize totalWidth (map (inst ts) fieldTypes) True
-                          1 -> sizeConstraints bitSize totalWidth (map (inst ts) determined) False
+                          0 -> natConstraints bitSize totalWidth sumP (map (inst ts) fieldTypes) equ
+                          1 -> natConstraints bitSize totalWidth sumP (map (inst ts) determined) lte
                           _ -> failWith "Too many variable-width fields in constructor"
              return (map (inst ts) ps ++ qs)
 
@@ -647,8 +646,9 @@ deriveBitdatatype name msize ctors drv
 ----------------------------------------------------------------------------------------------------
 -- Deriving for types introduced in struct declarations:
 
-deriveStruct :: Id -> Maybe (Scheme Pred KId) -> Ctor KId (PredType Pred KId) (StructRegion KId) -> [Id] -> M [TDecl]
-deriveStruct name msize (Ctor _ kids ps regions) drv
+deriveStruct :: Id -> Maybe (Scheme Pred KId) -> Ctor KId (PredType Pred KId) (StructRegion KId)
+             -> Maybe (Located (Scheme Pred KId)) -> [Id] -> M [TDecl]
+deriveStruct name msize (Ctor _ kids ps regions) mLocatedAlign drv
     | any (`notElem` ["NoInit", "NullInit"]) drv = failWith ("No support for deriving instances of" <+>
                                                              hsep (punctuate comma (map ppr (filter (`notElem` ["NoInit", "NullInit"]) drv))))
     | otherwise =
@@ -656,11 +656,12 @@ deriveStruct name msize (Ctor _ kids ps regions) drv
            let ts          = map TyVar (zipWith Kinded vs' ks)
                regionTypes = map (inst ts) regionGenTypes
                regionPreds = map (inst ts) ps
-           (sizeTypes, sizePreds, byteSizeInst) <- deriveByteSize regionPreds regionTypes
-           selUpdInsts <- deriveSelUpd regionPreds regionTypes sizeTypes sizePreds
+           byteSizeInst <- deriveByteSize regionPreds regionTypes
+           alignmentInst <- deriveAlignment regionPreds regionTypes
+           selUpdInsts <- deriveSelUpd regionPreds regionTypes -- sizeTypes sizePreds
            noInitInst <- deriveInit "NoInit" "noInit" fields
            nullInitInst <- deriveInit "NullInit" "nullInit" fields
-           return ([byteSizeInst, noInitInst, nullInitInst] ++ selUpdInsts)
+           return ([byteSizeInst, alignmentInst, noInitInst, nullInitInst] ++ selUpdInsts)
 
     where namedType = TyCon (Kinded name KArea)
           (mfields, regionGenTypes) = unzip [(f, ty) | At _ (StructRegion f ty) <- regions]
@@ -669,41 +670,57 @@ deriveStruct name msize (Ctor _ kids ps regions) drv
 
           deriveByteSize regionPreds regionTypes =
               do (qs, size) <- sizeType msize
-                 (sizeTypes, sizePreds) <- sizeConstraints byteSize size regionTypes True
+                 (sizeTypes, sizePreds) <- natConstraints byteSize size sumP regionTypes equ
                  sizeInstName <- fresh "i"
                  let concHolds = introduced (byteSize (introduced namedType) size)
                      concFails = introduced (predf "ByteSize" [introduced namedType, introduced (TyVar (Kinded "$n" KNat))])
-                 return (sizeTypes, sizePreds ++ qs, Instance sizeInstName "ByteSize"
-                                                        [((regionPreds ++ sizePreds ++ qs) :=> concHolds, []),
-                                                         ([] :=> concFails, [])])
+                 return (Instance sizeInstName "ByteSize"
+                            [((regionPreds ++ sizePreds ++ qs) :=> concHolds, []),
+                             ([] :=> concFails, [])])
 
-          deriveSelUpd regionPreds regionTypes sizeTypes sizePreds =
+          deriveAlignment regionPreds regionTypes =
+              do (qs, align) <- alignType malign
+                 (alignTypes, alignPreds) <- natConstraints alignment align lcmp regionTypes rel
+                 regionAlignmentPreds <- map introduced `fmap` regionAlignments align regionTypes
+                 sizeInstName <- fresh "i"
+                 let concHolds = loc (alignment (loc namedType) align)
+                     concFails = loc (predf "Alignment" [introduced namedType, introduced (TyVar (Kinded "$n" KNat))])
+                 return (Instance sizeInstName "Alignment"
+                            [((regionPreds ++ qs ++ alignPreds ++ regionAlignmentPreds) :=> concHolds, []),
+                             ([] :=> concFails, [])])
+              where rel | isJust malign = divp
+                        | otherwise     = equ
+
+                    (malign, loc) = case mLocatedAlign of
+                                      Nothing -> (Nothing, introduced)
+                                      Just (At l s) -> (Just s, At l)
+
+                    regionAlignments _ [] =
+                        error "Instances.hs:701:empty list of regions?"
+                    regionAlignments v [t] =
+                        do a <- introduced `fmap` newTyVar KNat
+                           return [alignment t a, divp a v]
+                    regionAlignments v (t:ts) =
+                        do a <- introduced `fmap` newTyVar KNat
+                           s <- introduced `fmap` newTyVar KNat
+                           w <- introduced `fmap` newTyVar KNat
+                           ps <- regionAlignments w ts
+                           return (alignment t a : divp a v : byteSize t s : sumP v s w : ps)
+
+          deriveSelUpd regionPreds regionTypes =
               do selInstName <- fresh "i"
                  updInstName <- fresh "i"
-                 offsetVars  <- freshFor "offset" (tail sizeTypes)
-                 alignVars   <- freshFor "align" (tail sizeTypes)
 
                  let srcAlign    = TyVar (Kinded "m" KNat)
-                     src         = arefTy @@ srcAlign @@ namedType
+                     src         = refTy @@ namedType
                      impl        = [("select", [], MCommit (introduced (EVar "structSelect")))]
                      natTypes vs = [TyVar (Kinded v KNat) | v <- vs]
 
-                     offsetTypes = natTypes offsetVars
-                     offsetPreds = go (TyNat 0 : offsetTypes) sizeTypes
-                         where go (last : here : rest) (sizeLast : sizeRest) = introduced (sumP (introduced last) sizeLast (introduced here)) : go (here : rest) sizeRest
-                               go _ _                                        = []
-
-                     alignTypes  = natTypes alignVars
-                     alignPreds  = map introduced (zipWith (gcdPred srcAlign) offsetTypes alignTypes)
-
-
-                     chain       = [ (regionPreds :=> introduced (select src fieldName (introduced (arefTy @@ srcAlign @@ dislocate (head regionTypes)))), impl)
+                     chain       = [ (regionPreds :=> introduced (select src fieldName (introduced (refTy @@ dislocate (head regionTypes)))), impl)
                                      | At _ (StructRegion (Just (StructField (At _ fieldName) _)) _) <- [head regions] ] ++
-                                   [ ((regionPreds ++ sizePreds ++ offsetPreds ++ alignPreds) :=>
-                                           introduced (select src fieldName (introduced (arefTy @@ rgnAlign @@ dislocate rgnType))),
-                                      impl)
-                                     | (At _ (StructRegion (Just (StructField (At _ fieldName) _)) _), (rgnAlign, rgnType)) <-
-                                           zip (tail regions) (zip alignTypes (tail regionTypes)) ]
+                                   [ (regionPreds :=> introduced (select src fieldName (introduced (refTy @@ dislocate rgnType))), impl)
+                                     | (At _ (StructRegion (Just (StructField (At _ fieldName) _)) _), rgnType) <-
+                                           zip (tail regions) (tail regionTypes) ]
 
                  return ([ Instance selInstName "Select" chain | not (null chain) ] ++
                          [ Instance updInstName "Update" [([] :=> introduced (updateFails src (TyVar (Kinded "f" KLabel))), [])] ])

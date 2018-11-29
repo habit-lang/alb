@@ -1,0 +1,228 @@
+------------------------------------------------------------------------
+Proposal: Changes to the Treatment of Aligned Memory Areas in Habit
+
+------------------------------------------------------------------------
+1) The "Alignment" type class.  We introduce a new type class:
+
+    class Alignment (a::area) = (n::nat)
+
+A predicate Alignment a = n indicates that an area of kind a must
+start on an address that is a multiple of n.  (So we might also
+call n the "minimum alignment" for a.)
+
+A typical instance of Alignment might be as follows:
+
+    instance Alignment (Stored t) = 8   if BitSize t = 64
+    else     Alignment (Stored t) = 4   if BitSize t = 32
+    else     Alignment (Stored t) = 2   if BitSize t = 16
+    else     Alignment (Stored t) = 1   if BitSize t = 8
+
+Different versions of these instances might be appropriate on some
+architectures/platforms.  For example, a machine that does not have
+any requirements for alignment might use Alignment (Stored t) = 1 for
+all of the cases above.
+
+Aside: Considered as type functions, the Alignment and ByteSize
+classes should have the same domain (instances of Alignment for other
+area types are given below).  Perhaps there should be another new
+class, maybe called "Area", such that, if Area a, then both
+ByteSize a and Alignment a are guaranteed to be defined?
+
+------------------------------------------------------------------------
+2) The "divides by" class.  We introduce another new class:
+
+    class Div (a::nat) (b::nat)
+
+A predicate  Div m n  indicates that m divides n, so we have
+examples like  Div 1 n,  Div 2 4,  and Div 8 8.  I guess we can
+already define this using something like the following:
+
+    instance Div m n if m * k = n   -- "for some k ..."
+    else     Div m n fails
+
+Note in particular that Div m 0 for all m.
+
+One use for the Div class appears in the following instance
+declarations for array and padding areas:
+
+    instance Alignment (Array n a) = Alignment a
+      if Div (Alignment a) (ByteSize a)
+    instance Alignment (Pad n a)   = 1
+
+The expectation is that an Array n a is represented by n
+contiguous blocks of memory, each of which holds an area of the
+form described by a, with no gaps between consecutive elements.
+The requirement that Alignment (Array n a) = Alignment a ensures that
+the first element of the array will be properly aligned for a
+region of type a.  The Div (Alignment a) (ByteSize a) constraint ensures
+that all subsequent elements of the array will also be suitably
+aligned.  (We could omit this latter constraint if n==0, but I'm
+doubtful about making a special case treatment here given that
+arrays of length 0 are unlikely to be very useful in practice,
+so keeping the constraint, even in this case where it is not
+strictly necessary, will probably not cause any problems.)
+
+If we had support for partial type constructors, we could limit
+the parameters of Array n a to cases where Div (Alignment a) (ByteSize a).
+(If a programmer wants to create an array of elements whose
+size is not a multiple of the alignment, then they will have to
+add explicit padding to satisfy that requirement.)  In this case,
+the for instance for Array could be written as follows, leaving
+the divides by constraint to be inferred rather than stated
+explicitly:
+
+    instance Alignment (Array n a) = Alignment a
+
+In the following, we will write types of the form  Array n a  as
+before, but with the implicit assumption (which could still
+be written explicitly for the purposes of documentation) that
+Div (Alignment a) (ByteSize a).
+
+------------------------------------------------------------------------
+3) Reference and Pointer Types.  We remove the "ARef" (and "APtr")
+types, each of which included an alignment parameter and an area
+parameter.  In their place, we have:
+
+    Ref :: area -> *
+    Ptr :: area -> *
+
+These are now considered primitives/builtin type constructors
+rather than being defined in terms of ARef and APtr, resp.
+(Technically, these may be treated as partial type constructors
+whose domain is limited to the types in the domain of Align
+and ByteSize.)
+
+The BitSize of a reference or pointer still depends on the
+alignment of the type that is pointed to (this is important
+for reference or pointer values that are embedded in bitdata
+values):
+
+    instance BitSize (ARef a) = WordSize - p if Alignment a = 2^p
+    else     BitSize (ARef a) = WordSize
+
+The second clause here provides a catch for alignments that
+are not a power of two, but it's not clear if such alignments
+are useful in practice, so perhaps we should only use the
+first clause?
+
+Although we assign BitSize values for references that are less
+than WordSize, we should probably still include special treatment
+for Stored (Ref a) and Stored (Ptr a) areas so that references
+and pointers can be written directly into (WordSize) memory
+locations without the overhead of having to wrap them in a
+bitdata construction to ensure sufficient padding.  For example,
+we might have:
+
+    instance ByteSize (Stored (Ref a))  = WordSize/8
+    instance Alignment (Stored (Ref a)) = WordSize/8
+
+[Aside: I'm thinking that we might be able to add sizes to
+standard data type definitions in cases where we expect that the
+backend will be able to concoct a suitable bitdata representation.
+For example, this might allow us to define:
+
+    data Ptr a / BitSize (Ref a)
+      = Null | Ref (Ref a)
+
+The hope here is that earlier parts of the compiler would be able
+to use the information in the size annotation to accept uses of
+Ptr a types in bitdata definitions, and that the backend would be
+responsible for checking that the specified sizes were actually
+realized in the back end.  (Some details will need to be work out,
+however: how will we check for junk and confusion for types like
+this ... just assume that Ptr a values could be any bit pattern of
+width BitSize (Ref a) perhaps?  And how will we handle attempts to
+write Ptr a values directly into memory without explicit padding?)]
+
+The main operators for accessing memory and manipulating references
+would now be as follows (with some extra type classes in some cases
+to limit polymorphism):
+
+    readRef    :: Ref (Stored t) -> Proc t
+    writeRef   :: Ref (Stored t) -> t -> Proc ()
+
+    initStored :: t -> Init (Stored t)
+    initArray  :: (Ix n -> Init a) -> Init (Array n a)
+
+    (@)        :: Ref (Array n a) -> Ix n -> Ref a
+
+(The last two functions, for example, both involving Array n a,
+might carry an implicit Div (Alignment a) (ByteSize a) constraint if we are
+treating Array as partial.)
+
+------------------------------------------------------------------------
+4) Structures.  Structure definitions now allow an (optional)
+alignment specification, as in the following:
+
+    struct S / size aligned l [ l1 :: a1 | ... | ln :: an ]
+
+("aligned" is used as a new keyword here; perhaps it should also
+be preceded by a comma?)
+
+The "/ size" and "aligned l" parts are used to generate instances:
+
+    instance ByteSize S = size
+    instance Alignment S    = l
+
+The value of "size" must be the same as the sum of the ByteSizes
+for each of the individual fields.  (This is the value that will
+be assumed anyway if the "/ size" portion of the definition is
+omitted.) The value of "l" must be greater than zero and divisible
+by Alignment ai for each of the structure fields.  In other words, we
+require that Div LCM(Alignment a1, ..., Alignment an) l.  If the "aligned
+l" portion of the definition is omitted, then the LCM on the left
+hand side of this constraint will be used as the value for l as
+that is clearly the smallest value that satisfies the constraint.
+
+In addition, we require that Div (Alignment ai) offseti  for each i,
+where offseti is the offset in bytes from the start of the
+structure to the beginning of the ith field.  A structure
+definition that does not satisfy this requirement should be
+rejected at compile time.  This restriction ensures that all
+structure fields will be accessible (i.e., that they will be at
+suitably aligned addresses).  In particular, we can view the
+select operations for each field in S as a function:
+
+    (_.f) :: Ref S -> Ref a   -- assuming field f :: a
+
+In Habit, we're actually using a function with a proxy type
+for the field label:
+
+    select :: Ref S -> #f -> Ref a
+
+We also need to deal with structure initializers, but this
+should not require any real changes (except in moving from
+use of ARef to use of Ref).  Concretely, the initializer:
+
+    S [ f1 <- exp1 | ... | fn <- expn ]
+
+will have type Init S, so long as each of the expi initializers
+has the corresponding Init ai type.
+
+------------------------------------------------------------------------
+5) Area declarations.  Area declarations will now look something
+like the following:
+
+    area x <- exp :: Ref a aligned l
+
+The only change here is that we would have previously written
+"ARef l a" (or something equivalent to that involving type
+synonyms, etc.)  As above, the "aligned l" portion is optional, in
+which case an alignment of Alignment a will be assumed instead.  If an
+explicit value of l is supplied, then it must be divisible by
+Alignment a (i.e., Div (Alignment a) l).  As before, the expression exp must
+have type Init a.  This allows us, for example, to have a Stored
+Word that is 1K aligned, or 4 byte aligned, etc. but not 2 byte
+aligned.
+
+------------------------------------------------------------------------
+6) Unaligned References.  I haven't thought much about this, but
+wanted to make a note of Iavor's suggestion that we might be able
+to support unaligned references by adding them as an extra type,
+together with suitable operators.  The main difference is that use
+of unaligned references might be "unsafe", potentially triggering
+hardware exceptions on architectures that do not allow misaligned
+memory accesses, and/or in performance impacts on architectures
+that allow but are not optimized for such uses.
+
+------------------------------------------------------------------------

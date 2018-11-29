@@ -272,6 +272,7 @@ data TopDecl typaram
 
              | Struct Id                               -- type name
                       Int                              -- size in bytes
+                      Int                              -- alignment in bytes
                       [StructField]                    -- fields
 
              | Area Bool [(Id, Inst)] Type Int Int     -- (name, init) type size alignment

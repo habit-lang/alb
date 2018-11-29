@@ -267,10 +267,10 @@ ctorBinding id = do mt <- gets (Map.lookup id . ctorEnvironment)
 ----------------------------------------------------------------------------------------------------
 -- Type constants
 
-arrTy, bitTy, arefTy, labTy, initTy, bitdataCaseTy :: Ty
+arrTy, bitTy, refTy, labTy, initTy, bitdataCaseTy :: Ty
 arrTy           = TyCon (Kinded (Ident "->" 0 (Just (Fixity RightAssoc 5))) (KFun KStar (KFun KStar KStar)))
 bitTy           = TyCon (Kinded "Bit" (KFun KNat KStar))
-arefTy          = TyCon (Kinded "ARef" (KFun KNat (KFun KArea KStar)))
+refTy           = TyCon (Kinded "Ref" (KFun KArea KStar))
 labTy           = TyCon (Kinded "Proxy" (KFun KLabel KStar))
 initTy          = TyCon (Kinded "Init" (KFun KArea KStar))
 bitdataCaseTy   = TyCon (Kinded "BitdataCase" (KFun KStar (KFun KLabel KStar)))
@@ -296,11 +296,15 @@ predh n ts                           = Pred n ts Holds
 predf n ts                           = Pred n ts Fails
 byteSize a n                         = predh "ByteSize" [a, n]
 bitSize t n                          = predh "BitSize" [t, n]
+alignment t n                        = predh "Alignment" [t, n]
 areaOf r a                           = predh "AreaOf" [r, a]
 alignOf r n                          = predh "AlignOf" [r, n]
 widthPred n                          = predh "Width" [n]
 gcdPred n m p                        = predh "GCD" (map introduced [n, m, p])
+lcmp m n p                           = predh "LCM" [m, n, p]
+equ m n                              = predh "==" [m, n]
 lte m n                              = predh "<=" [m, n]
+divp m n                             = predh "Div" [m, n]
 initablePred a                       = predh "Initable" [a]
 procPred p                           = predh "Proc" [p]
 noInit t                             = predh "NoInit" [introduced t]

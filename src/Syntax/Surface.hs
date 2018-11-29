@@ -194,14 +194,15 @@ data BitdataField = LabeledField Id (Located Type) (Maybe (Located Expr))
                   | ConstantField (Located Literal)
                   deriving (Eq, Show, Typeable, Data)
 
-data Struct = Struct Id (Maybe (Qual Type)) (Ctor Id Pred StructRegion) [Id]
+data Struct = Struct Id (Maybe (Qual Type)) (Ctor Id Pred StructRegion) (Maybe (Located (Qual Type))) [Id]
+           -- name size constructor alignment deriving (TODO: field labels)
               deriving (Eq, Show, Typeable, Data)
 data StructRegion = StructRegion (Maybe StructField) (Located Type)
                   deriving (Eq, Show, Typeable, Data)
 data StructField = StructField (Located Id) (Maybe (Located Expr))
                  deriving (Eq, Show, Typeable, Data)
 
-data Area = Area Bool [(Located Id, Maybe (Located Expr))] (Qual Type) (Maybe Decls)
+data Area = Area Bool [(Located Id, Maybe (Located Expr))] (Qual Type) (Maybe (Located (Qual Type))) (Maybe Decls)
             deriving (Eq, Show, Typeable, Data)
 
 --------------------------------------------------------------------------------

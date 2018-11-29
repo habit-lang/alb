@@ -231,8 +231,8 @@ paramName (Right name)           = name
 
 data TopDecl p tyid typaram = Datatype tyid [Located typaram] [Ctor tyid (PredType p tyid) (Type tyid)] [Id]
                             | Bitdatatype Id (Maybe (Scheme p tyid)) [Ctor tyid (PredType p tyid) (BitdataField tyid)] [Id]
-                            | Struct Id (Maybe (Scheme p tyid)) (Ctor tyid (PredType p tyid) (StructRegion tyid)) [Id]
-                            | Area Bool [(Located Id, Id)] (Scheme p tyid)
+                            | Struct Id (Maybe (Scheme p tyid)) (Ctor tyid (PredType p tyid) (StructRegion tyid)) (Maybe (Located (Scheme p tyid))) [Id]
+                            | Area Bool [(Located Id, Id)] (Scheme p tyid) (Maybe (Located (Scheme p tyid)))
                             | Class Id [Located typaram] [Located ClassConstraint] [Signature p tyid] (Functions p tyid)
                             | Instance Id Id [(Qual (PredType p tyid) (PredType p tyid), Functions p tyid)]
                             | Require [(Id, Located (PredType p tyid))] [Located (PredType p tyid)]
@@ -317,8 +317,8 @@ instance (Typeable p, Data (p (Located (Type tyid))), Data tyid, Data typaram) =
          Data (TopDecl p tyid typaram) where
   gfoldl k z (Datatype x1 x2 x3 x4) = z Datatype `k` x1 `k` x2 `k` x3 `k` x4
   gfoldl k z (Bitdatatype x1 x2 x3 x4) = z Bitdatatype `k` x1 `k` x2 `k` x3 `k` x4
-  gfoldl k z (Struct x1 x2 x3 x4) = z Struct `k` x1 `k` x2 `k` x3 `k` x4
-  gfoldl k z (Area x1 x2 x3) = z Area `k` x1 `k` x2 `k` x3
+  gfoldl k z (Struct x1 x2 x3 x4 x5) = z Struct `k` x1 `k` x2 `k` x3 `k` x4 `k` x5
+  gfoldl k z (Area x1 x2 x3 x4) = z Area `k` x1 `k` x2 `k` x3 `k` x4
   gfoldl k z (Class x1 x2 x3 x4 x5) = z Class `k` x1 `k` x2 `k` x3 `k` x4 `k` x5
   gfoldl k z (Instance x1 x2 x3) = z Instance `k` x1 `k` x2 `k` x3
   gfoldl k z (Require x1 x2) = z Require `k` x1 `k` x2

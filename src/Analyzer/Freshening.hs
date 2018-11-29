@@ -79,7 +79,7 @@ freshenProgram = up body
                           classMethods = [At s id | At s (Class _ _ _ (Just d)) <- classes p, Signature id _ <- signatures d]
                           opaqueDataMethods = [At s id | At s (Datatype _ _ _ (Just ds)) <- datatypes p, Signature id _ <- signatures ds]
                           opaqueSynonymMethods = [At s id | At s (Synonym _ _ (Just ds)) <- synonyms p, Signature id _ <- signatures ds]
-                          areaNames = concat [map fst inits | At _ (Area _ inits _ _) <- areas p]
+                          areaNames = concat [map fst inits | At _ (Area _ inits _ _ _) <- areas p]
                           (publicPrimNames, privatePrimNames) = partitionEithers $ concatMap bindingsFromPrimitive (primitives p)
                           newGlobals = declVars ++ classMethods ++ opaqueDataMethods ++ opaqueSynonymMethods ++ areaNames ++ publicPrimNames
                       liftBase (rejectDuplicates (oldGlobals ++ oldPrivates) (newGlobals ++ privatePrimNames))
@@ -274,7 +274,7 @@ freshenProgram' = rec where
   -- Note that we do *not* do withFresh on the decls in Class and
   -- Instance since the Decls in them are really top level
   -- Likewise, every Decls depends on the surrounding context to call withFresh on the Decls
-  area e@(Area _ _ _ d) = withFresh d $ gmapM rec e
+  area e@(Area _ _ _ _ d) = withFresh d $ gmapM rec e
   primitive e@(PrimClass _ _ _ d) = withFresh d $ gmapM rec e
   primitive e@(PrimCon {}) = return e
   primitive e = gmapM rec e

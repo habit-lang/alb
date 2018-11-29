@@ -199,11 +199,12 @@ instance Printable BitdataField
           ppr (ConstantField e) = ppr e
 
 instance Printable Struct
-    where ppr (Struct name size (Ctor _ _ preds regions) drv) =
+    where ppr (Struct name size (Ctor _ _ preds regions) align drv) =
               nest 4 (ppr name <>
                       maybe empty (\t -> slash <> ppr t) size <+>
                       brackets (cat (punctuate (softline <> bar <> space) (map ppr regions))) <>
                       (if null preds then empty else softline <> text "if" <+> cat (punctuate (comma <> softline) (map ppr preds))) <>
+                      (maybe empty ((" aligned" <+>) . ppr) align) <>
                       pprDrvs)
               where pprDrvs | null drv = empty
                             | otherwise = softline <> text "deriving" <+> parens (cat (punctuate comma (map ppr drv)))
@@ -215,10 +216,12 @@ instance Printable StructRegion
 
 
 instance Printable Area
-    where ppr (Area v ids ty decls) =
+    where ppr (Area v ids ty align decls) =
               nest 4 ((if v then text "volatile " else empty) <>
                       text "area" <+> cat (punctuate (comma <> softline) [ ppr name <> maybe empty (\init -> space <> text "<-" <+> ppr init) init | (name, init) <- ids ])
-                               </> text "::" <+> ppr ty <> printMaybeDecls decls)
+                               </> text "::" <+> ppr ty <>
+                               (maybe empty ((" aligned" <+>) . ppr) align) <>
+                               printMaybeDecls decls)
 
 instance Printable Primitive
     where ppr (PrimValue s name private) = text "primitive" <+> (if private then empty else "private" <> space) <>
