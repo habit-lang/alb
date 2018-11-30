@@ -68,7 +68,7 @@ instance Printable Expr
           ppr (EApp e e')       = parens $ atPrecedence 9 (ppr e <+> (withPrecedence 10 (ppr e')))
           ppr (EBitSelect e f)  = atPrecedence 10 (ppr e) <> dot <> ppr f
           ppr (EBitUpdate e f e') = atPrecedence 10 (ppr e) <> brackets (ppr f <+> equals <+> ppr e')
-          ppr e@(EFatbar e1 e2) = parens $ ppr e1 <+> bar <+> ppr e2
+          ppr (EFatbar e1 e2) = parens $ parens (ppr e1) <+> bar <+> parens (ppr e2)
           ppr (EBind "_" _ e body)
                                 = align ((align (ppr e) <> semi) <$$> ppr body)
           ppr (EBind var varty e body)
