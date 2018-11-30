@@ -115,7 +115,7 @@ type Context = ContextEntry -> TM Type
 data ContextEntry = Term Id [Type]
                   | CaseAlt Id [Type]
                   | BitConField Id Id
-                  | StructInitField Id Id
+                  | StructRegion Id Id
                     deriving (Show, Eq)
 
 empty :: Context
@@ -218,8 +218,9 @@ checkExpr gamma t@(EStructInit k fs)
     | null fs = gamma (Term k [])
     | otherwise = do mapM_ checkField fs
                      return (TyApp (TyCon (Kinded "Init" (KFun KStar KStar))) (TyCon (Kinded k KArea)))
-    where checkField (name, e) = do ty <- checkExpr gamma e
-                                    ty' <- gamma (StructInitField k name)
+    where initTy = TyApp (TyCon (Kinded "Init" (KFun KArea KStar)))
+          checkField (name, e) = do ty <- checkExpr gamma e
+                                    ty' <- initTy `fmap` gamma (StructRegion k name)
                                     if ty == ty'
                                     then return ty
                                     else typeFailIn "Type mismatch in structure initializer" $ typeError ty ty' (show t)
@@ -249,7 +250,10 @@ checkExpr gamma t@(EBitSelect e f) = do t1 <- checkExpr gamma e
                                         case t1 of
                                           TyApp (TyApp (TyCon (Kinded "BitdataCase" _)) _) (TyLabel ctor) ->
                                               gamma (BitConField ctor f)
+                                          TyApp (TyCon (Kinded "Ref" _)) (TyCon (Kinded structName _)) ->
+                                              refTy `fmap` gamma (StructRegion structName f)
                                           _ -> typeFail ["Invalid bitdata selection: argument not a BitdataCase. ", show t]
+    where refTy = TyApp (TyCon (Kinded "Ref" (KFun KArea KStar)))
 checkExpr gamma t@(EBitUpdate e f e') =
     do t1 <- checkExpr gamma e
        case t1 of
@@ -337,7 +341,7 @@ buildTopDecl gamma (Bitdatatype i _ ps)   = let ty = (TyCon (Kinded i KStar))
                                             in return  ctxt
 buildTopDecl gamma (Area i _ _ ty _ _)    =  return $ update gamma (Term i []) ty
 buildTopDecl gamma t@(Struct k _ fs)      = return (foldl addField gamma fs)
-  where addField gamma (StructField (Just f) t _ _) = update gamma (StructInitField k f) (TyApp (TyCon (Kinded "Init" (KFun KArea KStar))) t)
+  where addField gamma (StructField (Just f) t _ _) = update gamma (StructRegion k f) t
         addField gamma _                            = gamma
 
 buildTopDecls :: TopDecls -> Context -> TM Context

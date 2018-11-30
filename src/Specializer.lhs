@@ -772,6 +772,7 @@ name for the current Inst or else defers to the enclosing context:
 >             return ((dapp, i, (Forall [] [] t', body')), c')
 >     where DApp _ typeArgs dictArgs = dapp
 >           bitdataCase ty conid = TyApp (TyApp (TyCon (Kinded "BitdataCase" (KFun KStar (KFun KLabel KStar)))) ty) conid
+>           refTy                = TyApp (TyCon (Kinded "Ref" (KFun KArea KStar)))
 >           proxy lab            = TyApp (TyCon (Kinded "Proxy" (KFun (KVar "k") KStar))) (TyLabel lab)
 >           specBody (Left (id, args))
 >               | id == "bitdataSelect" =
@@ -786,6 +787,12 @@ name for the current Inst or else defers to the enclosing context:
 >                                                 (ELam "y" (proxy field)
 >                                                    (ELam "z" argType
 >                                                      (EBitUpdate (ELamVar "x") field (ELamVar "z")))))),
+>                              c)
+>               | id == "structSelect" =
+>                   let [ty, TyLabel region, result] = typeArgs
+>                   in return (Right (Gen [] [] (ELam "x" (refTy ty)
+>                                                  (ELam "y" (proxy region)
+>                                                     (EBitSelect (ELamVar "x") region)))),
 >                              c)
 >               | id == "primReturnM" =
 >                   let [ty] = typeArgs
