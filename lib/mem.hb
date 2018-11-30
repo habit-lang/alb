@@ -1,7 +1,11 @@
 requires prelude
 
-primitive readRef :: Ref (Stored a) -> M a
-primitive writeRef :: Ref (Stored a) -> a -> M ()
+readRef  = primReadRefStored
+writeRef = primWriteRefStored
+
+
+primitive primReadRefStored  :: Ref (Stored a) -> M a
+primitive primWriteRefStored :: Ref (Stored a) -> a -> M ()
 
 -- class MemMonad m | Monad m
 --     where memZero :: ARef l a -> m ()

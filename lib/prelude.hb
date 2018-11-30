@@ -514,7 +514,8 @@ primitive (@)      :: Ref (Array n a) -> Ix n -> Ref a
 
 primitive type Init      :: area -> *
 
-primitive initArray      :: (Ix n -> Init a) -> Init (Array n a)
+primitive primInitArray  :: (Ix n -> Init a) -> Init (Array n a)
+initArray = primInitArray
 primitive initSelf       :: (Ref a -> Init a) -> Init a
 
 primitive primInitStored :: t -> Init (Stored t)
