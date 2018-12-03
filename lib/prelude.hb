@@ -213,9 +213,8 @@ instance FromBits (Bit n) where
   isJunk   v = False
 
 instance FromBits Bool where -- this also looks like a candidate for a primitive ...
-  fromBits B0 = False
-  fromBits B1 = True
-  isJunk b    = False
+  fromBits b = if b==B0 then False else True
+  isJunk b   = False
 
 instance ToBits Unsigned
    where toBits u = u.bits
