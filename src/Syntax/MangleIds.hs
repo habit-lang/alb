@@ -75,7 +75,8 @@ mangleId id@(Ident (c:cs) n f) =
           mangleChar _ c                = "Ord"++show (ord c)
 
 mangleType :: Type -> Bool
-mangleType = const True
+mangleType (TyCon (Kinded "->" _)) = True
+mangleType _                       = False
 
 mangleProgram :: (Typeable t, Data t) => Pass () t t
 mangleProgram = pure (everywhereBut (mkQ False mangleType) (mkT mangleId))
