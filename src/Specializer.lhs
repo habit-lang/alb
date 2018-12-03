@@ -952,13 +952,17 @@ this cause problems later in the pipeline?
 >   where iter built [] = return (map snd built)
 >         iter built (rq : rqs)
 >             | rq `elem` map fst built = iter built rqs
->             | otherwise = case topDeclFor rq topDecls of
+>             | kindOf rq /= KStar && kindOf rq /= KArea =
+>                 trace ("Skipping non-value type " ++ show (ppr rq) ++ " :: " ++ show (ppr (kindOf rq))) $
+>                 iter built rqs
+>             | otherwise = trace ("Requested top-level type " ++ show (ppr rq)) $
+>                           case topDeclFor rq topDecls of
 >                             Nothing -> trace ("Skipping requested top-level type " ++ show (ppr rq)) $
 >                                        iter built (concatMap requestedBy (snd (flattenType rq)) ++ rqs)
 >                                        -- avoid attempting to build primitive types, but include arguments to primitive types
 >                             Just d  -> do (d', newRqs) <- specTopDecl d rq
->                                           let builtTys     = map fst built
->                                               newRqs'      = filter (`notElem` builtTys) newRqs
+>                                           let builtTys = map fst built
+>                                               newRqs'  = filter (`notElem` builtTys) newRqs
 >                                           iter ((rq, d') : built) (newRqs' ++ rqs)
 
 >         specArea (Area v ids ty size align)
