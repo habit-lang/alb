@@ -81,6 +81,9 @@ rewriteType t@(At loc (TyCon name)) =
          ClassArity 1 False ->
              failWithS "Invalid use of functional notation"
          _ -> return t
+rewriteType (At loc (TyKinded t k)) =
+    do t' <- rewriteType t
+       return (At loc (TyKinded t' k))
 rewriteType t = return t
 
 rewritePredicate :: Located (PredType PredFN Id) -> WriterT [(Located (PredType Pred Id), Id)] M (Located (PredType Pred Id))
