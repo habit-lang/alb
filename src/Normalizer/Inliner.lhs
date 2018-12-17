@@ -11,12 +11,12 @@ annotations to EVar nodes if we weren't going to rely on full type checking.
 
 > import Data.Char (ord, isAlphaNum, isAlpha)
 > import Data.Maybe (fromMaybe, fromJust)
-> import Syntax.Common
-> import Syntax.LambdaCase
+> import Syntax.XMPEG
+> import Syntax.Specialized
 
 A simple environment mapping
 
-> type Env        = [(Id, Expr)]
+> type Env        = [(Id, (Scheme Type, Expr))]
 
 > unbind         :: Id -> Env -> Env
 > unbind i env    = [ p | p@(j,_) <- env, i/=j ]
@@ -24,11 +24,11 @@ A simple environment mapping
 > unbinds        :: [Id] -> Env -> Env
 > unbinds is env  = [ p | p@(j,_) <- env, j `notElem` is ]
 
-> extend, recextend  :: Id -> Expr -> Env -> Env
-> extend i e env      = (i, e) : env
-> recextend i e env   = (i, e) : map app env
->  where app (i', EVar j t) | j==i  = (i', e)
->        app p                      = p
+> extend, recextend  :: Id -> Scheme Type -> Expr -> Env -> Env
+> extend i t e env      = (i, (t, e)) : env
+> recextend i t e env   = (i, (t, e)) : map app env
+>  where app (i', (t, ELamVar j)) | j==i  = (i', (t, e))
+>        app p                            = p
 
 Transform the input "expression" e by performing dependency analysis on every
 Mutual group that it contains, returning the transformed version of e as well
@@ -42,72 +42,74 @@ as the set of free variables in e.
 >   inline env (Right e) = Right (inline env e)
 
 > instance Inliner Expr where
->   inline env e@(EVar i t)             = fromMaybe e (lookup i env)
+>   inline env e@(ELamVar i)            = fromMaybe e (snd `fmap` lookup i env)
+>   inline _   (ELetVar _)              = error "Inliner.lhs:46"
 >   inline env (EBitCon i fields)       = EBitCon i [(f, inline env e) | (f, e) <- fields]
 >   inline env (EStructInit k fields)   = EStructInit k [(f, inline env e) | (f, e) <- fields]
 >   inline env (ELam i t e)             = ELam i t (inline (unbind i env) e)
->   inline env (ELet (Decls ds) e)      = let (env', ds') = inlineGroups [] env ds -- NOTE: refusing to preserve let-bound values
+>   inline env (ELet ds e)              = let (env', ds') = inlineDecls [] env ds -- NOTE: refusing to preserve let-bound values
 >                                         in case ds' of
->                                              [] -> inline env' e
->                                              _  -> ELet (Decls ds') (inline env' e)
->   inline env (ECase e alts)           = ECase (inline env e) (map (inline env) alts)
+>                                              Decls [] -> inline env' e
+>                                              _  -> ELet ds' (inline env' e)
+>   inline env (EMatch m)               = EMatch (inline env m)
 >   inline env (EApp f x)               = EApp (inline env f) (inline env x)
 >   inline env (EBitSelect e f)         = EBitSelect (inline env e) f
 >   inline env (EBitUpdate e f e')      = EBitUpdate (inline env e) f (inline env e')
->   inline env (EFatbar l r)            = EFatbar (inline env l) (inline env r)
->   inline env (EBind i t e e1)         = EBind i t (inline env e) (inline (unbind i env) e1)
+>   inline env (EBind ta tb tm me i e e1) = EBind ta tb tm me i (inline env e) (inline (unbind i env) e1)
 >   inline env (EReturn e)              = EReturn (inline env e)
 >   inline env e                        = e -- covers EPrim, EBits, ENat, ECon
 
-> instance Inliner Alt where
->   inline env (Alt c ts is e) = Alt c ts is (inline (unbinds is env) e)
+> instance Inliner Match where
+>   inline _ MFail = MFail
+>   inline env (MCommit e) = MCommit (inline env e)
+>   inline env (MElse m1 m2) = MElse (inline env m1) (inline env m2)
+>   inline env (MGuarded (GFrom PWild _) m) = inline env m
+>   inline env (MGuarded (GFrom (PVar v t) w) m) = inline (extend v (Forall [] [] t) (ELamVar w) env) m
+>   inline env (MGuarded (GFrom p w) m) =
+>       case lookup w env of
+>         Nothing -> MGuarded (GFrom p w) (inline env m)
+>         Just (_, ELamVar v) -> MGuarded (GFrom p v) (inline env m)
+>         Just (t, e) -> MGuarded (GLet (Decls [Defn w t (Right (Gen [] [] e))])) (MGuarded (GFrom p w) (inline env m))
+>   inline env (MGuarded (GLet ds) m) = let (env', ds') = inlineDecls [] env ds
+>                                       in case ds' of
+>                                            Decls [] -> inline env' m
+>                                            _  -> MGuarded (GLet ds') (inline env' m)
+>   inline env (MGuarded _ _) = error "Inliner.lhs:76" -- GSubst, GLetTypes
 
 > instance Inliner Defn where
 >   inline env (Defn i t (Left impl))  = Defn i t (Left impl)
->   inline env (Defn i t (Right e)) = Defn i t (Right (inline env e))
-
-> instance Inliner TopDecl where
->   inline env (Area name v init ty size align) = Area name v (inline env init) ty size align
->   inline env d                                = d -- covers Datatype, Bitdatatype, Struct
+>   inline env (Defn i t (Right (Gen [] [] e))) = Defn i t (Right (Gen [] [] (inline env e)))
 
 > inlineable        :: Expr -> Bool
-> inlineable EVar{}  = True
-> inlineable EBits{} = True
-> inlineable ENat{}  = True
-> inlineable ECon{}  = True
-> inlineable EBitCon{} = True
+> inlineable ELamVar{}    = True
+> inlineable EBits{}      = True
+> inlineable ECon{}       = True
+> inlineable EBitCon{}    = True
 > inlineable EBitSelect{} = True
 > inlineable EBitUpdate{} = True
-> inlineable _       = False
+> inlineable _            = False
 
-> inlineGroups         :: [Id] -> Env -> [Decl] -> (Env, [Decl])
+> inlineGroups         :: [Id] -> Env -> [Defn] -> (Env, [Defn])
 > inlineGroups _ env [] = (env, [])
-> inlineGroups preserved env (Nonrec (Defn i t e) : defns)
->       | Right e' <- e,
->         i `notElem` preserved && inlineable e' = inlineGroups preserved (extend i (inline env e') env) defns
->       | otherwise                              = let (env', defns') = inlineGroups preserved env defns
->                                                 in  (env', Nonrec (Defn i t (inline env e)) : defns')
-> inlineGroups preserved env (Mutual ds : defns)
->   = splitDefns [] [] ds
->     where splitDefns          :: Env -> [Defn] -> [Defn] -> (Env, [Decl])
+> inlineGroups preserved env ds
+>   = splitDefns env [] ds
+>     where splitDefns          :: Env -> [Defn] -> [Defn] -> (Env, [Defn])
 >           splitDefns dsenv ds (d@(Defn i t e):rest)
->               | Right e' <- e,
->                 i `notElem` preserved && inlineable e' = splitDefns (recextend i (inline dsenv e') dsenv) ds rest
+>               | Right (Gen [] [] e') <- e,
+>                 i `notElem` preserved && inlineable e' = splitDefns (recextend i t (inline dsenv e') dsenv) ds rest
 >               | otherwise                              = splitDefns dsenv (d:ds) rest
 >           splitDefns dsenv ds []
->             = case ds of
->                 [] -> error "cyclic substitution"
->                 _  -> let env'            = dsenv ++ env
->                           (env'', defns') = inlineGroups preserved env' defns
->                       in (env'', Mutual (map (inline env') ds) : defns')
+>             = let env' = dsenv ++ env
+>               in (env', (map (inline env') ds))
 
 > inlineDecls :: [Id] -> Env -> Decls -> (Env, Decls)
 > inlineDecls preserved env (Decls ds)
 >     = (env', Decls ds')
 >     where (env', ds') = inlineGroups preserved env ds
 
-> inlineProgram :: [(Id, Bool)] -> Program -> Program
-> inlineProgram preserved (Program decls topDecls)
->     = Program decls' topDecls'
->     where (env, decls')   = inlineDecls (map fst preserved) [] decls
->           topDecls'       = map (inline env) topDecls
+> inlineProgram :: [(Id, Bool)] -> Specialized -> Specialized
+> inlineProgram exported (Specialized topDecls entries decls)
+>     = Specialized topDecls entries' decls'
+>     where preserved       = map fst exported
+>           (env, decls')   = inlineDecls preserved [] decls
+>           entries'        = [(inline env e, b) | (e, b) <- entries]

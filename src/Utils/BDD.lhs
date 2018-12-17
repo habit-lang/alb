@@ -6,6 +6,7 @@ that might be useful for a general BDD library, but doesn't appear to be
 important for the (relatively small) examples we find in this particular
 application.)
 
+> {-# LANGUAGE DeriveDataTypeable #-}
 > module Utils.BDD(Pat, Width, width,
 >                  pAll, pNone, pNot, pAnd, pOr, pAnds, pOrs,
 >                  pPadR, pPadL, pSplit, pSplits,
@@ -14,6 +15,7 @@ application.)
 >                  pGreater, pGreaterEq, pLess, pLessEq,
 >                  isAll, isNone, superset, willMatch) where
 
+> import Data.Generics
 > import Printer.Common
 
 -- Ordered binary decision diagrams --------------------------------------------
@@ -31,7 +33,7 @@ value).
 
 > type Var = Int
 > data BDD = F | T | ITE Var BDD BDD
->            deriving (Eq,Show)
+>   deriving (Data, Eq, Show, Typeable)
 
 If we fix the order in which variables are mentioned as we descend the BDD,
 then we can maintain BDDs in a canonical form that is referred to as an
@@ -68,7 +70,7 @@ follows:
 
 > type Width = Int
 > data Pat   = Pat { width :: Width, bdd :: BDD }
->              deriving Eq
+>              deriving (Data, Eq, Typeable)
 
 To illustrate this, the following examples of Pat values build on the
 BDD examples described previously:
@@ -79,7 +81,7 @@ BDD examples described previously:
   Pat 3 (ITE 1 F (ITE 0 T F))
     represents the set {001, 101}, which we abbreviate as _01
     using the underscore as a wildcard.
-                   
+
   Pat 4 (ITE 3 F T)
     represents the set {0000,0001,0010,0011,0100,0101,0110,0111},
     which we can abbreviate as 0___, again using underscore as a

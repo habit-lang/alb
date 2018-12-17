@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, TypeSynonymInstances, MultiParamTypeClasses, DeriveDataTypeable #-}
+{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, TypeSynonymInstances, MultiParamTypeClasses, DeriveDataTypeable #-}
 module Syntax.Common (module Syntax.Common, SourcePos, newPos, fromString) where
 
 import Data.Char
@@ -184,6 +184,10 @@ instance Binder t => Binder (Located t)
 class HasVariables t
     where freeVariables :: t -> [Id]
           rename        :: [(Id, Id)] -> t -> t
+
+replacement m id = case lookup id m of
+                     Nothing  -> id
+                     Just id' -> id'
 
 instance HasVariables t => HasVariables [t]
     where freeVariables = concatMap freeVariables

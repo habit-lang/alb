@@ -37,7 +37,6 @@ build_dcon_tcon_env tds = foldr build empty_env tds
 type_of :: Expr -> Type
 type_of (EVar x t) = t
 type_of (EBits n s) = bits (TyLit (fromIntegral s)) -- not sure how this will translate
-type_of (ENat n) = natT n
 type_of (ECon c ts t) = t
 type_of (ELam _ t e) = t `fun` type_of e
 type_of (ELet _ e) = type_of e

@@ -1,6 +1,7 @@
-{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
+{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, MultiParamTypeClasses #-}
 module Syntax.XMPEG (module Syntax.Common, module Syntax.XMPEG) where
 
+import Data.Generics
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe
@@ -18,7 +19,7 @@ data Type = TyCon (Kinded Id)
           | TyApp Type Type
           | TyNat Integer
           | TyLabel Id
-            deriving (Eq, Show)
+            deriving (Data, Eq, Ord, Show, Typeable)
 
 flattenType :: Type -> (Type, [Type])
 flattenType (TyApp lhs rhs) = (op, ts ++ [rhs])
@@ -56,6 +57,7 @@ instance Convertable ([(KId, I.Type KId)], [(KId, I.Type KId)]) ([(KId, Type)], 
     where convert (cond, impr) = (convert cond, convert impr)
 
 data Scheme t = Forall [KId] [Pred Type] t
+  deriving (Data, Typeable)
 
 instance Convertable (I.Scheme I.Pred KId) (Scheme Type)
     where convert (I.Forall ks (ps I.:=> At _ t)) = Forall ks (map (convert . dislocate) ps) (convert t)
@@ -81,6 +83,7 @@ data Expr      = ELamVar Id
                | EStructInit Id [(Id, Expr)]
                | EBind Type Type Type Ev Id Expr Expr -- {ta,tb,tm}{me :: Proc tm} (id :: ta) <- e ; (e' :: tm tb)
                | EReturn Expr
+  deriving (Data, Typeable)
 
 type TypeBinding = Either [([(KId, Type)], [(KId, Type)])] ([KId], [KId], [Type] -> [Type])
 type ExprSubst = [(Id, Expr)]
@@ -127,6 +130,7 @@ data Ev = EvVar Id
         | EvCases [([(KId, Type)], Ev)]
         | EvComputed [KId] ([Type] -> Ev)
         | EvFrom EvPat Ev Ev
+  deriving (Data, Typeable)
 
 evVars :: Ev -> [Id]
 evVars (EvVar id) = [id]
@@ -138,11 +142,14 @@ evVars (EvFrom EvWild e e') = evVars e ++ evVars e'
 evVars (EvFrom (EvPat _ _ vs) e e') = evVars e ++ filter (`notElem` vs) (evVars e')
 
 data EvPat = EvPat Id [Type] [Id] | EvWild
+  deriving (Data, Typeable)
 
 type RequirementImpls = Map Id [([EvPat], Ev)]
 
 data Gen t = Gen [Kinded Id] [Id] t
+  deriving (Data, Typeable)
 data Inst  = Inst Id [Type] [Ev]
+  deriving (Data, Typeable)
 
 --------------------------------------------------------------------------------
 -- Matches
@@ -152,6 +159,7 @@ data Match = MFail                    -- "fail"            match failure
            | MCommit Expr             -- "^ e"             commit result
            | MElse Match Match        -- "m1 | m2"         alternative
            | MGuarded Guard Match     -- "g => m"          guarded matches
+  deriving (Data, Typeable)
 
 instance HasVariables Match
     where freeVariables MFail          = []
@@ -178,6 +186,7 @@ flattenGuards m = ([], m)
 data Pattern = PWild
              | PVar Id Type     -- TODO: Why is there a type annotation here?
              | PCon Inst [Id]
+  deriving (Data, Typeable)
 
 instance HasVariables Pattern
     where freeVariables PWild          = []
@@ -198,6 +207,7 @@ data Guard = GFrom Pattern Id
            | GLet Decls
            | GSubst EvSubst
            | GLetTypes TypeBinding
+  deriving (Data, Typeable)
 
 instance Binder Guard
     where bound (GFrom p _)   = bound p
@@ -220,6 +230,7 @@ instance HasVariables Guard
 --   name :: scheme
 --   name{typarams}{evparams} = e
 data Defn = Defn Id (Scheme Type) (Either (String, [Type]) (Gen Expr)) -- Left => primitive
+  deriving (Data, Typeable)
 type Defns = [Defn]
 
 instance HasVariables Defn
@@ -232,6 +243,7 @@ instance Binder Defn
     where bound (Defn name _ _) = [name]
 
 data Decls = Decls [Defn]
+  deriving (Data, Typeable)
 
 emptyDecls           :: Decls -> Bool
 emptyDecls (Decls []) = True
@@ -276,11 +288,14 @@ data TopDecl typaram
                       [StructField]                    -- fields
 
              | Area Bool [(Id, Inst)] Type Int Int     -- (name, init) type size alignment
+  deriving (Data, Typeable)
 
 type BitdataCtor  = (Id, [BitdataField], BDD.Pat)      -- (name, list of fields, coverage)
 data BitdataField = LabeledField Id Type BDD.Pat Int   -- name, type, coverage, offset in bits
                   | ConstantField Integer BDD.Pat Int  -- value, coverage, offset
+  deriving (Data, Typeable)
 data StructField = StructField (Maybe Id) Type Int Int -- name, type, width, offset in bytes
+  deriving (Data, Typeable)
 
 -- Dictionary constructors:
 
@@ -317,6 +332,7 @@ data Program typaram
              = Program { decls    :: Decls
                        , topDecls :: TopDecls typaram
                        , evidence :: EvDecls }
+  deriving (Data, Typeable)
 
 emptyProgram :: Program typaram
 emptyProgram  = Program { decls    = Decls []

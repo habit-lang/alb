@@ -19,27 +19,21 @@ import System.IO
 
 import Analyzer
 import Common
-import LC.LambdaCaseToLC
-import LC.RenameTypes
+import LC
 import MILTools
-import Normalizer.EtaInit
+import Normalizer.Eta
 import Normalizer.Inliner
-import Normalizer.PatternMatchCompiler
+import Normalizer.Matches as Matches
 import Parser
 import Printer.Common hiding (defaultOptions, showKinds, (</>))
 import Printer.IMPEG
-import Printer.LambdaCase
-import Printer.LC
 import Solver.Trace as Solver
 import qualified Syntax.Surface as S
-import Syntax.LC
 import Syntax.MangleIds
 import Syntax.XMPEG
 import Specializer
 import Typechecker
 import qualified Typechecker.TypeInference as Inference (doTrace)
-import Typechecker.LambdaCase (checkLCProgram)
-import Typechecker.LambdaCasePropagation (propagateLCTypes)
 
 import qualified Debug.Trace as Trace
 
@@ -50,7 +44,6 @@ data Stage = Desugared
            | TypesInferred
            | Specialized
            | Normalized
-           | Annotated
            | LCed
            | LLVMed
            | Compiled
@@ -134,9 +127,6 @@ options =
 
     , Option [] ["Sn"] (NoArg (\opt -> opt { stage = Normalized }))
         "Stop after MPEG normalization"
-
-    , Option [] ["Sa"] (NoArg (\opt -> opt { stage = Annotated }))
-        "Stop after lambda_case annotation"
 
     , Option [] ["Sc"] (NoArg (\opt -> opt { stage = LCed }))
         "Stop after generating LC"
@@ -307,8 +297,7 @@ buildPipeline options =
       TypesInferred    -> filePipe $ \s q -> toInferTypes s >=> pure fst
       Specialized      -> codePipe toSpecialized
       Normalized       -> codePipe toNormalized
-      Annotated        -> codePipe toAnnotated
-      LCed             -> codePipe toLCed
+      LCed             -> codePipe' toLCed
       LLVMed           -> case output options of
                             Nothing -> error "How do we not have an output name?"
                             Just s  -> toLCed >=> pure (milCompile (milOptions options) s False)
@@ -319,6 +308,7 @@ buildPipeline options =
     where filePipe' = initial initialState . mapM . (\f -> \(s, (q, p)) -> f s q p)
 
           codePipe f = f >=> pure (withShowKinds (showKinds options) . ppr) >=> writeIntermediate
+          codePipe' f = f >=> pure fst >=> writeIntermediate
           filePipe f = filePipe' (\s q -> f s q >=> printFile q) >=> pure vcat >=> writeIntermediate
 
           printFile quiet | quiet && not (noQuiet options) = pure (const empty)
@@ -343,17 +333,12 @@ buildPipeline options =
             = filePipe' (\s q -> toInferTypes s) >=> pure concat' >=> specializeProgram exported
 
           toNormalized
-            = toSpecialized >=> patternMatch >=> pure (inlineProgram exported) >=> pure etaInit
-
-          toAnnotated
-            = toNormalized >=> propagateLCTypes >=> checkLCProgram
+            = toSpecialized >=> pure (inlineProgram exported) >=> pure (Matches.normalizeProgram) >=> pure etaExpand
 
           toLCed
             | Nothing <- mainId options = error "Unable to generate LC without main"
             | Just main <- mainId options =
-                toAnnotated >=> pure etaInit >=> pure (inlineProgram exported) >=>
-                LC.RenameTypes.renameProgramCtors >=> LC.RenameTypes.renameProgramTypes >=>
-                lambdaCaseToLC (Entrypoints exported) >=> mangleProgram
+                toNormalized >=> mangleProgram >=> toLC
 
           writeIntermediate =
               pure (\d -> case output options of

@@ -4,9 +4,11 @@ module MILTools (MILOptions(..), milCompile, defaultMILOptions) where
 
 import Data.List
 import Data.Maybe
-import Printer.LC
+import LC
+import Printer.Common (Doc)
 import Syntax.Common(fromId)
-import Syntax.LC
+import Syntax.Specialized
+-- import Syntax.Specialized as Specialized
 import System.Directory
 import System.Environment
 import System.Exit
@@ -32,9 +34,9 @@ defaultMILOptions = MILOptions { jarPath       = Nothing,
                                  clangOptions  = "",
                                  fake          = False }
 
-milCompile :: MILOptions -> String -> Bool -> Program -> IO ()
-milCompile milo outputFileName invokeClang prog =
-    do writeFile lcFileName (show (ppr prog))
+milCompile :: MILOptions -> String -> Bool -> (Doc, [(Id, Bool)]) -> IO ()
+milCompile milo outputFileName invokeClang (prog, entrypoints) =
+    do writeFile lcFileName (show prog)
        execPath <- getExecutablePath
 
        let jarPath' = fromMaybe (takeDirectory execPath </> "mil-tools.jar") (jarPath milo)
@@ -46,7 +48,7 @@ milCompile milo outputFileName invokeClang prog =
                                         "--mil-main=" ++ main,
                                         maybe "" ("--llvm-main=" ++) (llvmMain milo),
                                         otherOptions milo ]
-           main = fromId (head [ id | (id, b) <- fromEntrypoints (entrypoints prog), b ])
+           main = fromId (head [ id | (id, b) <- entrypoints, b ])
            clang = fromMaybe ("clang") (clangPath milo)
            exeName = replaceExtension outputFileName (takeExtension execPath)
            clangCmd = intercalate " " [ clang,

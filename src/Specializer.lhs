@@ -25,7 +25,6 @@ combination of ts and es that is required in a particular program.
 > import Printer.Common hiding (empty)
 > import Printer.Specialized
 > import Solver (entails, SolverEnv)
-> import qualified Syntax.LambdaCase as LC
 > import Syntax.Specialized hiding (Defn(..))
 > import qualified Syntax.Specialized as X
 > import qualified Syntax.XMPEG.TSubst as T

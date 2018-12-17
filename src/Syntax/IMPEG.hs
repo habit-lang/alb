@@ -63,10 +63,6 @@ flattenDo (EBind v (At _ e) (At _ e')) = ((v, e) : binds, result)
     where (binds, result) = flattenDo e'
 flattenDo e = ([], e)
 
-replacement m id = case lookup id m of
-                     Nothing  -> id
-                     Just id' -> id'
-
 instance HasVariables (Expr p t)
     where freeVariables (ELet ds body) =
               freeVariables ds ++ withoutBound ds (freeVariables body)
