@@ -30,8 +30,6 @@ mlength (Cons x xs) = do -- print
 	                 s <- mlength xs
                          return (s + 1)
 
-data List a = Nil | Cons a (List a)
-
 maine  :: M Unsigned
 maine   = do v <- return ((plus one two) (\x -> x + 1) 0)
              return v
