@@ -80,10 +80,10 @@ printCase envs@(cenv, _) m@(MElse{})            =
           gather [] = ([], Nothing)
           gather ms  = ([], Just (foldr1 MElse ms))
           printCaseBlock (w, alts) =
-              "case" <+> ppr w <+> "of" <$$>
-              indent 2 (align (vcat [ ppr k' <+> hsep (map ppr vs) <+> "->" <+> align (printCase envs m)
-                                    | MGuarded (GFrom (PCon (Inst k ts _) vs) _) m <- alts,
-                                      let k' = fromMaybe k (Map.lookup (k, ts) cenv)]))
+              align ("case" <+> ppr w <+> "of" <$$>
+                     indent 2 (align (vcat [ ppr k' <+> hsep (map ppr vs) <+> "->" <+> align (printCase envs m)
+                                           | MGuarded (GFrom (PCon (Inst k ts _) vs) _) m <- alts,
+                                             let k' = fromMaybe k (Map.lookup (k, ts) cenv)])))
           fatbar v w = parens (parens v <+> bar <+> parens w)
 printCase envs (MGuarded (GLet ds) m) = lc envs (ELet ds (EMatch m))
 printCase envs@(cenv, _) (MGuarded (GFrom (PCon (Inst k ts _) vs) w) m) =
