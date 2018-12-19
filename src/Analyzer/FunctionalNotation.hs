@@ -203,9 +203,11 @@ rewriteCtor f (Ctor name qvars preds fields) =
                          (gen 0 (qvars ++ newVs) fields''))
 
 instance HasTypeFunctions (TopDecl PredFN Id (Either KId Id)) (TopDecl Pred Id (Either KId Id))
-    where rewrite (Datatype name params ctors drv) =
+    where rewrite (Datatype name params constraints ctors drv) =
               do ctors' <- mapM (rewriteCtor (runWriterT . mapM rewriteType)) ctors
-                 return (Datatype name params ctors' drv)
+                 (constraints', vs) <- rewritePredicates constraints
+                 when (not (null vs)) (error "FunctionalNotation.hs:209")
+                 return (Datatype name params constraints' ctors' drv)
               where enclosing = map (paramName . dislocate) params
 
           rewrite (Bitdatatype name size ctors drv) =
@@ -280,7 +282,7 @@ rewriteFunctionalNotation = up (\p -> PassM (StateT (\env0 -> let env = build p 
               ( Map.union arities0 (Map.fromList (catMaybes (map (arities . dislocate) (topDecls p) ++ map (primitiveArities . dislocate) (primitives p))))
               , [id | At _ (PrimClass id _ _ _) <- primitives p] ++ primitives0 )
 
-          arities (Datatype name params _ _)          = Just (name, TypeArity (length params))
+          arities (Datatype name params _ _ _)        = Just (name, TypeArity (length params))
           arities (Bitdatatype name _ _ _)            = Just (name, TypeArity 0)
           arities (Struct name _ _ _ _)               = Just (name, TypeArity 0)
           arities (Area {})                           = Nothing

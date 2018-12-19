@@ -5,14 +5,15 @@ module Typechecker.TypeInference.Instances(deriveInstances) where
 import Common
 import Control.Monad.State
 import Data.Graph
-import Data.List (intercalate, partition)
+import Data.List (intercalate, mapAccumL, partition)
 import Data.Maybe (isJust)
 import Printer.Common
 import Printer.IMPEG
 import Syntax.IMPEG
 import Syntax.IMPEG.TSubst
-
 import Typechecker.TypeInference.Base
+
+import Prelude hiding ((<$>))
 
 type TDecl    = TopDecl Pred KId KId  -- Abbreviation for top level declarations in this module.
 type Deriving = ([TDecl], [Id])       -- Pairs a list of generated instances (TDecls) with a
@@ -22,11 +23,13 @@ type Deriving = ([TDecl], [Id])       -- Pairs a list of generated instances (TD
 -- Handle derived instance clauses on data, bitdata, and struct declarations:
 
 deriveInstances :: Program Pred KId KId -> M [Located TDecl]
-deriveInstances p = concatMapM deriveL (topDecls p)
+deriveInstances p = do ds <- concatMapM deriveL (topDecls p)
+                       ds' <- concatMapM deriveP (primitives p)
+                       return (ds ++ ds')
     where deriveL (At loc td) = failAt loc (fmap (At loc `fmap`) (derive td))
 
 derive                                   :: TDecl -> M [TDecl]
-derive (Datatype name params ctors drv)   = deriveDatatype name params ctors drv
+derive (Datatype name params ps ctors drv) = deriveDatatype name params ps ctors drv
 derive (Bitdatatype name msize ctors drv) = deriveBitdatatype name msize ctors drv
 derive (Struct name msize ctor align drv) = deriveStruct name msize ctor align drv
 derive _                                  = return []
@@ -133,9 +136,10 @@ alignType = natType "align"
 ----------------------------------------------------------------------------------------------------
 -- Deriving for types introduced in data declarations:
 
-deriveDatatype :: KId -> [Located KId] -> [Ctor KId (PredType Pred KId) (Type KId)] -> [Id] -> M [TDecl]
-deriveDatatype name params ctors
- = makeInstances (deriveEq       `ifRequested` "Eq"
+deriveDatatype :: KId -> [Located KId] -> [Located (PredType Pred KId)] -> [Ctor KId (PredType Pred KId) (Type KId)] -> [Id] -> M [TDecl]
+deriveDatatype name params ps ctors
+ = makeInstances (always "@" shouldNotList deriveAt
+              >=> deriveEq       `ifRequested` "Eq"
               >=> deriveOrd      `ifRequested` "Ord"
               >=> deriveBounded  `ifRequested` "Bounded"
               >=> deriveNum      `ifRequested` "Num"
@@ -145,6 +149,49 @@ deriveDatatype name params ctors
    where
     -- The type for which these instances are being defined:
     namedType           = foldl (\f x -> TyApp (at x f) x) (TyCon name) (map (TyVar `fmap`) params)
+
+    deriveAt :: Id -> M [TDecl]
+    deriveAt _
+        | null params = return []
+        | otherwise = do insts <- deriveInstances
+                         reqs <- deriveRequirements
+                         return (insts ++ reqs)
+
+        where (_, steps) = mapAccumL (\t u -> let next = tyapp t u in (next, next)) (TyCon name) (map (fmap TyVar) params)
+              tyapp t u@(At l _) = TyApp (At l t) u
+              impliedAts = concat [ atConstraints t
+                                  | Ctor _ kparams qs ts <- ctors,
+                                    t <- ts,
+                                    all (`notElem` kparams) (tvs ts) ]
+              allPreds = ps ++ impliedAts
+              predsFor t = filter (\p -> all (`elem` vs) (tvs p)) allPreds
+                  where vs = tvs t
+              matches p q = case match ([], []) p q of
+                              Left _ -> False
+                              Right _ -> True
+
+
+              deriveInstances =
+                  do instanceNames <- freshFor "derived" steps
+                     return [ Instance instName "@" ((ps :=> at, []) :
+                                                     if null ps then [] else [([] :=> introduced (predf "@" [u, u']), [])])
+                            | (instName, t@(TyApp u u')) <- zip instanceNames steps,
+                              let at = introduced (predh "@" [u, u'])
+                                  notMe (At _ p) = not (matches p (predh "@" [u, u']))
+                                  ps = filter notMe (predsFor t) ]
+
+              deriveRequirements =
+                  for steps $
+                  \t@(TyApp u u') ->
+                      let at = introduced (predh "@" [u, u'])
+                          notMe (At _ p) = not (matches p (predh "@" [u, u']))
+                          ps = filter notMe (predsFor t) in
+                      if null ps
+                      then return []
+                      else do requirementNames <- freshFor "derived" ps
+                              return [Require (zip requirementNames ps) [at]]
+                  where for xs f = fmap concat (mapM f xs)
+                        pprList ps = cat (punctuate (comma <> space) (map ppr ps))
 
     ---------------------------------
     -- Derived instances for Eq, Ord: these can potentially be used with any datatype
@@ -369,8 +416,8 @@ deriveBitdatatype name msize ctors drv
       let sels = concat (map fst selupds) ++ sel1
           upds = concat (map snd selupds) ++ upd1
       makeInstances (always "BitSize" shouldNotList deriveBitSize
-                 >=> always idSelect shouldNotList (const (return sels))
-                 >=> always idUpdate shouldNotList (const (return upds))
+                 >=> always "Select" shouldNotList (const (return sels))
+                 >=> always "Update" shouldNotList (const (return upds))
                  >=> deriveToBits   `ifRequested` "ToBits"
                  >=> deriveFromBits `ifRequested` "FromBits"
                  >=> deriveEq       `ifRequested` "Eq"
@@ -381,9 +428,6 @@ deriveBitdatatype name msize ctors drv
                  >=> deriveBitManip `ifRequested` "BitManip"
                  >=> deriveShift    `ifRequested` "Shift") drv
    where
-    idSelect, idUpdate :: Id
-    idSelect            = "Select"
-    idUpdate            = "Update"
 
     -- The type for which these instances are being defined:
     namedType           = TyCon (Kinded name KStar)
@@ -433,8 +477,8 @@ deriveBitdatatype name msize ctors drv
       = do selInstName <- fresh "selInst"
            updInstName <- fresh "updInst"
            ts          <- freshParams kids
-           return ([Instance selInstName idSelect cs | let cs = selChain ts, not (null cs)],
-                   [Instance updInstName idUpdate cs | let cs = updChain ts, not (null cs)])
+           return ([Instance selInstName "Select" cs | let cs = selChain ts, not (null cs)],
+                   [Instance updInstName "Update" cs | let cs = updChain ts, not (null cs)])
         where
           loc          = At l                                                -- locate at same place as the constructor
           ltycon       = loc namedType                                       -- locate the main type constructor
@@ -442,10 +486,10 @@ deriveBitdatatype name msize ctors drv
           compType     = loc (TyApp (loc (TyApp (loc bitdataCaseTy) ltycon)) -- BitdataCase T #"C"
                                                 (loc (TyLabel cname)))
           selImpl      = primImpl "select" "bitdataSelect"
-          selChain ts  = [(inst ts (ps :=> loc (Pred idSelect [compType, loc (TyLabel fieldName), fieldTy] Holds)), selImpl)
+          selChain ts  = [(inst ts (ps :=> loc (Pred "Select" [compType, loc (TyLabel fieldName), fieldTy] Holds)), selImpl)
                          | At _ (LabeledField fieldName fieldTy _) <- fields ]
           updImpl      = primImpl "update" "bitdataUpdate"
-          updChain ts  = [(inst ts (ps :=> loc (Pred idUpdate [compType, loc (TyLabel fieldName)] Holds)), updImpl)
+          updChain ts  = [(inst ts (ps :=> loc (Pred "Update" [compType, loc (TyLabel fieldName)] Holds)), updImpl)
                          | At _ (LabeledField fieldName _ _) <- fields ]
 
     -- Generate type-level instances of Select and Update for this bitdatatype, if
@@ -475,8 +519,8 @@ deriveBitdatatype name msize ctors drv
     singleCtorSelectUpdate [Ctor (At l cname) _ _ fields]
       = do selInstName <- fresh "selInst"
            updInstName <- fresh "updInst"
-           return ([Instance selInstName idSelect selChain | not (null selChain)],
-                   [Instance updInstName idUpdate updChain | not (null updChain)])
+           return ([Instance selInstName "Select" selChain | not (null selChain)],
+                   [Instance updInstName "Update" updChain | not (null updChain)])
         where loc        = At l
               ltycon     = loc namedType
               compVar    = loc (TyVar (Kinded "t" KStar))
@@ -487,14 +531,14 @@ deriveBitdatatype name msize ctors drv
 
               selImpl    = [("select", ["$r", "$f"], guard selBody)]
               selBody    = (EVar "select" `iEApp` EVar "$v") `iEApp` EVar "$f"
-              selChain   = [([loc (predh idSelect [compType, loc (TyLabel fieldName), compVar])]
-                               :=> loc (predh idSelect [ltycon, loc (TyLabel fieldName), compVar]), selImpl)
+              selChain   = [([loc (predh "Select" [compType, loc (TyLabel fieldName), compVar])]
+                               :=> loc (predh "Select" [ltycon, loc (TyLabel fieldName), compVar]), selImpl)
                            | fieldName <- fieldNames]
 
               updImpl    = [("update", ["$r", "$f", "$t"], guard updBody)]
               updBody    = ECon cname `iEApp` (((EVar "update" `iEApp` EVar "$v") `iEApp` EVar "$f") `iEApp` EVar "$t")
-              updChain   = [([loc (predh idUpdate [compType, loc (TyLabel fieldName)])]
-                               :=> loc (predh idUpdate [ltycon, loc (TyLabel fieldName)]), updImpl)
+              updChain   = [([loc (predh "Update" [compType, loc (TyLabel fieldName)])]
+                               :=> loc (predh "Update" [ltycon, loc (TyLabel fieldName)]), updImpl)
                            | fieldName <- fieldNames]
     singleCtorSelectUpdate _
       = return ([], [])
@@ -737,3 +781,17 @@ deriveStruct name msize (Ctor _ kids ps regions) mLocatedAlign drv
                      else do instName <- fresh "inst"
                              return (Instance instName predName [([] :=> introduced (p namedType Fails), [])])
               where p t = Pred predName [introduced t]
+
+----------------------------------------------------------------------------------------------------
+
+deriveP :: Located (Primitive Pred KId) -> M [Located TDecl]
+deriveP prim@(At loc (PrimType (Kinded name _) k)) = loop (introduced (TyCon (Kinded name k))) k
+    where loop t (KFun k k') =
+              do u <- (introduced . TyVar . flip Kinded k) `fmap` fresh "u"
+                 ds <- loop (introduced (TyApp t u)) k'
+                 instName <- fresh "derived"
+                 let inst = At loc (Instance instName "@" [(atConstraints t :=> introduced (predh "@" [t, u]), [])])
+                 return (inst : ds)
+          loop t _ =
+              return []
+deriveP _ = return []

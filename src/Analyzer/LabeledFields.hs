@@ -71,7 +71,7 @@ collect = Map.fromList . concatMap collect'
 
 build :: [Located Datatype] -> [Located Instance]
 build = concatMap builder
-    where builder (At loc (Datatype t ctors _ _))
+    where builder (At loc (Datatype (qs :=> t) ctors _ _))
               | null labels = []
               | otherwise = map (At loc . selInstFor) labels ++ map (At loc . updInstFor) labels
               where ctorLabels (Ctor _ _ _ fields) = catMaybes [label | At _ (DataField label _) <- fields]
@@ -83,7 +83,7 @@ build = concatMap builder
                         | otherwise = []
                     selInstFor field =
                         Instance
-                            [(([] :=> At loc (Pred (At loc (TyCon "Select") @@ t @@ At loc (TyLabel field) @@ fieldType) Nothing Holds)),
+                            [((qs :=> At loc (Pred (At loc (TyCon "Select") @@ t @@ At loc (TyLabel field) @@ fieldType) Nothing Holds)),
                               (Just emptyDecls{ equations = concatMap (selEqnFor field) ctors }))]
                         where fieldType = head (concat (map typeFrom ctors))
                               typeFrom (Ctor _ _ _ fields) = [t | At _ (DataField (Just label) t) <- fields, label == field]
@@ -97,7 +97,7 @@ build = concatMap builder
                               exprs    = map (At loc . EVar) labels
                     updInstFor field =
                         Instance
-                            [([] :=> At loc (Pred (At loc (TyCon "Update") @@ t @@ At loc (TyLabel field)) Nothing Holds),
+                            [(qs :=> At loc (Pred (At loc (TyCon "Update") @@ t @@ At loc (TyLabel field)) Nothing Holds),
                               Just emptyDecls{ equations = concatMap (updEqnFor field) ctors })]
 
                     t @@ u = at t (TyApp t u)

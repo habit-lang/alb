@@ -23,15 +23,6 @@ import Typechecker.TypeInference.Expr
 import Typechecker.TypeInference.Instances
 import qualified Utils.BDD as BDD
 
-withoutConditionalBindings :: M (EvSubst, Preds, [ConditionalBindings]) -> M (EvSubst, Preds)
-withoutConditionalBindings c =
-    do (evs, ps, cbindss) <- c
-       if all emptyBindings cbindss
-          then return (evs, ps)
-          else failWith ("Unexpected conditional type bindings")
-    where emptyBindings (Left cs) = all null (map snd cs)
-          emptyBindings (Right _) = False
-
 ----------------------------------------------------------------------------------------------------
 
 parameterNames   :: [KId] -> [Id]
@@ -91,23 +82,42 @@ mustBeSatisfied pred =
 
 checkTopDecl :: TopDecl Pred KId KId -> M (X.TopDecl KId, CtorEnv)
 
-checkTopDecl (Datatype (Kinded name k) ps ctors _) =
+checkTopDecl (Datatype (Kinded name k) params ps ctors _) =
     -- Nothing much to do here; all the hard part of checking that datatype declarations are well
     -- formed was done during kind inference.
-    do ctors' <- mapM (simplifyCtor ps') ctors
+    do ctors' <- mapM (simplifyCtor params') ctors
        xctors <- mapM convertCtor ctors'
-       let ctorEnv = [ (ctorName, (kindQuantify (Forall (kids ++ ps')
-                                                        (gen (length kids) ps' (qs :=> introduced (map dislocate ts `allTo` t)))),
-                                   length kids))
-                     | Ctor (At _ ctorName) kids qs ts <- ctors' ]
-       trace (show ("Binding constructors:" <+> vcat [ ppr id <::> ppr ksc | (id, (ksc, _)) <- ctorEnv ])) $
-           return ( X.Datatype name ps' xctors
+       ctorEnv <- mapM augmentCtor ctors'
+       trace (show ("Binding constructors:" <+> vcat [ ppr id <::> ppr ksc | (id, (ksc, _, _)) <- ctorEnv ])) $
+           return ( X.Datatype name params' xctors
                   , Map.fromList ctorEnv )
-    where convertCtor (Ctor (At _ name) kids ps ts) =
-              return (name, kids, map (convert . dislocate) ps, map (convert . dislocate) ts)
+    where convertCtor (Ctor (At _ name) kids qs ts) =
+              return (name, kids, map (convert . dislocate) qs, map (convert . dislocate) ts)
 
-          ps'       = map dislocate ps
-          t         = foldl (@@) (TyCon (Kinded name k)) (map TyVar ps')
+          augmentCtor (Ctor (At _ ctorName) kids qs ts) =
+              do hvars <- freshFor "h" (ps ++ qs)
+                 cvars <- freshFor "c" validityPreds
+                 (_, validityPreds') <- withoutConditionalBindings (entails [] [] (zip hvars (ps ++ qs)) (zip cvars validityPreds))
+                 return (ctorName, (kindQuantify (Forall (kids ++ params')
+                                                  (gen (length kids) params' ((ps ++ map snd validityPreds' ++ qs) :=>
+                                                                              introduced (map dislocate ts `allTo` t)))),
+                                    length kids, length ps + length validityPreds'))
+              where validityPreds = concatMap predAtConstraints (ps ++ qs) ++
+                                    concatMap atConstraints ts ++
+                                    atConstraints (introduced t)
+{-
+
+       ctorEnv <- mapM augmentCtor ctors'
+               [ (ctorName, (kindQuantify (Forall (kids ++ params')
+                                           (gen (length kids) params' ((allConstraints ++ qs)
+                                                                       :=> introduced (map dislocate ts `allTo` t)))),
+                             length kids, length allConstraints))
+               | Ctor (At _ ctorName) kids qs ts <- ctors',
+                 let allConstraints = ps ++ concatMap atConstraints (introduced t : ts) ]
+       ctorEnv' <- mapM simplCtorScheme ctorEnv
+-}
+          params'   = map dislocate params
+          t         = foldl (@@) (TyCon (Kinded name k)) (map TyVar params')
 
 checkTopDecl (Bitdatatype name mtys ctors derives) =
     -- Checking a bitdata type has three steps: for each constructor, we generate the XMPEG
@@ -154,7 +164,7 @@ checkTopDecl (Bitdatatype name mtys ctors derives) =
 
        -- Return XMPEG version of this bitdatatype decl:
        return ( X.Bitdatatype name bddpat xctors
-              , Map.fromList [(cname, (ForallK [] (Forall [] ([] :=> introduced (ctorType cname fields))), 0))
+              , Map.fromList [(cname, (ForallK [] (Forall [] ([] :=> introduced (ctorType cname fields))), 0, 0))
                              | Ctor (At _ cname) _ _ fields <- ctors'] )
 
     where tycon          :: Ty
@@ -294,7 +304,7 @@ checkTopDecl (Area v inits tys _align) =
                 size  <- getNat "size" s
                 align <- getNat "alignment" l
                 return ( X.Area v inits' (convert (dislocate ty)) size align
-                       , Map.fromList [(name, (tys', 0)) | (name, _) <- inits'] )
+                       , Map.fromList [(name, (tys', 0, 0)) | (name, _) <- inits'] )
          _ ->
              failWithS ("Unsupported area declaration; declared type " ++ show (ppr tys)
                        ++ ", simplified type " ++ show (ppr tys'))
@@ -327,9 +337,10 @@ assertClass :: TopDecl Pred KId KId -> M (TyEnv, X.Defns, [TypingGroup Pred KId]
 assertClass (Class name params constraints methods defaults) =
     do mapM_ assertFunDep fds
        mapM_ assertOpacity ops
-       (sigs, impls) <- unzip `fmap` sequence (zipWith selectorSigImpl methods [0..])
+       methods' <- mapM augmentMethod methods
+       (sigs, impls) <- unzip `fmap` sequence (zipWith selectorSigImpl methods' [0..])
        (mappings, defImpls) <- unzip `fmap` mapM (defaultImpl sigs) defaults
-       modify (updateClassEnv methods (Map.fromList mappings)) -- add fundeps and defaults to environment
+       modify (updateClassEnv methods' (Map.fromList mappings)) -- add fundeps and defaults to environment
        return (Map.fromList [ (name, LetBound tys) | (name, tys) <- sigs ], impls, defImpls)
 
     where classPred = Pred name (map (fmap TyVar) params) Holds
@@ -349,6 +360,10 @@ assertClass (Class name params constraints methods defaults) =
 
           assertOpacity (Opaque i) =
               assert (Solver.newOpacity name i)
+
+          augmentMethod (Signature x ksc) =
+              do ksc' <- augmentTypeSignature ksc
+                 return (Signature x ksc')
 
           defaultImpl sigs (mname@(Ident mname' _ _), ps, m) =
             do implName <- fresh (fromString (mname' ++ "$def"))
@@ -386,18 +401,37 @@ assertClass _ = error "TypeChecking.TypeInference:823"
 
 assertInstances :: [Id] -> [Located (TopDecl Pred KId KId)] -> M ([(Id, X.EvDecl)], [TypingGroup Pred KId])
 assertInstances derived insts =
-    do (simplAxs, ws) <- assert (Solver.newAxioms axs)
+    do insts' <- mapM augmentInstance insts
+       let axs = [(name, map fst chain, name `elem` derived) | At l (Instance name _ chain) <- insts']
+       (simplAxs, ws) <- assert (Solver.newAxioms axs)
        mapM_ (warn . text) ws
-       let simplInsts = zipWith reconstitute insts simplAxs
+       let simplInsts = zipWith reconstitute insts' simplAxs
        ps <- mapM (mapLocated translateInstance) simplInsts
        let (xevdecls, tgs) = unzip ps
        return (concat xevdecls, concat tgs)
 
-    where axs = [(name, map fst chain, name `elem` derived) | At l (Instance name _ chain) <- insts]
-          reconstitute (At loc (Instance iname clname clauses)) qps = At loc (Instance iname clname (zip qps impls))
+    where reconstitute (At loc (Instance iname clname clauses)) qps = At loc (Instance iname clname (zip qps impls))
               where (_, impls) = unzip clauses
 
           mapLocated f (At l t) = failAt l $ f t
+
+          augmentInstance :: Located (TopDecl Pred KId KId) -> M (Located (TopDecl Pred KId KId))
+          augmentInstance inst@(At loc (Instance name clName chain))
+              | name `elem` derived = return inst
+              | otherwise =
+                  do chain' <- mapM augmentClause chain
+                     return (At loc (Instance name clName chain'))
+          augmentInstance _ = error "TopDecl.hs:421:assertInstance called with non-Instance TopDecl"
+
+          augmentClause :: (Qual (PredType Pred KId) (PredType Pred KId), Functions Pred KId)
+                        -> M (Qual (PredType Pred KId) (PredType Pred KId), Functions Pred KId)
+          augmentClause (hypotheses :=> conclusion, methodImpls) =
+              do hs <- freshFor "h" hypotheses
+                 vs <- freshFor "v" ps
+                 (_, ps') <- withoutConditionalBindings (entails [] [] (zip hs hypotheses) (zip vs ps))
+                 trace (unlines ["Augmenting instance:", show (ppr (hypotheses :=> conclusion)), "becomes:", show (ppr ((hypotheses ++ ps) :=> conclusion))]) $
+                     return ((hypotheses ++ ps) :=> conclusion, methodImpls)
+              where ps = concatMap predAtConstraints hypotheses ++ predAtConstraints conclusion
 
 translateInstance :: TopDecl Pred KId KId -> M ([(Id, X.EvDecl)], [TypingGroup Pred KId])
 
@@ -495,7 +529,7 @@ assertPrimitive :: Primitive Pred KId -> M (X.Defns, CtorEnv)
 assertPrimitive (PrimCon (Signature name tys) impl) =
     do tys' <- simplifyScheme tys
        return ([X.Defn name (X.convert tys') (Left (impl, []))],
-               Map.singleton name (tys, 0))
+               Map.singleton name (tys, 0, 0))
 assertPrimitive (PrimClass name _ fundeps _) =
     do mapM_ (assert . Solver.newFunDep name) fundeps'
        modify updateClassEnv
@@ -515,9 +549,12 @@ checkProgram fn p =
        (methodTypeEnvironments, selectorImpls, defaultMethodImpls) <- unzip3 `fmap` mapM (mapLocated assertClass) classDecls
        mapM (mapLocated assertRequirement) requirementDecls
        derived <- deriveInstances p
-       trace ("Derived instances:\n" ++ show (vcat (map ppr derived))) (return ())
-       let instanceDecls' = instanceDecls ++ derived
-       (evDecls, methodImpls) <- assertInstances (map instanceName derived) instanceDecls'
+       trace ("Derived:\n" ++ show (vcat (map ppr derived))) (return ())
+       let derivedInstNames = [name | (At _ (Instance name _ _)) <- derived]
+           instanceDecls' = instanceDecls ++ [i | i@(At _ Instance{}) <- derived]
+           derivedRqs     = [r | r@(At _ Require{}) <- derived]
+       mapM_ (assertRequirement . dislocate) derivedRqs
+       (evDecls, methodImpls) <- assertInstances derivedInstNames instanceDecls'
        areaTypes' <- mapM (\(n, tys) -> do ty <- simplifyAreaType tys
                                            return (n, LamBound ty)) areaTypes
        let globals = Map.unions (Map.fromList areaTypes' : methodTypeEnvironments)
@@ -538,7 +575,7 @@ checkProgram fn p =
                                                                (s X.# addEvidence evsubst decls'))
                                                   (s X.# typeDecls' ++ s X.# areaDecls')
                                                   (Map.fromList (evDecls))
-                                      , Map.map (\(tys, n) -> (convert tys, n)) ctorEnvironment
+                                      , Map.map (\(tys, extCount, _) -> (convert tys, extCount)) ctorEnvironment
                                       , Map.unions [globals, ctorTypes, valueTypes] )
 
     where (typeDecls, areaDecls, classDecls, instanceDecls, requirementDecls) = partitionDecls (topDecls p)
@@ -569,6 +606,3 @@ checkProgram fn p =
 
           mapLocated :: (t -> M u) -> Located t -> M u
           mapLocated f (At l t) = failAt l $ f t
-
-          instanceName (At _ (Instance name _ _)) = name
-          instanceName _                          = error "instanceName"

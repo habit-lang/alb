@@ -1,3 +1,7 @@
+-- Partial data types: ------------------------------------------
+
+class (@) (t :: k' -> k) (u :: k')
+
 -- Basic types: -------------------------------------------------
 data Zero
 
@@ -384,6 +388,7 @@ instance ValIn (Stored Unsigned) = Unsigned
 
 primitive type Array :: nat -> area -> area
 primitive type Pad   :: nat -> area -> area
+
 instance ByteSize (Array n a)  = n * ByteSize a
 instance ByteSize (Pad n a)    = n * ByteSize a
 instance Alignment (Pad n a)   = 1

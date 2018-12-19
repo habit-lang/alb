@@ -137,6 +137,7 @@ generateTuple :: Int -> (Located (I.TopDecl I.PredFN Id (Either KId Id)),
                          [I.TypingGroup I.PredFN Id])
 generateTuple n = (introduced $ I.Datatype (tupleName n)
                                   [introduced (Left (Kinded (fromString ("t" ++ show x)) KStar)) | x <- is]
+                                  []
                                   [I.Ctor (introduced (tupleName n)) [] []
                                         [introduced (I.TyVar (fromString ("t" ++ show x))) | x <- is]]
                                   ["Eq", "Ord", "Bounded"],

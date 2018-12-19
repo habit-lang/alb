@@ -182,7 +182,7 @@ instance (HasKinds tyid, HasKinds (PredType p tyid)) => HasKinds (Pattern p tyid
 ----------------------------------------------------------------------------------------------------
 
 instance (HasKinds tyid, HasKinds typaram, HasKinds (PredType p tyid)) => HasKinds (TopDecl p tyid typaram)
-    where vars (Datatype name params ctors _) = nub (vars name ++ vars params ++ vars ctors)
+    where vars (Datatype name params constraints ctors _) = nub (vars name ++ vars params ++ vars constraints ++ vars ctors)
           vars (Bitdatatype _ size ctors _)   = nub (vars size ++ vars ctors)
           vars (Struct _ size regions align _) = nub (vars size ++ vars regions ++ vars align)
           vars (Area _ _ ty align)            = nub (vars ty ++ vars align)
@@ -191,7 +191,7 @@ instance (HasKinds tyid, HasKinds typaram, HasKinds (PredType p tyid)) => HasKin
           vars (Instance _ _ chain)           = vars chain
           vars (Require ps qs)                = nub (vars ps ++ vars qs)
 
-          s # Datatype name params ctors drv  = Datatype (s # name) (s # params) (s # ctors) drv
+          s # Datatype name params constraints ctors drv  = Datatype (s # name) (s # params) (s # constraints) (s # ctors) drv
           s # Bitdatatype name size ctors drv = Bitdatatype name (s # size) (s # ctors) drv
           s # Struct name size regions align drv = Struct name (s # size) (s # regions) (s # align) drv
           s # Area v inits ty align           = Area v inits (s # ty) (s # align)

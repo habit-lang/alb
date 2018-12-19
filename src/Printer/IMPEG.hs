@@ -231,7 +231,8 @@ instance (TyId tyid, TyParam typaram, Printable (PredType p tyid), HasTypeVariab
           ppr (Require ps qs) =
               "require" <+> cat (punctuate ", " (map (ppr . snd) ps)) <+> "if" <+> cat (punctuate ", " (map ppr qs))
 
-          ppr (Datatype name params ctors drv) = nest 4 (text "data" <+> ppr name <+> cat (punctuate space (map ppr params)) <+> pprCtors <> pprDrvs)
+          ppr (Datatype name params constraints ctors drv) =
+              nest 4 (text "data" <+> ppr (constraints :=> introduced name) <+> cat (punctuate space (map ppr params)) <+> pprCtors <> pprDrvs)
               where pprCtor (Ctor name quant preds fields) = ppr name <+> align (sep (map (atPrecedence 10 . ppr) fields) <> pprQuant <> pprPreds)
                         where pprQuant | null quant = empty
                                        | otherwise  = softline <> text "forall" <+> align (cat (punctuate (comma <> softline) (map ppr quant)))

@@ -37,5 +37,3 @@ inferTypes fn = up (\p -> PassM (StateT (\globals@(classEnv, tyEnv, ctorEnv, bit
                                                                   (TcState tyEnv ctorEnv classEnv ([], []) emptyUnifier bitdataCtors bitdataBDDs structRegions requirementTemplates)
                                                 return ((p', (xctors, solverEnvironment classEnv')),
                                                         (classEnv', Map.union tyEnv tyEnv', ctorEnv', bitdataCtors', bitdataBDDs', structRegions', requirementTemplates')))))
-
-

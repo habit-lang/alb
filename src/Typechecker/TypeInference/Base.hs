@@ -67,10 +67,10 @@ instance HasTypeVariables Binding KId
           gen _ _ _                      = error "gen applied to Binding"
 
 type TyEnv       = Map Id Binding
-type CtorEnv     = Map Id (KScheme TyS, Int)
+type CtorEnv     = Map Id (KScheme TyS, Int, Int)
 
 tyEnvFromCtorEnv :: CtorEnv -> TyEnv
-tyEnvFromCtorEnv = Map.map (LetBound . fst)
+tyEnvFromCtorEnv = Map.map (LetBound . (\(s, _, _) -> s))
 
 instance HasTypeVariables TyEnv KId
     where tvs _  = []
@@ -147,6 +147,26 @@ entails' transparents outputVariables hypotheses conclusions =
              do M (lift (putCounter z'))
                 return ((ks, foldl (\s (id, ty) -> extend id (s # ty) s) empty impr),
                         ev, ps, cbinds)
+
+withoutConditionalBindings :: M (EvSubst, Preds, [ConditionalBindings]) -> M (EvSubst, Preds)
+withoutConditionalBindings c =
+    do (evs, ps, cbindss) <- c
+       if all emptyBindings cbindss
+          then return (evs, ps)
+          else failWith ("Unexpected conditional type bindings")
+    where emptyBindings (Left cs) = all null (map snd cs)
+          emptyBindings (Right _) = False
+
+----------------------------------------------------------------------------------------------------
+-- Partial data types
+
+atConstraints :: Located Ty -> [Located (PredType Pred KId)]
+atConstraints (At l (TyApp t u))    = At l (predh "@" [t, u]) : atConstraints t ++ atConstraints u
+atConstraints (At _ (TyKinded t _)) = atConstraints t
+atConstraints _                     = []
+
+predAtConstraints :: Located (PredType Pred KId) -> [Located (PredType Pred KId)]
+predAtConstraints (At _ (Pred _ ts _)) = concatMap atConstraints ts
 
 ----------------------------------------------------------------------------------------------------
 -- Usual typechecking monad and monadic operations
@@ -258,7 +278,7 @@ bind x t = binds (Map.singleton x t)
 bindCtors :: MonadState TcState m => CtorEnv -> m ()
 bindCtors ctors = modify (\s -> s { ctorEnvironment = Map.union (ctorEnvironment s) ctors })
 
-ctorBinding :: (MonadState TcState m, MonadBase m) => Id -> m (KScheme TyS, Int)
+ctorBinding :: (MonadState TcState m, MonadBase m) => Id -> m (KScheme TyS, Int, Int)
 ctorBinding id = do mt <- gets (Map.lookup id . ctorEnvironment)
                     case mt of
                       Nothing -> failWithS ("Unbound constructor function name " ++ fromId id)
@@ -396,6 +416,16 @@ simplifyScheme tys =
        -- variables returned from instantiate, then intersect the tvs of qty with that
        -- list in the quantify call below.
        return (quantify (tvs qty) qty)
+
+augmentTypeSignature :: KScheme TyS -> M (KScheme TyS)
+augmentTypeSignature tys@(ForallK kvars (Forall ks (ps :=> t))) =
+    do (kvars', tvars, declaredPredicates :=> locDT) <- instantiate tys
+       let ps = concatMap predAtConstraints declaredPredicates ++ atConstraints locDT
+       hvars <- freshFor "e" declaredPredicates
+       cvars <- freshFor "e" ps
+       (_, ps') <- withoutConditionalBindings (entails [] [] (zip hvars declaredPredicates) (zip cvars ps))
+       let qty = ((map snd ps' ++ declaredPredicates) :=> locDT)
+       return (ForallK kvars' (Forall tvars (gen 0 tvars qty)))
 
 ----------------------------------------------------------------------------------------------------
 -- Bitdata field and structure region operations

@@ -809,18 +809,18 @@ desugarCtor enclosing (Ctor name _ quals fields) =
 
 instance Sugared S.Datatype [Top]
     where desugar (S.Datatype lhs ctors drv interface) =
-              do lhs' <- desugar lhs
+              do (ps :=> lhs') <- desugar lhs
                  case flattenType lhs' of
                    (At loc (TyCon name), params) ->
                        do params' <- foldrM validateTypeParameter [] params
                           let pnames = map (paramName . dislocate) params'
                           ctors' <- mapM (desugarCtor pnames) ctors
                           case interface of
-                            Nothing -> return [Datatype name params' ctors' drv]
+                            Nothing -> return [Datatype name params' ps ctors' drv]
                             Just ds -> do name' <- fresh name
                                           let rhs = foldl (\t p -> at t (TyApp t (typeFromTypeParameter p))) (At loc (TyCon name')) params'
                                           topDecls' <- desugarInterface name params' [] rhs ds
-                                          return (Datatype name' params' ctors' drv : topDecls')
+                                          return (Datatype name' params' ps ctors' drv : topDecls')
                    _ -> failWithS "Invalid datatype LHS"
 
 instance Sugared S.DataField (Type Id)
@@ -983,7 +983,7 @@ desugarProgram = up (\p -> PassM (StateT (f p)))
 
           typeDeclNames :: [Located Top] -> [Located Id]
           typeDeclNames = catMaybes . map nameFrom
-              where nameFrom (At l (Datatype name _ _ _))    = Just (At l name)
+              where nameFrom (At l (Datatype name _ _ _ _))  = Just (At l name)
                     nameFrom (At l (Bitdatatype name _ _ _)) = Just (At l name)
                     nameFrom (At l (Struct name _ _ _ _))    = Just (At l name)
                     nameFrom (At l (Area {}))                = Nothing

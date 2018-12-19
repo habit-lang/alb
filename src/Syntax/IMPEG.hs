@@ -225,7 +225,7 @@ paramName :: Either (Kinded Id) Id -> Id
 paramName (Left (Kinded name _)) = name
 paramName (Right name)           = name
 
-data TopDecl p tyid typaram = Datatype tyid [Located typaram] [Ctor tyid (PredType p tyid) (Type tyid)] [Id]
+data TopDecl p tyid typaram = Datatype tyid [Located typaram] [Located (PredType p tyid)] [Ctor tyid (PredType p tyid) (Type tyid)] [Id]
                             | Bitdatatype Id (Maybe (Scheme p tyid)) [Ctor tyid (PredType p tyid) (BitdataField tyid)] [Id]
                             | Struct Id (Maybe (Scheme p tyid)) (Ctor tyid (PredType p tyid) (StructRegion tyid)) (Maybe (Located (Scheme p tyid))) [Id]
                             | Area Bool [(Located Id, Id)] (Scheme p tyid) (Maybe (Located (Scheme p tyid)))
@@ -311,7 +311,7 @@ INSTANCE_TYPEABLE_P2(Program,"Program")
 
 instance (Typeable p, Data (p (Located (Type tyid))), Data tyid, Data typaram) =>
          Data (TopDecl p tyid typaram) where
-  gfoldl k z (Datatype x1 x2 x3 x4) = z Datatype `k` x1 `k` x2 `k` x3 `k` x4
+  gfoldl k z (Datatype x1 x2 x3 x4 x5) = z Datatype `k` x1 `k` x2 `k` x3 `k` x4 `k` x5
   gfoldl k z (Bitdatatype x1 x2 x3 x4) = z Bitdatatype `k` x1 `k` x2 `k` x3 `k` x4
   gfoldl k z (Struct x1 x2 x3 x4 x5) = z Struct `k` x1 `k` x2 `k` x3 `k` x4 `k` x5
   gfoldl k z (Area x1 x2 x3 x4) = z Area `k` x1 `k` x2 `k` x3 `k` x4

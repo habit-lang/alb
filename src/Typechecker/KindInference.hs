@@ -124,7 +124,7 @@ scc topDecls = map flattenSCC sccs
           idxNodes = [(d, fromJust (lookup name idxMap), catMaybes (map (flip lookup idxMap) referents)) | (d, (name:_), referents) <- idNodes]
           sccs     = stronglyConnComp idxNodes
 
-          nodeFrom d@(At _ (Datatype name _ ctors _))       = (d, [name], concatMap references ctors)
+          nodeFrom d@(At _ (Datatype name _ _ ctors _))     = (d, [name], concatMap references ctors)
           nodeFrom d@(At _ (Bitdatatype name size ctors _)) = (d, [name], references size ++ concatMap references ctors )
           nodeFrom d@(At _ (Struct name size ctor align _)) = (d, [name], references size ++ references ctor ++ references align)
           nodeFrom d@(At _ (Area _ namesAndInits ty align)) = (d, [name | (At _ name, _) <- namesAndInits], references ty ++ references align)
@@ -172,7 +172,7 @@ newKVar = KVar `fmap` fresh "k"
 -- environment.  These bindings are initially populated with kind variables where kinds are not
 -- user-specified.
 buildKindEnvironment :: MonadBase m => TopDecl Pred Id (Either KId Id) -> m KindEnv
-buildKindEnvironment (Datatype name params _ _) =
+buildKindEnvironment (Datatype name params _ _ _) =
     do ks <- parameterKinds params'
        return (Map.singleton name (Left (foldr KFun KStar ks)))
     where params' = map dislocate params
@@ -360,14 +360,15 @@ checkTopDecl :: Located (TopDecl Pred Id (Either KId Id)) -> M (Located (TopDecl
 checkTopDecl (At loc tdecl) =
     failAt loc $
     case tdecl of
-      Datatype name params ctors drv ->
+      Datatype name params constraints ctors drv ->
           withGeneric gkvars $
           do k  <- assertType =<< lookupType name
              ks <- parameterKinds params'
              unifies (foldr KFun KStar ks) k
              bindLocals (Map.fromList (zip pnames (map Left ks))) $
-                 do ctors' <- mapM (checkCtor (checkType KStar)) ctors
-                    return (At loc (Datatype (Kinded name k) (rebuildParameters params pnames ks) ctors' drv))
+                 do constraints' <- mapM checkPred constraints
+                    ctors' <- mapM (checkCtor (checkType KStar)) ctors
+                    return (At loc (Datatype (Kinded name k) (rebuildParameters params pnames ks) constraints' ctors' drv))
           where gkvars  = vars params
                 params' = map dislocate params
                 pnames  = map paramName params'

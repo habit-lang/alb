@@ -174,7 +174,7 @@ data Synonym = Synonym (Located Type) (Qual Type) (Maybe Decls)
 data DataField = DataField (Maybe Id) (Located Type)
                  deriving (Eq, Show, Typeable, Data)
 
-data Datatype = Datatype (Located Type)                 -- name and params
+data Datatype = Datatype (Qual Type)          -- name and params
                          [Ctor Id Pred DataField]
                          [Id]                           -- deriving list
                          (Maybe Decls)                  -- opaque interface (should be sorted out)

@@ -494,7 +494,7 @@ synonymDecl = do opaque <- option False (reserved "opaque" >> return True)
 dataDecl :: ParseM Datatype
 dataDecl = do opaque <- option False (reserved "opaque" >> return True)
               reserved "data"
-              lhs <- located type_
+              lhs <- qual type_
               ctors <- option [] $ do reservedOp "="
                                       ctor `sepBy` reservedOp "|"
               drvlist <- deriveList

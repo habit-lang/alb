@@ -62,15 +62,12 @@ checkExpr (At loc (EVar name)) expected =
 checkExpr (At loc (ECon name)) expected =
     failAt loc $
     trace (show ("At" <+> ppr loc <+> "expect type" <+> ppr expected)) $
-    do b <- bindingOf name
-       case b of
-         LamBound _ -> error "Constructor name associated with lambda-bound type"
-         LetBound tys ->
-             do (kvars, kids, ps :=> At _ ty) <- instantiate tys
-                unifies expected ty
-                evNames <- freshFor "e" ps
-                return ( X.ECon (X.Inst name (map X.TyVar kids) (map X.EvVar evNames))
-                       , zip evNames [At loc p | At _ p <- ps])
+    do (tys, _, typePredCount) <- ctorBinding name
+       (kvars, kids, ps :=> At _ ty) <- instantiate tys
+       unifies expected ty
+       evNames <- freshFor "e" ps
+       return ( X.ECon (X.Inst name (map X.TyVar kids) (map X.EvVar (drop typePredCount evNames)))
+              , zip evNames [At loc p | At _ p <- ps])
 
 checkExpr (At loc (EBitCon ctor fs)) expected =
     failAt loc $
@@ -221,7 +218,7 @@ checkMatch (MGuarded (GFrom (At l p) e) m) expected =
                     tys = Forall [] ([] :=> introduced t)
                 return (X.MGuarded (X.GLet (X.Decls [(X.Defn id (convert tys) (Right (X.Gen [] [] e')))])) m', ps ++ qs)
          PCon ctor vs ->
-             do (tys, n) <- ctorBinding ctor
+             do (tys, extCount, typePredCount) <- ctorBinding ctor
                 (kvars, tyvars, ps :=> At _ t) <- instantiate tys
                 let (parameters, result) = flattenArrows t
                     arity                = length parameters
@@ -239,7 +236,7 @@ checkMatch (MGuarded (GFrom (At l p) e) m) expected =
                 let ps'          = zip evs ps
                     transparents = tvs expected ++ tvs valEnv ++ envvars
 --                     ps''         = [(id, convert (dislocate p)) | (id, p) <- ps']
-                    extVars      = take n tyvars
+                    extVars      = take extCount tyvars
 
                 (m', rs) <- binds valEnv (checkMatch m expected)
                 -- (evsubst, rs', cbindss) <-
@@ -247,18 +244,9 @@ checkMatch (MGuarded (GFrom (At l p) e) m) expected =
                 --             (show ("Simplifying predicates from guarded match:" <+> pprList (map snd rs)))
                 --             (entails transparents (tvs expected ++ tvs valEnv) ps' rs)
                 return (X.MGuarded (X.GLet (X.Decls [X.Defn v (convert tys) (Right (X.Gen [] [] e'))])) $
-                        X.MGuarded (X.GFrom (X.PCon (X.Inst ctor (map X.TyVar tyvars) (map X.EvVar evs)) vs) v) $
+                        X.MGuarded (X.GFrom (X.PCon (X.Inst ctor (map X.TyVar tyvars) (map X.EvVar (drop typePredCount evs))) vs) v) $
                         m',
                         ps' ++ qs ++ rs)
-{-
-                         (foldr (\cbinds m -> case cbinds of
-                                                Left cs | all null (map snd cs) -> m
-                                                        | otherwise             -> X.MGuarded (X.GLetTypes (Left cs)) m
-                                                Right (args, results, f)        -> X.MGuarded (X.GLetTypes (Right (args, results, f))) m)
-                                m')
-                                cbindss)
-                        ps' ++ qs ++ rs)
--}
 
              where flattenArrows (TyApp (At _ (TyApp (At _ arr) at)) (At _ rt))
                        | arr == arrTy = let (args', result) = flattenArrows rt
@@ -287,7 +275,8 @@ checkTypingGroup :: TypingGroup Pred KId -> M (X.Defns, Preds, TyEnv)
 checkTypingGroup (Explicit (name, params, body) expectedTyS) =
     trace ("Inferring type for " ++ show (ppr name <::> ppr expectedTyS)) $
     do -- Instantiate declared type signatures
-       (declaredKVars, declaredTyVars, declaredPredicates :=> At _ declaredType) <- instantiate expectedTyS
+       augmentedTyS <- augmentTypeSignature expectedTyS
+       (declaredKVars, declaredTyVars, declaredPredicates :=> At _ declaredType) <- instantiate augmentedTyS
        evvars <- freshFor "e" declaredPredicates
        envvars <- freeEnvironmentVariables
        let declaredPreds  = zip evvars declaredPredicates
@@ -323,12 +312,12 @@ checkTypingGroup (Explicit (name, params, body) expectedTyS) =
                       transformFailures (addAmbiguousVariables (tvs (map snd retained) \\ close (tvs expected) fds) (map snd retained)) $
                           contextTooWeak retained
 
-              return ( [X.Defn name (convert expectedTyS)
+              return ( [X.Defn name (convert augmentedTyS)
                                     (Right (X.Gen declaredTyVars
                                              evvars
                                              (X.ESubst [] evsubst body')))]
                      , deferred
-                     , Map.singleton name (LetBound expectedTyS))
+                     , Map.singleton name (LetBound augmentedTyS))
 
     where addErrorContext kvs tvs ps t msg = iter tvs
               where iter (v:vs) = bindingTyVar v (const (iter vs))
@@ -468,7 +457,8 @@ checkTypingGroup (PrimValue (Signature name expectedTyS) str) =
 
 checkDecls :: Decls Pred KId -> M (X.Decls, Preds, TyEnv)
 checkDecls (Decls groups) =
-    do (groups', preds, vals) <- binds (Map.fromList (signatures groups)) (checkGroups groups)
+    do sigs <- signatures groups
+       (groups', preds, vals) <- binds (Map.fromList sigs) (checkGroups groups)
        return (X.Decls (concat groups'), preds, vals)
     where checkGroups [] = return ([], [], Map.empty)
           checkGroups (g:gs) =
@@ -478,8 +468,20 @@ checkDecls (Decls groups) =
 
           -- flatten typing groups
 
-          signatures []                                 = []
-          signatures (Explicit (name, _, _) tys : rest) = (name, LetBound tys) : signatures rest
-          signatures (Implicit _ : rest)                = signatures rest
-          signatures (Pattern _ _ ss : rest)            = [(name, LetBound tys) | Signature name tys <- ss] ++ signatures rest
-          signatures (PrimValue (Signature name tys) _ : rest) = (name, LetBound tys) : signatures rest
+          signatures [] =
+              return []
+          signatures (Explicit (name, _, _) tys : rest) =
+              do tys' <- augmentTypeSignature tys
+                 ss <- signatures rest
+                 return ((name, LetBound tys') : ss)
+          signatures (Implicit _ : rest) =
+              signatures rest
+          signatures (Pattern _ _ ss : rest)            =
+              do ss' <- mapM (\(Signature name tys) ->
+                              do tys' <- augmentTypeSignature tys
+                                 return (name, LetBound tys')) ss
+                 ss'' <- signatures rest
+                 return (ss' ++ ss'')
+          signatures (PrimValue (Signature name tys) _ : rest) =
+              do ss <- signatures rest
+                 return ((name, LetBound tys) : ss)
