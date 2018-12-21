@@ -142,13 +142,14 @@ given EvDecls, TSubst, and Dict Subst using the following function:
 >   = evalInst env senv tys dcs tapp
 > evalEv env senv@(_, _, _, rqImpls, _) tys dcs (EvRequired n evs)
 >   = case Map.lookup n rqImpls of
->       Nothing -> error ("No implementation of " ++ show n)
+>       Nothing -> error ("No implementation of " ++ show (ppr n))
 >       Just impls -> loop impls
 >     where evs' = map (evalEv env senv tys dcs) evs
 >           loop ((pats, body) : rest) =
 >               case matchEv pats evs' of
 >                 Just (tys', dcs') -> evalEv env senv (compose tys' tys) (dcs' ++ dcs) body
 >                 Nothing -> loop rest
+>           loop [] = error ("No implementation matching\n" ++ show (pprList evs') ++ "\nFrom requirement " ++ show (ppr n))
 > evalEv env senv tys dcs (EvCases cs) = iter cs
 >  where iter ((cond, ev) : rest) =
 >            case cond `under` tys of
