@@ -443,7 +443,8 @@ addAxioms axs fds rqs ops newAxioms =
           simplifyClause _   _   qps@(Forall _ ([] :=> _)) = return (qps, False)
           simplifyClause axs gfp qps@(Forall ks qp) =
               trace ("Simplifying clause " ++ ppx qps) $
-              do result <- runSolver (solveAnonymous q)
+              do rqs' <- if gfp then filteredRqs else return rqs
+                 result <- runSolver (solveAnonymous (q rqs'))
                  case result of
                    AnsProved _ impr _ _ -> let newQPS | gfp = requantify [] (impr ## c)
                                                       | otherwise = requantify (impr ## hs) (impr ## c)
@@ -459,15 +460,46 @@ addAxioms axs fds rqs ops newAxioms =
 
               where tyids = zipWith Kinded [fromString ("_t" ++ show i) | i <- [0..]] ks
                     (hs :=> c) = inst (map TyVar tyids) qp
-                    q = Q { qAxioms = axs
-                          , qFundeps = fds
-                          , qRequirements = rqs
-                          , qOpacities = ops
-                          , qGenerics = ([], [])
-                          , qUniformVariables = (vars hs ++ vars c)
-                          , qTransparents = []
-                          , qHypotheses = if gfp then [c] else []
-                          , qGoals = hs }
+                    q rqs' = Q { qAxioms = axs
+                               , qFundeps = fds
+                               , qRequirements = rqs'
+                               , qOpacities = ops
+                               , qGenerics = ([], [])
+                               , qUniformVariables = (vars hs ++ vars c)
+                               , qTransparents = []
+                               , qHypotheses = if gfp then [c] else []
+                               , qGoals = hs }
+
+                    -- This next bit is a hack, if a necessary one (at the moment).  The problem
+                    -- arises when we have matching pairs of requirement and instance, such as in
+                    -- the current approach to partial data types:
+                    --
+                    --   @ BST a requires Ord a.
+                    --   @ BST a if Ord a; @ BST a fails!
+                    --
+                    -- Now, consider the simplification of the instance: because this is a derived
+                    -- instance, it gets a GFP interpretation.  But (by the requirement) @ BST a
+                    -- requires Ord a, and the Ord a hypothesis can be eliminated.  This _would_
+                    -- give us the instance @ BST a; @ BST a fails. _except that_ now the instance
+                    -- doesn't satisfy the requirement, and so it's rejected.
+                    --
+                    -- The hacky solution is that, only when considering the GFP of an instance, we
+                    -- eliminate all requirements that match the conclusion... in this example, we
+                    -- drop the @ BST a requires Ord a requirement, because our instance concludes @
+                    -- BST a.  Not really sure about the semantic consequences.. this may mean that
+                    -- GFP instances aren't really GFP instances, but I can't think of an argument
+                    -- pro or con at the moment.
+
+                    filteredRqs :: V Requirements
+                    filteredRqs = concatMapM filterRq rqs
+                    filterRq rqsc = do (_, Requires hyps concs) <- instantiateScheme rqsc
+                                       if any (matches c) hyps
+                                       then return []
+                                       else return [rqsc]
+                        where matches p q = case match ([], []) p q of
+                                              Left _ -> False
+                                              Right _ -> True
+
 
                     requantify hs c = Forall (map kind vs) (gen 0 vs (hs :=> c))
                         where vs = nub (vars hs ++ vars c)
