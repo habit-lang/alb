@@ -425,7 +425,8 @@ data Trail = Trail { substitution       :: TaggedSubst
                    , ignored            :: RefSet
                    , invalid            :: RefSet }
              deriving Show
-type PredAssumption = (TrailRef, PCon, Pred) -- when assumption introducted, function for constructing proof from name, assumed assumed
+type PredAssumption = (TrailRef, PCon, Pred)
+     -- when assumption introducted, function for constructing proof from name, assumed pred,
 
 instance Show ([Proof] -> [(Pred, PCon)])
     where show _ = "<rqt>"
@@ -459,6 +460,7 @@ stopIgnoring ids | Set.null ids = return ()
 depart = meta (stopIgnoring . introduces)
 
 arrive = do checkValid
+            updateInvalid
             updateIntroducedAssumptions
             updateChildAssumptions
             meta (startIgnoring . introduces)
@@ -474,6 +476,11 @@ checkValid = Tactic check >>= invalidateAssumptions
               where Cursor up t@(Tree _ meta) = here st
                     t'@(Tree _ meta') = findValid (invalid (_trail st)) t
                     newlyInvalid = childrenIntroduce meta Set.\\ childrenIntroduce meta'
+
+updateInvalid = trail (\t -> meta (\m -> update t m))
+    where update t m | Set.null (Set.intersection (invalid t) (introduces m)) = return ()
+                     | otherwise = invalidateAssumptions (Set.difference (introduces m) (invalid t))
+
 
 updateChildAssumptions :: Tactic ()
 updateChildAssumptions = Tactic update'
@@ -516,26 +523,39 @@ bindGeneral irreversible s
     | otherwise = trail (\tr -> case s `under` substitution tr of
                                   Left err -> trace ("Rejected attempt to bind " ++ ppx s ++ ": " ++ err)
                                               noProgress
-                                  Right s' -> Tactic (bind' s'))
+                                  Right s' -> do (is, as) <- Tactic (bind' s')
+                                                 when (not (null as)) $
+                                                     trace ("Invalidating duplicated assumptions: " ++ ppx (Set.fromList as)) $
+                                                     invalidateAssumptions (Set.fromList as)
+                                                 return is)
 
     where bind' (S ks bs) st =
               checkTrail st $
               traceIf (not (null newUVars)) ("Adding new uniform variables: " ++ intercalate ", " (map ppx newUVars)) $
               trace ("Attempting to bind " ++ ppx s') $
-              (Progress is, st{ here = Cursor up (Tree node (meta{ lastUpdated = time st
-                                                                 , introduces = if irreversible
-                                                                                then introduces meta
-                                                                                else Set.union (Set.fromList is) (introduces meta) }))
-                              , _trail = (_trail st) { substitution = s''
-                                                     , assumptions = filterDuplicates (reverse (assumptions (_trail st))) }
-                              , gvars = filterGenerics (gvars st)
-                              , uvars = newUVars ++ uvars st
-                              , time  = time st + length bs })
+              (Progress (is, duplicates (reverse (assumptions (_trail st)))),
+               st{ here = Cursor up (Tree node (meta{ lastUpdated = time st
+                                                    , introduces = if irreversible
+                                                                   then introduces meta
+                                                                   else Set.union (Set.fromList is) (introduces meta) }))
+                 , _trail = (_trail st) { substitution = s'' }
+                 , gvars = filterGenerics (gvars st)
+                 , uvars = newUVars ++ uvars st
+                 , time  = time st + length bs })
 
               where Cursor up (Tree node meta) = here st
                     is = take (length bs) [time st..]
                     s' = TS ks (zip is bs)
                     s'' = compose (substitution (_trail st)) s'
+
+
+                    duplicates :: [PredAssumption] -> [TrailRef]
+                    duplicates as = iter [] as
+                        where iter _ [] = []
+                              iter ps ((i, pr, p):as)
+                                  | p' `elem` ps = i : iter ps as
+                                  | otherwise = iter (p' : ps) as
+                                  where p' = s'' ## p
 
                     -- filterDuplicates eliminates assumptions that are duplicates of one another (likely as a result of
                     -- applying the substitution s'').  This also avoids creating cyclic proofs where duplicated goals
