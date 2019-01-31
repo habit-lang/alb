@@ -22,7 +22,7 @@ nostack:
 	rm .useStack
 
 clean:
-	rm -fr $(TARGETS) obj .stack-work .cabal-sandbox
+	rm -fr $(TARGETS) $(OBJDIR) .stack-work .cabal-sandbox new-diststyle dist
 
 alb: $(SDEP)
 	$(GHC) $(HIDE) --make $(OPT) -rtsopts

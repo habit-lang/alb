@@ -1,5 +1,7 @@
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE PatternGuards #-}
+
 module Analyzer.Fixity (fixityProgram) where
 
 -- This module resolves the fixities of infix forms (i.e. TyInfix, EInfix, and PInfix) and

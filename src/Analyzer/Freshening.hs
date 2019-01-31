@@ -1,5 +1,7 @@
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE PatternGuards #-}
+
 module Analyzer.Freshening (freshenProgram, ScopeEnv) where
 
 -- This module freshens variable bindings by uniquely renaming each

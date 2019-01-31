@@ -69,23 +69,21 @@ Executable alb
                  , Analyzer.Fixity
                  , Analyzer.Freshening
                  , Analyzer.FunctionalNotation
+                 , Analyzer.LabeledFields
                  , Analyzer.Tuples
                  , Common
                  , Fidget.Env
-                 , LC.LambdaCaseToLC
-                 , LC.RenameTypes
+                 , LC
                  , Literate
                  , MILTools
-                 , Normalizer.EtaInit
+                 , Normalizer.Eta
                  , Normalizer.Inliner
-                 , Normalizer.PatternMatchCompiler
+                 , Normalizer.Matches
                  , Parser
                  , Parser.Lexer
                  , Parser.Main
                  , Printer.Common
                  , Printer.IMPEG
-                 , Printer.LC
-                 , Printer.LambdaCase
                  , Printer.Specialized
                  , Printer.Surface
                  , Printer.WadlerLeijen
@@ -105,9 +103,6 @@ Executable alb
                  , Syntax.IMPEG
                  , Syntax.IMPEG.KSubst
                  , Syntax.IMPEG.TSubst
-                 , Syntax.LC
-                 , Syntax.LambdaCase
-                 , Syntax.LambdaCase.SCC
                  , Syntax.MangleIds
                  , Syntax.Specialized
                  , Syntax.Surface
@@ -116,10 +111,6 @@ Executable alb
                  , Typechecker
                  , Typechecker.Cleanup
                  , Typechecker.KindInference
-                 , Typechecker.LambdaCase
-                 , Typechecker.LambdaCasePrims
-                 , Typechecker.LambdaCasePropagation
-                 , Typechecker.LambdaCaseTyping
                  , Typechecker.TypeInference
                  , Typechecker.TypeInference.Base
                  , Typechecker.TypeInference.Expr
@@ -151,7 +142,10 @@ Executable ilab
                   , OverloadedStrings
 
 
-  other-modules:    Solver.Cycles
+  other-modules:    Analyzer.LabeledFields
+                  , Common
+                  , LC
+                  , Solver.Cycles
                   , Solver.Main
                   , Solver.Oracles
                   , Solver.Parser
@@ -164,7 +158,12 @@ Executable ilab
                   , Solver.Validation
                   , Printer.Common
                   , Printer.WadlerLeijen
+                  , Printer.XMPEG
                   , Syntax.Common
                   , Syntax.IMPEG
                   , Syntax.IMPEG.KSubst
+                  , Syntax.MangleIds
                   , Syntax.Surface
+                  , Syntax.Specialized
+                  , Syntax.XMPEG
+                  , Utils.BDD
