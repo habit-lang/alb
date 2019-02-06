@@ -449,7 +449,7 @@ checkTypingGroup (PrimValue (Signature name expectedTyS) str) =
     do tys'@(ForallK _ (Forall _ (ps :=> _))) <- simplifyScheme expectedTyS
        if not (null ps)
        then failWith (hang 4 ("After simplification, primitive" <+> ppr name <+> "has illegal qualified type" <$> ppr expectedTyS))
-       else return ( [X.Defn name (convert expectedTyS) (Left (str, []))]
+       else return ( [X.Defn name (convert tys') (Left (str, []))]
                    , []
                    , Map.singleton name (LetBound expectedTyS))
 
