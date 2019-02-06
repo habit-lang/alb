@@ -90,6 +90,9 @@ stringExpr = do At loc cs <- located stringLiteral
                     where cons      = ECon "Cons"
                           nil       = ECon "Nil"
                           ordExpr c = ELit (Numeric (fromIntegral (ord c)))
+        
+charExpr   = do At loc c <- located charLiteral
+                return (ELit (Numeric (fromIntegral (ord c))))
 
 literal :: ParseM Literal
 literal = choice [ Numeric `fmap` intLiteral
@@ -181,6 +184,9 @@ stringPat  = do At loc cs <- located stringLiteral
                           nil       = PCon "Nil"
                           ordExpr c = PLit (Numeric (fromIntegral (ord c)))
 
+charPat    = do At loc c <- located charLiteral
+                return (PLit (Numeric (fromIntegral (ord c))))
+
 pattern :: ParseM Pattern
 pattern = dislocate `fmap` chain patApp (varsym <|> consym) PInfix <?> "pattern"
 
@@ -203,6 +209,7 @@ aPattern = choice [ do v <- try (varid `followedBy` reservedOp "@")
                   , try (reserved "()") >> return (PCon "Unit")
                   , try (PCon `fmap` conid)
                   , stringPat
+                  , charPat
                   , try (PLit `fmap` literal)
                   , try (PVar `fmap` varid)
                   , try (parens (do n <- many1 (reservedOp ",")
@@ -279,6 +286,7 @@ aExpr = (do e <- located $ choice [ try (reserved "()") >> return (ECon "Unit")
                                   , ECon `fmap` conid
                                   , ELit `fmap` try literal
                                   , stringExpr
+                                  , charExpr
                                   , try (parens (do e <- located aExpr
                                                     op <- located (varsym <|> consym)
                                                     return (ELeftSection e op)))
