@@ -7,11 +7,11 @@ import System.IO
 
 testFile :: String -> IO [(String, Int)]
 testFile f = do
-  putStr $ "Testing " ++ f ++ ": "
+  putStrLn $ "Testing " ++ f ++ ": "
   hFlush stdout
   code <- rawSystem f []
   x <- return $ case code of
-                  ExitSuccess	-> []
+                  ExitSuccess   -> []
                   ExitFailure x -> [(f, x)]
   putStr "\n"
   return x

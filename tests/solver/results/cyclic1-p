@@ -1,3 +1,4 @@
+Up to date
 ___+__a_b_c_requires___b_c:
     (___+__a_c_b_if___a_b____c_b!0{t$cc, t$cd, t$ce}(g1, g2)) -> ___+__a_b_c_requires___b_c:assumption(g2)
 ___+__a_b_c_requires___a_c:

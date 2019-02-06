@@ -1,3 +1,4 @@
+Up to date
 [F t u]              : [F t u] remaining.
 [F t u, C t]         : [C t] remaining. (improved to [F t Int, C t])
 [F t u] if C t       : Yes (improved to [F t Int] if C t)

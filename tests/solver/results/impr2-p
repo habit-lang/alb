@@ -1,3 +1,4 @@
+Up to date
 [F a b, F a c, C b c a]    : Yes [$a:f_true_int{}(), $b:assumption($a), $c:c_t_t_true!0{b}()] (improved to [F True Int, F True Int, C Int Int True])
 [C b c a] if F a b, F a c  : Yes [$c:c_t_t_true!0{c}()] (improved to [C c c True] if F True c, F True c)
 [F a b, F a Bool, C b c a] : [$a:F a Bool] remaining. [$b:assumption($a), $c:cases {[c :-> Bool] -> [a :-> True] c_t_t_true!0{Bool}(); [] -> [a :-> False] c_t_t_true!1{Bool, c}()}] (improved to [F a Bool, F a Bool, C Bool c a])

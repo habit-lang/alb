@@ -1,3 +1,4 @@
+Up to date
 [Even P3]                                                                  : No 
 [Odd P3]                                                                   : Yes [$a:odd_s_n_if_even_n!0{P2}(g$5:even_p0!1{P1}(g$a:odd_s_n_if_even_n!0{P0}(g$f:even_p0!0{}())))]
 [EvenF P3 True]                                                            : No 

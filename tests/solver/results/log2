@@ -1,3 +1,4 @@
+Up to date
 [Log2 0 n]          : No 
 [Log2 1 n]          : Yes (improved to [Log2 1 0])
 [Log2 2 n]          : Yes (improved to [Log2 2 1])

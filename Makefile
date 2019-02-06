@@ -1,43 +1,30 @@
-ifneq ("$(wildcard ./.useStack)","")
-	GHC=stack exec ghc --
-	SDEP=stack
-else
-	GHC=ghc
-	SDEP=
-endif
-OPT=-XOverloadedStrings -O2 -j3 -o $@ -odir obj -hidir obj -isrc src/Driver.hs
-# HIDE=-hide-package indentation-parsec-0.0 -hide-package indentation-core-0.0 -hide-package indentation-trifecta-0.0
-HIDE=
-OBJDIR=obj
-TARGETS=ilab alb albp alb-hpc albc
+include tests/Makefile
 
-.PHONY: all alb albp alb-hpc test ilab
+# executables to be produced
+TARGETS=install-ilab install-alb
+
+# This directory stores the executables for alb and ilab
+# This path should be added to $PATH or %PATH%
+BINDIR = $(HOME)/.local/bin
+
+.PHONY: all
 
 all: $(TARGETS)
 
-stack: stack.yaml
-	stack setup && stack build --only-dependencies --library-profiling --ghc-options="-j3" && touch .useStack
+alb:
+	cabal new-build --user alb
 
-nostack:
-	rm .useStack
+ilab:
+	cabal new-build --user ilab
+
+install-alb: alb tests-alb
+	cabal new-install --user alb --symlink-bindir=$(BINDIR)
+
+install-ilab: ilab tests-ilab
+	cabal new-install --user ilab --symlink-bindir=$(BINDIR)
 
 clean:
-	rm -fr $(TARGETS) $(OBJDIR) .stack-work .cabal-sandbox new-diststyle dist
-
-alb: $(SDEP)
-	$(GHC) $(HIDE) --make $(OPT) -rtsopts
-
-albp: $(SDEP)
-	$(GHC) $(HIDE) --make $(OPT) -rtsopts -prof -auto-all -osuf p_o -hisuf p_hi
-
-alb-hpc: $(SDEP)
-	$(GHC) $(HIDE) -fhpc --make -fforce-recomp $(OPT)
-
-albc:   ./src/albc/Albc.hs $(SDEP)
-	$(GHC) $(HIDE) --make -O2 -o $@ -odir obj -hidir obj src/albc/Albc.hs
-
-ilab: $(SDEP)
-	$(GHC) $(HIDE) --make -XOverloadedStrings -O2 -j3 -o ilab -odir obj -hidir obj -isrc -main-is Solver.REPL.main Solver.REPL
-
-test: alb
-	./alb -i tests -f main $(TEST)
+	rm -fr $(OBJDIR) .cabal-sandbox dist-newstyle dist $(BINDIR)/alb $(BINDIR)/ilab alb ilab
+	rm -rf *.o
+	rm -rf *.out
+	rm -rf $(TESTS)

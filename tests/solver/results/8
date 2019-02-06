@@ -1,3 +1,4 @@
+Up to date
 [Eq T T]                   : Yes
 [Eq T U]                   : No 
 [Eq T t]                   : Yes (improved to [Eq T T])

@@ -1,1 +1,2 @@
+Up to date
 [@ e$5j8y (Expr e$5j8y), :-: e$5j8y Const h$5j8z, @ h$5j8z (Expr e$5j8y), :-: e$5j95 Double e$5j8y, ExprFour (Expr e$5j95)] : Yes (improved to [@ (:+: Const (:+: Sum Product)) (Expr (:+: Const (:+: Sum Product))), :-: (:+: Const (:+: Sum Product)) Const (:+: Sum Product), @ (:+: Sum Product) (Expr (:+: Const (:+: Sum Product))), :-: (:+: Const (:+: Sum (:+: Product Double))) Double (:+: Const (:+: Sum Product)), ExprFour (Expr (:+: Const (:+: Sum (:+: Product Double))))])

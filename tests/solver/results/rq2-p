@@ -1,3 +1,4 @@
+Up to date
 [C T U, C U V, C T V, C V W, C U W, C T W]   : [$a:C T U, $b:C U V, $d:C V W] remaining. [$c:required(c_t_u_c_u_v_requires_c_t_v, [_:assumption($a), _:assumption($b)]), $e:required(c_t_u_c_u_v_requires_c_t_v, [_:assumption($b), _:assumption($d)]), $f:required(c_t_u_c_u_v_requires_c_t_v, [_:required(c_t_u_c_u_v_requires_c_t_v, [_:assumption($a), _:assumption($b)]), _:assumption($d)])]
 [C T V, C U W, C T W] if C T U, C U V, C V W : Yes [$d:required(c_t_u_c_u_v_requires_c_t_v, [_:assumption($a), _:assumption($b)]), $e:required(c_t_u_c_u_v_requires_c_t_v, [_:assumption($b), _:assumption($c)]), $f:required(c_t_u_c_u_v_requires_c_t_v, [_:required(c_t_u_c_u_v_requires_c_t_v, [_:assumption($a), _:assumption($b)]), _:assumption($c)])]
 [C x y, C y z, C x z]                        : [$a:C x y, $b:C y z] remaining. [$c:required(c_t_u_c_u_v_requires_c_t_v, [_:assumption($a), _:assumption($b)])]

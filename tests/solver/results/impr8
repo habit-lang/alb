@@ -1,2 +1,3 @@
+Up to date
 [C t, Eq t u] if C u : Yes (improved to [C u, Eq u u] if C u)
 [Eq t u, C t] if C u : Yes (improved to [Eq u u, C u] if C u)

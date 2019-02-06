@@ -1,3 +1,4 @@
+Up to date
 [C U]                  : Yes [$a:c_t_if_d_t!2{}[0:g$5:d_u_fails{}()]()]
 [C t, == t U]          : Yes [$a:c_t_if_d_t!2{}[0:g$7:d_u_fails{}()](), $b:==_t_t{U}()] (improved to [C U, == U U])
 [== t U, C t]          : Yes [$a:==_t_t{U}(), $b:c_t_if_d_t!2{}[0:g$7:d_u_fails{}()]()] (improved to [== U U, C U])
