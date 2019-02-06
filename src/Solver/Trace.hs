@@ -2,6 +2,8 @@ module Solver.Trace where
 
 import Control.Monad
 import Data.IORef
+import Data.List (intercalate)
+import qualified Data.IntSet as Set
 import qualified Debug.Trace as Trace
 import System.Exit
 import System.IO
@@ -49,3 +51,6 @@ check ref pred failMsg success =
     where fail = do hPutStr stderr ("=== SOLVER CHECK FAILED ===\n" ++ failMsg)
                     hFlush stderr
                     exitFailure
+
+showSet :: Set.IntSet -> String
+showSet s = "{" ++ intercalate ", " (map show (Set.toList s)) ++ "}"

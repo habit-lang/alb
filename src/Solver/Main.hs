@@ -1004,7 +1004,7 @@ solve (Q axioms fds rqs ops (gvs0, gkvs0) tvs0 uniformVariables hypotheses concl
                                      assumptions = initialAssumptions,
                                      _requirements = [],
                                      ignored = Set.empty,
-                                     invalid = Set.empty },
+                                     invalid = [] },
                     assumptionDependencies = [],
                     gvars0 = [],
                     gvars = [],

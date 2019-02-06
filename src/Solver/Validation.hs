@@ -448,7 +448,9 @@ addAxioms axs fds rqs ops newAxioms =
                  case result of
                    AnsProved _ impr _ _ -> let newQPS | gfp = requantify [] (impr ## c)
                                                       | otherwise = requantify (impr ## hs) (impr ## c)
-                                           in trace ("Simplified to " ++ ppx newQPS) (return (newQPS, not (clausesEqual qps newQPS)))
+                                           in trace ("(1) Found improvement " ++ ppx impr ++ "\napplied to " ++ ppx c ++ "\ngiving " ++ ppx newQPS)
+                                                  -- ("Simplified to " ++ ppx newQPS)
+                                                  (return (newQPS, not (clausesEqual qps newQPS)))
                    AnsStuck _ remaining impr _ ->
                        let remaining' = impr ## map snd remaining
                            c' = impr ## c

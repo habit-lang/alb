@@ -1,0 +1,35 @@
+ExprFour a | ~> a.
+
+:-: a b c | a c ~> b.
+:-: a b c | a b ~> c.
+
+@ Expr a requires @ a (Expr a).
+@ (:+: a b) c requires @ a c, @ b c.
+
+ExprFour (Expr (:+: Const (:+: Sum (:+: Product Double))));
+ExprFour a fails.
+
+In a a;
+In a (:+: b c) if In a b, @ (:+: b) c, @ :+: b;
+In a (:+: c b) if In a b, @ (:+: c) b, @ :+: c;
+In a b fails.
+
+:-: (:+: a b) a b if @ (:+: a) b, @ :+: a;
+:-: (:+: a b) b a if @ (:+: a) b, @ :+: a;
+:-: (:+: c b) a (:+: d b) if In a b fails, :-: c a d, @ (:+: c) b, @ :+: c, @ (:+: d) b, @ :+: d;
+:-: (:+: b c) a (:+: b d) if In a b fails, :-: c a d, @ (:+: b) c, @ :+: b, @ (:+: b) d, @ :+: b.
+
+@ Double a!
+@ Expr a if @ a (Expr a); @ Expr a fails!
+@ Product a!
+@ Sum a!
+@ Const a!
+@ :+: a!
+@ (:+: a) b!
+@ (:+: a c) b if @ a b, @ c b; @ (:+: a b) c fails!
+
+@ e$5j8y (Expr e$5j8y),
+:-: e$5j8y Const h$5j8z,
+@ h$5j8z (Expr e$5j8y),
+:-: e$5j95 Double e$5j8y,
+ExprFour (Expr e$5j95)?

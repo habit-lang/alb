@@ -423,7 +423,7 @@ data Trail = Trail { substitution       :: TaggedSubst
                    , assumptions        :: [PredAssumption]
                    , _requirements      :: [(Maybe Int, RequirementTemplate)]
                    , ignored            :: RefSet
-                   , invalid            :: RefSet }
+                   , invalid            :: [PredAssumption] }
              deriving Show
 type PredAssumption = (TrailRef, PCon, Pred)
      -- when assumption introducted, function for constructing proof from name, assumed pred,
@@ -460,7 +460,6 @@ stopIgnoring ids | Set.null ids = return ()
 depart = meta (stopIgnoring . introduces)
 
 arrive = do checkValid
-            updateInvalid
             updateIntroducedAssumptions
             updateChildAssumptions
             meta (startIgnoring . introduces)
@@ -471,16 +470,24 @@ checkValid = Tactic check >>= invalidateAssumptions
               | Set.null (Set.intersection invalidated (dependsOn meta)) = t
               | otherwise = findValid invalidated (head (history meta))
 
-          check st | Set.null (Set.intersection (invalid (_trail st)) (dependsOn meta)) = (Progress Set.empty, st)
+          check st | Set.null (Set.intersection inv (dependsOn meta)) = (Progress Set.empty, st)
                    | otherwise = (Progress newlyInvalid, st { here = Cursor up t' })
               where Cursor up t@(Tree _ meta) = here st
-                    t'@(Tree _ meta') = findValid (invalid (_trail st)) t
+                    inv = Set.fromList [i | (i, _, _) <- invalid (_trail st)]
+                    t'@(Tree _ meta') = findValid inv t
                     newlyInvalid = childrenIntroduce meta Set.\\ childrenIntroduce meta'
 
-updateInvalid = trail (\t -> meta (\m -> update t m))
-    where update t m | Set.null (Set.intersection (invalid t) (introduces m)) = return ()
-                     | otherwise = invalidateAssumptions (Set.difference (introduces m) (invalid t))
+-- This makes me sad
+invalidAssumptions :: Tactic [PId]
+invalidAssumptions = trail invalids
+    where invalids t = let pids = concatMap getAssumptionPId (invalid t) in
+                       trace (unlines [ "Invalid assumptions: " ++ ppx pids]) $
+                       return pids
 
+          getAssumptionPId (_, pcon, _) =
+              case pcon "_" of
+                PAssump _ pid -> [pid]
+                p             -> trace ("Unable to extract PId from " ++ ppx p) []
 
 updateChildAssumptions :: Tactic ()
 updateChildAssumptions = Tactic update'
@@ -555,20 +562,6 @@ bindGeneral irreversible s
                               iter ps ((i, pr, p):as)
                                   | p' `elem` ps = i : iter ps as
                                   | otherwise = iter (p' : ps) as
-                                  where p' = s'' ## p
-
-                    -- filterDuplicates eliminates assumptions that are duplicates of one another (likely as a result of
-                    -- applying the substitution s'').  This also avoids creating cyclic proofs where duplicated goals
-                    -- are considered "proved" by one another.
-                    filterDuplicates   :: [PredAssumption] -> [PredAssumption]
-                    filterDuplicates as = iter [] as []
-                        where iter :: [Pred] -> [PredAssumption] -> [PredAssumption] -> [PredAssumption]
-                              iter _ [] as'      = as'
-                              iter ps (a@(i, pr, p):as) as'
-                                  | p' `elem` ps = trace ("\tDropping assumption [" ++ show i ++ "] " ++ ppx pr
-                                                             ++ " proves " ++ ppx p ++ " as it is now duplicated.") $
-                                                   iter ps as as'
-                                  | otherwise    = iter (p':ps) as (a:as')
                                   where p' = s'' ## p
 
                     -- see motivating example in tests/solver/tests/generic2:
@@ -886,9 +879,13 @@ applyTrail fds = explainHeader "applyTrail" $
               case child of
                 Nothing -> do discharging <- catMaybes `fmap` mapM (relevant p) as
                               case discharging of
-                                ((spin, pr, is) : _) -> trace ("Solved " ++ ppx name ++ ": " ++ ppx p ++ " by " ++ ppx is ++ " " ++ ppx pr) $
-                                                        do update (Complete name p spin [] (pr name))
-                                                           dependOn is
+                                ((spin, pr, is) : _) -> let prf = pr name in
+                                                        do invalid <- invalidAssumptions
+                                                           if any (`elem` invalid) (assumptionsIn prf)
+                                                           then noProgress
+                                                           else trace ("Solved " ++ ppx name ++ ": " ++ ppx p ++ " by " ++ ppx is ++ " " ++ ppx pr) $
+                                                                do update (Complete name p spin [] (pr name))
+                                                                   dependOn is
                                 _                   -> noProgress
 
                 {- Apply non-circular assumptions to goals after initial exploration.
@@ -927,10 +924,14 @@ applyTrail fds = explainHeader "applyTrail" $
                               -- trim predicate assumptions that depend on the current node (avoid cycles)
                               let discharging' = filter (\(_, _, is) -> Set.null (Set.intersection is introduced)) discharging
                               case discharging' of
-                                ((spin, pr, is) : _) -> trace ("Solved " ++ ppx name ++ ": " ++ ppx p ++ " by " ++ ppx is ++ " " ++ ppx pr) $
-                                                        do meta (invalidateAssumptions . childrenIntroduce)
-                                                           update (Complete name p spin [] (pr name))
-                                                           dependOn (Set.union is is')
+                                ((spin, pr, is) : _) -> let prf = pr name in
+                                                        do invalid <- invalidAssumptions
+                                                           if any (`elem` invalid) (assumptionsIn prf)
+                                                           then noProgress
+                                                           else trace ("Solved " ++ ppx name ++ ": " ++ ppx p ++ " by " ++ ppx is ++ " " ++ ppx pr) $
+                                                                do meta (invalidateAssumptions . childrenIntroduce)
+                                                                   update (Complete name p spin [] prf)
+                                                                   dependOn (Set.union is is')
                                 _ -> noProgress
 
               where s@(TS ks binds) = substitution tr
@@ -947,7 +948,7 @@ applyTrail fds = explainHeader "applyTrail" $
                         | proving p q = return (Just (Proving, pr, is))
                         | otherwise = do b <- disproving p q
                                          if b then return (Just (Disproving, pr, is))
-                                              else return Nothing
+                                         else return Nothing
                         where -- Test to see if the first predicate is proved by the second, either because they
                               -- are equal, or else as a result of a functional dependency.
                               proving    :: Pred -> Pred -> Bool
@@ -974,13 +975,15 @@ applyTrail fds = explainHeader "applyTrail" $
 invalidateAssumptions :: RefSet -> Tactic ()
 invalidateAssumptions is
     | Set.null is = return ()
-    | otherwise   = trace ("Invalidating assumptions: " ++ show is) $
+    | otherwise   = trace ("Invalidating assumptions: " ++ showSet is) $
                     Tactic (\st -> let tr          = _trail st
                                        valid i     = not (i `Set.member` is)
                                        TS ks binds = substitution tr
+                                       (newAssumptions, invalidAssumptions) =
+                                           partition (\(i, _, _) -> valid i) (assumptions tr)
                                    in  (Progress (),
-                                        st{ _trail = tr{ invalid       = Set.union is (invalid tr),
-                                                         assumptions   = filter (\(i, _, _) -> valid i) (assumptions tr),
+                                        st{ _trail = tr{ invalid       = invalidAssumptions ++ invalid tr,
+                                                         assumptions   = newAssumptions,
                                                          substitution  = TS ks (filter (\(i, _) -> valid i) binds),
                                                          _requirements = filter (\(mi, _) -> maybe True valid mi) (_requirements tr) },
                                             assumptionDependencies = [(i, i') | (i, i') <- assumptionDependencies st, valid i, valid i'] }))

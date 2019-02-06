@@ -1,0 +1,11 @@
+== t u | t ~> u, u ~> t.
+== t t.
+
+Alignment t u | t ~> u.
+ByteSize t u | t ~> u.
+
+Alignment (Stored a) b if ByteSize (Stored a) b.
+ByteSize (Stored Unsigned) 4.
+ByteSize (Stored (Ref a)) 4.
+
+== u__t0 u__t1, Alignment (Stored (Ref CLL)) u__t2, Alignment (Stored (Ref CLL)) u__t3, Alignment (Stored Unsigned) u__t4, LCM u__t2 u__t3 u__t5, LCM u__t5 u__t4 u__t0, Alignment (Stored (Ref CLL)) u__t6?
