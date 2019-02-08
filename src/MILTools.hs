@@ -53,6 +53,7 @@ milCompile milo outputFileName invokeClang (prog, entrypoints) =
            exeName = replaceExtension outputFileName (takeExtension execPath)
            clangCmd = intercalate " " [ clang,
                                         "-o", exeName,
+                                        clangOptions milo,
                                         llFileName ]
 
        if fake milo
