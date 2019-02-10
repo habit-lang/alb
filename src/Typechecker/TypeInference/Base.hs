@@ -6,6 +6,7 @@ import Prelude hiding ((<$>))
 import Common
 import Control.Monad
 import Control.Monad.State
+import qualified Control.Monad.Fail as Fail
 import Data.List (intercalate, nub, partition)
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -177,6 +178,9 @@ predAtConstraints (At _ (Pred _ ts _)) = concatMap atConstraints ts
 
 newtype M t = M { runM :: StateT TcState Base t }
     deriving (Functor, Applicative, Monad, MonadBase, MonadState TcState)
+
+instance Fail.MonadFail M
+    where fail = error
 
 newTyVar :: Kind -> M Ty
 newTyVar k = do v <- fresh "t"

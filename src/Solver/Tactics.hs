@@ -3,6 +3,7 @@ module Solver.Tactics where
 
 import qualified Control.Applicative
 import Control.Monad (MonadPlus(..), foldM, liftM2, msum, replicateM, when)
+import qualified Control.Monad.Fail as Fail
 import qualified Data.IntSet as Set
 import Data.List
 import Data.Maybe
@@ -720,7 +721,8 @@ instance Monad Tactic
 -- strings to provide diagnostic information on why tactics are being skipped, but at the moment I
 -- don't think it would serve any purpose.
 
-          fail _   = Tactic (\st -> (NoProgress, st))
+instance Fail.MonadFail Tactic
+    where fail _   = Tactic (\st -> (NoProgress, st))
 
 -- return, noProgress, and exit correspond to the three constructors of the TacticResult type.
 
