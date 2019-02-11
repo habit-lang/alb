@@ -1,4 +1,3 @@
-Up to date
 [Log2 0 n]          : No 
 [Log2 1 n]          : Yes [$a:log2_0_n_fails!1{}()] (improved to [Log2 1 0])
 [Log2 2 n]          : Yes [$a:log2_0_n_fails!2{t$c, t$d, 2, t$f}(g$l:Oracles_arithmetic_add{}(), g$m:Oracles_arithmetic_div{}(), g$n:log2_0_n_fails!1{}())] (improved to [Log2 2 1])

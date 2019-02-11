@@ -1,4 +1,3 @@
-Up to date
 [C U]                  : Yes
 [C t, == t U]          : Yes (improved to [C U, == U U])
 [== t U, C t]          : Yes (improved to [== U U, C U])

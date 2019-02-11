@@ -1,2 +1,1 @@
-Up to date
 [F t u, MEq (Maybe Int) u] : Yes (improved to [F Int (Maybe Int), MEq (Maybe Int) (Maybe Int)])

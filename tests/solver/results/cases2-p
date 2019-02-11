@@ -1,4 +1,3 @@
-Up to date
 [C Int]  : Yes [$a:c_int!0{}()]
 [C Bool] : Yes [$a:c_int!1{Bool}(g$8:d_bool{}())]
 [C t]    : [$a:C t] remaining. []

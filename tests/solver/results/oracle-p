@@ -1,4 +1,3 @@
-Up to date
 [+ 2 1 3]      : Yes [$a:Oracles_arithmetic_add{}()]
 [+ 7 14 21]    : Yes [$a:Oracles_arithmetic_add{}()]
 [+ 1 0 2]      : No 

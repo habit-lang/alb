@@ -1,4 +1,3 @@
-Up to date
 [C t]                     : [g$5:D t] remaining. [c_t_if_d_t!0{t}(g$5:assumption(g$5))]
 [C t, E t]                : [g$7:D t] remaining. [c_t_if_d_t!0{t}(g$7:assumption(g$7)), $b:e_t_if_d_t{t}(g$8:assumption(g$7))]
 [E t] if C t              : Yes [$b:e_t_if_d_t{t}((c_t_if_d_t!0{t}(x0) <- _:assumption($a)) => g$7:assumption(x0))]

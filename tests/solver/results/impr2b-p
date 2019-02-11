@@ -1,4 +1,3 @@
-Up to date
 [F a b, F a c, C b c a]    : [$a:F a b, $c:C b b a] remaining. [$b:assumption($a)] (improved to [F a b, F a b, C b b a])
 [F a b, F a Bool, C b c a] : [$a:F a Bool, $c:C Bool c a] remaining. [$b:assumption($a)] (improved to [F a Bool, F a Bool, C Bool c a])
 [C b c a] if F a b, F a c  : [$c:C c c a] remaining. [] (improved to [C c c a] if F a c, F a c)

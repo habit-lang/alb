@@ -1,4 +1,3 @@
-Up to date
 [F Int Bool]         : Yes
 [F Int t]            : Yes (improved to [F Int Bool])
 [F Float Int]        : Yes

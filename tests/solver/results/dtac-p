@@ -1,4 +1,3 @@
-Up to date
 [In Int Int]                                                         : Yes [$a:in_f_f!0{Int}()]
 [In Int (Plus Int Bool)]                                             : Yes [$a:in_f_f!1{Int, Int, Bool}(g$j:in_f_f!0{Int}())]
 [In Char (Plus Int Bool)]                                            : No 

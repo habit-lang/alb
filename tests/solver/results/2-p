@@ -1,4 +1,3 @@
-Up to date
 [Integral Int]               : Yes [$a:integral_int!0{}()]
 [Fractional Int]             : [$a:Fractional Int] remaining. []
 [Integral Float]             : No 

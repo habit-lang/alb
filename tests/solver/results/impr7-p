@@ -1,4 +1,3 @@
-Up to date
 [F t u]              : [$a:F t u] remaining. []
 [F t u, C t]         : [$b:C t] remaining. [$a:f_t_int_if_c_t{t}(g$3:assumption($b))] (improved to [F t Int, C t])
 [F t u] if C t       : Yes [$b:f_t_int_if_c_t{t}(g$3:assumption($a))] (improved to [F t Int] if C t)

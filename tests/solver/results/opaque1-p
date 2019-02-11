@@ -1,4 +1,3 @@
-Up to date
 [C Int t]                  : Yes [$a:c_int_int{}()] (improved to [C Int Int])
 [C Int Int]                : [$a:C Int Int] remaining. []
 [C Int Bool]               : [$a:C Int Bool] remaining. []

@@ -9,7 +9,7 @@ BINDIR = $(HOME)/.local/bin
 
 .PHONY: all
 
-all: $(TARGETS)
+all: alb ilab tests-alb tests-ilab
 
 alb:
 	cabal new-build --user alb
@@ -25,6 +25,6 @@ install-ilab: ilab tests-ilab
 
 clean:
 	rm -fr $(OBJDIR) .cabal-sandbox dist-newstyle dist $(BINDIR)/alb $(BINDIR)/ilab alb ilab
-	rm -rf *.o
-	rm -rf *.out
+	rm -rf **/*.o
+	rm -rf **/*.out
 	rm -rf $(TESTS)

@@ -1,4 +1,3 @@
-Up to date
 [Add P2 P1 P3]    : Yes [$a:add_x_p0_x!1{P2, P0, P2}(g$f:add_x_p0_x!0{P2}())]
 [Add P7 P14 P21]  : Yes [$a:add_x_p0_x!1{P7, P13, P20}(g$f:add_x_p0_x!1{P7, P12, P19}(g$u:add_x_p0_x!1{P7, P11, P18}(g$19:add_x_p0_x!1{P7, P10, P17}(g$1o:add_x_p0_x!1{P7, P9, P16}(g$23:add_x_p0_x!1{P7, P8, P15}(g$2i:add_x_p0_x!1{P7, P7, P14}(g$2x:add_x_p0_x!1{P7, P6, P13}(g$3c:add_x_p0_x!1{P7, P5, P12}(g$3r:add_x_p0_x!1{P7, P4, P11}(g$46:add_x_p0_x!1{P7, P3, P10}(g$4l:add_x_p0_x!1{P7, P2, P9}(g$50:add_x_p0_x!1{P7, P1, P8}(g$5f:add_x_p0_x!1{P7, P0, P7}(g$5u:add_x_p0_x!0{P7}()))))))))))))))]
 [Add P1 P0 P2]    : No 

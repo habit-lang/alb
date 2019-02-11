@@ -1,3 +1,2 @@
-Up to date
 The axiom forall k. D (Pair _0 Bool)
 does not meet the requirement forall k. C _0, D _0 requires E _0

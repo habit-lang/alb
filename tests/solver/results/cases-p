@@ -1,4 +1,3 @@
-Up to date
 [C (Maybe Int)] : Yes [$a:c_int!1{Maybe Int}()]
 [C Int]         : Yes [$a:c_int!0{}()]
 [C t]           : Yes [$a:cases {[t :-> Int] -> [] c_int!0{}(); [] -> [] c_int!1{t}()}]

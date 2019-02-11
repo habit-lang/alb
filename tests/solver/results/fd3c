@@ -1,3 +1,2 @@
-Up to date
 Overlapping instances: forall k, k, k. H (List _2) _0 P1 if Double _0 _1, Eq _2
 overlaps with forall k, k, k. H (Maybe _2) _0 _1 if Double _0 _1, Even _1, Ord _2

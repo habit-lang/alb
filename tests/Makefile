@@ -90,7 +90,8 @@ ALB_DIR=$(pwd)
 ALB_TEST_DIR=tests
 
 # MIL locations
-MIL_DIR=$(HOME)/workspace/habit-lang/mil-tools
+#FIXME! we assume that mil-tools and alb are under the same root directory. It may not be the case.
+MIL_DIR=../mil-tools
 MIL_JAR=mil-tools.jar
 
 CLANG_EXE=/usr/bin/clang

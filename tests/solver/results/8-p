@@ -1,4 +1,3 @@
-Up to date
 [Eq T T]                   : Yes [$a:eq_t_t{T}()]
 [Eq T U]                   : No 
 [Eq T t]                   : Yes [$a:eq_t_t{T}()] (improved to [Eq T T])

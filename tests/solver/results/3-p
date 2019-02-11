@@ -1,4 +1,3 @@
-Up to date
 [F Int Int]  : Yes [$a:f_t_t!0{Int}()]
 [F Int Bool] : No 
 [C x y z]    : Yes [$a:cases {[x :-> y] -> [z :-> True] c_t_t_true!0{x}(); [] -> [z :-> False] c_t_t_true!1{x, y}()}]
