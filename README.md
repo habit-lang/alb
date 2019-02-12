@@ -251,18 +251,18 @@ TESTS
 -----
 
 A crude testing framework is implemented in RunTests.hs.  This file reads tests from
-./tests/solver/catalog, and compares the result of each test to the output saved in the results
-directory.  Examine the RunTests.hs file for more detail on the data types used.  To run the tests,
+`./tests/solver/catalog`, and compares the result of each test to the output saved in the results
+directory.  Examine the `RunTests.hs` file for more detail on the data types used.  To run the tests,
 use:
 
 ```shell
-$ runghc RunTests.hs
+$ make tests-ilab
 ```
 
 Or if you're in the compiler/ directory
 
 ```shell
-$ runghc src/Solver/RunTests.hs
+$ runghc -irc tests/Solver/RunTests.hs
 ```
 
 This has been tested on both Windows and Mac OS.  The test framework requires some version
