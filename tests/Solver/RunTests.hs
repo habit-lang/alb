@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Solver.RunTests where
 
 import Control.Monad
@@ -24,16 +26,16 @@ main = do hSetBuffering stdout NoBuffering
 
 check (T args resultsFile) =
     do putStr resultsFile
-       (_, Just stdout, _, _) <- createProcess (proc "./ilab" args) { std_out = CreatePipe }
+       (_, Just stdout, _, _) <- createProcess (proc "cabal" (["new-run", "ilab", "--"] ++  args)) { std_out = CreatePipe }
        actual <- hGetContents stdout
        intended <- readFile resultsFile
-       if actual == intended
+       if ((unlines . tail . lines) actual) == intended
           then do putStr clear
                   putStr "."
                   return Nothing
           else do putStr clear
                   putStr "X"
-                  writeFile ("./actual-" ++ (takeFileName resultsFile)) actual
+                  writeFile ("./tests/Solver/actual-" ++ (takeFileName resultsFile)) actual
                   return (Just (T args resultsFile))
     where clear = replicate (length resultsFile) (chr 8) ++ replicate (length resultsFile) ' ' ++ replicate (length resultsFile) (chr 8)
 check (X _ _) =
@@ -47,9 +49,9 @@ setup = do tests <- (map read . lines) `fmap` readFile "./tests/solver/catalog"
               putStr "O"
           setup' (T args resultsFile) =
               do putStr resultsFile
-                 (_, Just stdout, _, _) <- createProcess (proc "./ilab" args) { std_out = CreatePipe }
+                 (_, Just stdout, _, _) <- createProcess (proc "cabal" (["new-run", "ilab", "--"] ++  args)) { std_out = CreatePipe }
                  actual <- hGetContents stdout
-                 writeFile resultsFile actual
+                 writeFile resultsFile $ (unlines . tail . lines) actual
                  putStr clear
                  putStr "."
               where clear = replicate (length resultsFile) (chr 8) ++ replicate (length resultsFile) ' ' ++ replicate (length resultsFile) (chr 8)

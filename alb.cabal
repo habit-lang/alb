@@ -39,9 +39,10 @@ Build-type:          Simple
 -- Extra-source-files:
 
 -- Constraint on the version of Cabal needed to build this package.
-Cabal-version:       >=1.2
+Cabal-version:       >= 2.0
 
-Executable alb
+
+executable alb
   -- .hs or .lhs file containing the Main module.
   Main-is:  Driver.hs
 
@@ -60,10 +61,12 @@ Executable alb
                   , transformers >= 0.2
                   , indentation-core >= 0.0
                   , indentation-parsec >= 0.0
-  Extensions:       DoAndIfThenElse
-                  , OverloadedStrings
+
+  default-extensions:       DoAndIfThenElse
+                         , OverloadedStrings
   Build-tools:
   Hs-Source-Dirs: src
+
   other-modules:   Analyzer
                  , Analyzer.Desugaring
                  , Analyzer.Fixity
@@ -117,7 +120,10 @@ Executable alb
                  , Typechecker.TypeInference.Instances
                  , Typechecker.TypeInference.TopDecl
                  , Utils.BDD
-Executable ilab
+
+  default-language: Haskell2010
+
+executable ilab
 
   Main-is: Ilab.hs
 
@@ -138,8 +144,8 @@ Executable ilab
 
   Hs-Source-Dirs: src
 
-  Extensions:       DoAndIfThenElse
-                  , OverloadedStrings
+  default-extensions:       DoAndIfThenElse
+                          , OverloadedStrings
 
 
   other-modules:    Analyzer.LabeledFields
@@ -167,3 +173,5 @@ Executable ilab
                   , Syntax.Specialized
                   , Syntax.XMPEG
                   , Utils.BDD
+
+  default-language: Haskell2010

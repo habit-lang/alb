@@ -1,5 +1,5 @@
-requires prelude
--- requires test
+-- requires prelude
+requires test
 
 data State s a = S (s -> (a, s))
 
@@ -30,10 +30,10 @@ evalState :: State s a -> s -> a
 evalState (S f) s = case f s of
                       (a, _) -> a
 
--- main :: M Unsigned
--- main = do
---   x <- runTests (Cons (return (1 == evalState (incr () >>= (\ x -> get ())) 0)) Nil)
---   return x
+main :: M Unsigned
+main = do
+  x <- runTests (Cons (return (1 == evalState (incr () >>= (\ x -> get ())) 0)) Nil)
+  return x
 
 
-main = 1 == evalState (incr () >>= (\ x -> get ())) 0
+-- main = 1 == evalState (incr () >>= (\ x -> get ())) 0

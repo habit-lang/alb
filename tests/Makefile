@@ -1,66 +1,118 @@
 # Usage:
-#  "make test" or "make all" makes and runs all tests
-#  "make clean" removes *.out and *.fidget
+#  "make tests-alb"" makes and runs alb tests
+#  "make tests-ilab"" makes and runs ilab tests
+#  "make clean" removes *.out files
 #  "make foo.out" makes foo.out from foo.hb or foo.lhb
-all: test
+
+### TODO! We need a better system (probably hspec?) that automatically pulls in all the *.hb files compiles them and runs them
 
 # WARNING: Be sure to include the "./" at the front.  Otherwise, testHarness.hs will fail the whole file.
-TESTS=./example-test.out ./three.out ./Lambda.out  ./State.out ./listdriver.out ./redblack.out ./foo.out ./prioset.out ./bug0050.out ./bugIxBound.out ./cases2.out ./requirements.out ./BigArray.out ./md5driver.out ./Mersenne.out
+TESTS=$(ALB_TEST_DIR)/example-test.out $(ALB_TEST_DIR)/State.out $(ALB_TEST_DIR)/foo.out $(ALB_TEST_DIR)/requirements.out
+
+# Need to add them or leave them out?
+NON_EXISTENT_TESTS=$(ALB_TEST_DIR)/prioset.out $(ALB_TEST_DIR)/cases2.out $(ALB_TEST_DIR)/bugIxBound.out
 
 # If any code is broken please move it from TESTS to BROKEN_TESTS and add a comment on why it broke!
+
 # largeword-driver gives "context too weak to prove"
-BROKEN_TESTS=./largeword-driver.out
+# ---------------
 
-COV=./example-test.cov ./three.cov ./Lambda.cov ./Mersenne.cov ./State.cov ./listdriver.cov ./redblack.cov ./foo.cov ./largeword-driver.cov ./bug0050.out ./md5driver.out ./bugIxBound.out
+# three.out fails because
+# --------
+# external primIncIx$5cg9 {primIncIx 3} :: Ix 3 -> Maybe__Ix_3
+#          ^
+# No generated implementation: Bitdata representations ("b" pass) required
 
-COV_HI_MEM=./prioset.cov
+# Lambda.out fails because:
+# ----------
+# Context too weak to prove:
+    # Monad Maybe arising at Lambda.hb:24:20-27
+    # In Lambda.hb
 
-ALB=../alb
-ALBHPC=../alb-hpc
-#COMPCERT=../../../compcert1.11-hasp
-COMPCERT=../../../compcert2.0-hasp
-CCOMP=$(COMPCERT)/ccomp
-OTHER_FILES=$(COMPCERT)/test/fidget/harness.c $(COMPCERT)/runtime/gc/cheney.o
-OTHER_DEPS=$(ALB) $(COMPCERT)/ccomp
+# listdriver.hb fails because:
+# -------------
+# Undefined symbols for architecture x86_64:
+#   "_alloc", referenced from:
+#       _func_b1112 in listdriver-557a89.o
+#       _func_b1535 in listdriver-557a89.o
+#       _func_b739 in listdriver-557a89.o
+#       _func_b785 in listdriver-557a89.o
+#       _func_b531 in listdriver-557a89.o
+#       _func_b563 in listdriver-557a89.o
+#       _func_b769 in listdriver-557a89.o
+#       ...
+#   "_halt", referenced from:
+#       _func_b498 in listdriver-557a89.o
+# ld: symbol(s) not found for architecture x86_64
 
-.PHONEY: all test
+# redblack.hb fails becuase
+# INTERNAL ERROR: multiple alternatives for B$58g4
+# java.lang.Exception
+# 	at debug.Internal.error(Unknown Source)
+# 	at mil.CfunAlt.cfunsUsed(Unknown Source)
+# 	at mil.CfunAlt.cfunsUsed(Unknown Source)
+# 	at mil.CfunAlt.cfunsUsed(Unknown Source)
+# 	at mil.Case.cfunSimplify(Unknown Source)
+# 	at mil.Block.cfunSimplify(Unknown Source)
+# 	at mil.MILProgram.cfunSimplify(Unknown Source)
+# 	at mil.MILProgram.cfunRewrite(Unknown Source)
+# 	at driver.Main.process(Unknown Source)
+# 	at driver.Main.run(Unknown Source)
+# 	at driver.Main.main(Unknown Source)
 
-all-tests: test broken
+# bug0050.hb fails because
+# Reading "miniprelude.hb":
+# "miniprelude.hb" (line 154, column 20):
+# unexpected "("
+# expecting "," or "::"
 
-broken: $(BROKEN_TESTS)
-	runghc testHarness.hs $(BROKEN_TESTS)
+# BigArray.hb fails because
+# Reading "miniprelude.hb":
+# "miniprelude.hb" (line 154, column 20):
+# unexpected "("
+# expecting "," or "::"
 
-test: $(TESTS)
-	runghc testHarness.hs $(TESTS)
+# md5driver.hb fails because
+# Reading "miniprelude.hb":
+# "miniprelude.hb" (line 154, column 20):
+# unexpected "("
+# expecting "," or "::"
 
-coverage: $(COV)
-	hpc combine --output tmp.tix ./alb-hpc.tix ../alb-hpc.tix
-	mv tmp.tix ../alb-hpc.tix
-	cd .. ; hpc report alb-hpc --exclude=Printer.Common --exclude=Printer.IMPEG --exclude=Printer.LambdaCase --exclude=Printer.Specialized --exclude=Printer.Surface --exclude=Printer.WadlerLeijen --exclude=Printer.XMPEG
+# Mersenne.out fails because
+# Reading "miniprelude.hb":
+# "miniprelude.hb" (line 154, column 20):
+# unexpected "("
+# expecting "," or "::"
 
-coverage-hi-mem: $(COV) $(COV_HI_MEM)
-	hpc combine --output tmp.tix ./alb-hpc.tix ../alb-hpc.tix
-	mv tmp.tix ../alb-hpc.tix
-	cd .. ; hpc report alb-hpc --exclude=Printer.Common --exclude=Printer.IMPEG --exclude=Printer.LambdaCase --exclude=Printer.Specialized --exclude=Printer.Surface --exclude=Printer.WadlerLeijen --exclude=Printer.XMPEG
+BROKEN_TESTS=$(ALB_TEST_DIR)/largeword-driver.out $(ALB_TEST_DIR)/three.out $(ALB_TEST_DIR)/Lambda.out $(ALB_TEST_DIR)/listdriver.out  $(ALB_TEST_DIR)/redblack.out $(ALB_TEST_DIR)/bug0050.out $(ALB_TEST_DIR)/BigArray.out $(ALB_TEST_DIR)/md5driver.out $(ALB_TEST_DIR)/Mersenne.out
 
-%.fidget: %.lhb $(ALB)
-	$(ALB) -O2 -f $< -o $*.fidget
+ALB_DIR=$(pwd)
+ALB_TEST_DIR=tests
 
-%.fidget: %.hb $(ALB)
-	$(ALB) -O2 -f $< -o $*.fidget
+# MIL locations
+#FIXME! we assume that mil-tools and alb are under the same root directory. It may not be the case.
+MIL_DIR=../mil-tools
+MIL_JAR=mil-tools.jar
 
-%.out: %.fidget $(CCOMP) $(OTHER_FILES)
-	$(CCOMP)  -L$(COMPCERT)/lib/compcert -o $@ $*.fidget $(OTHER_FILES)
+CLANG_EXE=/usr/bin/clang
 
-%.cov: %.hb $(ALBHPC)
-	$(ALBHPC) -f $< > /dev/null
+ALB_EXE=cabal new-run alb
 
-%.cov: %.lhb $(ALBHPC)
-	$(ALBHPC) -f $< > /dev/null
+MIL_OPTS=--mil-jar=$(MIL_DIR)/$(MIL_JAR) --include-mil $(MIL_DIR)/lib/basic.mil --llvm-main main --mil-opt "--64"
 
-clean:
-	rm -f *.o
-	rm -f *.out
-	rm -f *.fidget
-	rm -f *.tix
-	rm -f ../alb-hpc.tix
+ALB_OPTS=--verbose --no-dot-files --path=$(ALB_TEST_DIR) --clang=$(CLANG_EXE)
+
+broken-alb: $(BROKEN_TESTS)
+	runghc tests/testHarness.hs $(BROKEN_TESTS)
+
+tests-alb: $(TESTS)
+	runghc tests/testHarness.hs $(TESTS)
+
+tests-ilab: ilab
+	runghc -irc tests/Solver/Runtests.hs
+
+# FIXME! out is necessary to add an extra file-extention as alb drops the first one while generating the program executable
+%.out:
+	$(ALB_EXE) -- $*.hb -o $@.out $(ALB_OPTS) $(MIL_OPTS)
+
+all-tests: tests-alb broken-alb tests-ilab
