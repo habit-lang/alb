@@ -1,9 +1,27 @@
 --  A temporary place for things that might belong in the prelude
 
-requires miniprelude
+requires prelude
 
-instance NoInit (Stored Unsigned)
-  where noInit = primNoInitStored
+-- instance NoInit (Stored Unsigned)
+--   where noInit = primNoInitStored
+
+infixl 8 bitShiftL, bitShiftR
+
+class BitwiseShift a where
+   bitShiftL :: a -> Ix (BitSize a) -> a
+   bitShiftR :: a -> Ix (BitSize a) -> a
+
+instance BitwiseShift (Bit n) if Width n
+ where bitShiftL x y = primBitShiftL x y
+       bitShiftR x y = primBitShiftRu x y
+
+instance BitwiseShift Unsigned
+    where bitShiftL x y = Unsigned [bits = bitShiftL x.bits y]
+          bitShiftR x y = Unsigned [bits = bitShiftR x.bits y]
+
+instance BitwiseShift (Ix p) if Index p, 2^n = p
+ where bitShiftL x y = primIxShiftL x y
+       bitShiftR x y = primIxShiftR x y
 
 odd :: (BitManip t, BitSize t n, 0 < n) => t -> Bool
 odd x = testBit x 0
@@ -59,5 +77,3 @@ swapEndian x =
      b2 = (a .&. 0xFF0000) `bitShiftR` 8
      b3 = (a .&. 0xFF000000) `bitShiftR` 24
  in fromBits (b0 .|. b1 .|. b2 .|. b3)
-
-data Ordering = LT | EQ | GT

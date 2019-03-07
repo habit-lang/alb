@@ -151,7 +151,7 @@ class Width (n :: nat)
 instance Width n if n <= 32
 else     Width n fails
 
-primitive type Bit (n :: nat)
+primitive type Bit :: n -> *
 
 primitive (:#) :: (Width n, Width m, Width p, n + m = p)
                     => Bit n -> Bit m -> Bit p
@@ -635,7 +635,7 @@ class Monad m
   where return :: a -> m a
         (>>=)  :: m a -> (a -> m b) -> m b
 
-primitive type M (a :: *) -- The machine monad:
+primitive type M :: * -> * -- The machine monad:
 
 primitive primReturnM :: a -> M a
 
@@ -657,14 +657,13 @@ else     Select (m r) f = m (Select r f) if Monad m
 -- more to come ...
 
 -- TODO: TypeInference.hs should really be the one to introduce these
-primitive type BitdataCase (r::type) (f::lab)
+primitive type BitdataCase :: * -> lab -> *
 primitive structSelect
-  :: Select (ARef m s) f (ARef n t) => ARef m s -> #f -> ARef n t
+  :: Ref s -> #f -> Ref t
 primitive bitdataSelect
-  :: Select (BitdataCase r c) f t => BitdataCase r c -> #f -> t
+  :: BitdataCase r c -> #f -> t
 primitive bitdataUpdate
-  :: Update (BitdataCase r c) f
-       => BitdataCase r c -> #f -> Select (BitdataCase r c) f -> BitdataCase r c
+  :: BitdataCase r c -> #f -> t -> BitdataCase r c
 primitive constructBitdata :: t
 
 -- type Foo = Bit 5

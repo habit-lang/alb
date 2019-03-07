@@ -1,5 +1,6 @@
 -- Porting Dominics LargeWord module to Habit
-requires miniprelude
+
+requires prelude
 requires ondeckprelude
 
 data LargeWord a b = LargeWord a b

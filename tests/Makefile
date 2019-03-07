@@ -84,7 +84,8 @@ NON_EXISTENT_TESTS=$(ALB_TEST_DIR)/prioset.out $(ALB_TEST_DIR)/cases2.out $(ALB_
 # unexpected "("
 # expecting "," or "::"
 
-BROKEN_TESTS=$(ALB_TEST_DIR)/largeword-driver.out $(ALB_TEST_DIR)/three.out $(ALB_TEST_DIR)/Lambda.out $(ALB_TEST_DIR)/listdriver.out  $(ALB_TEST_DIR)/redblack.out $(ALB_TEST_DIR)/bug0050.out $(ALB_TEST_DIR)/BigArray.out $(ALB_TEST_DIR)/md5driver.out $(ALB_TEST_DIR)/Mersenne.out
+BROKEN_TESTS=$(ALB_TEST_DIR)/largeword-driver.out $(ALB_TEST_DIR)/three.out $(ALB_TEST_DIR)/Lambda.out $(ALB_TEST_DIR)/listdriver.out
+BROKEN_TESTS+= $(ALB_TEST_DIR)/redblack.out $(ALB_TEST_DIR)/bug0050.out $(ALB_TEST_DIR)/BigArray.out $(ALB_TEST_DIR)/md5driver.out $(ALB_TEST_DIR)/Mersenne.out
 
 ALB_DIR=$(pwd)
 ALB_TEST_DIR=tests

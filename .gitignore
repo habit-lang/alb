@@ -6,3 +6,4 @@ alb
 obj/*
 *.exe
 *.out
+*.err
