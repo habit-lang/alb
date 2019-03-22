@@ -204,20 +204,26 @@ options =
     , Option [] ["no-dot-files"] (NoArg (\opt -> opt { dotFiles = False } ))
         "Does not include preferences from any previously checked dot files"
 
-    , Option [] ["mil-jar"] (ReqArg (\x opt -> opt { milOptions = (milOptions opt) { MILTools.jarPath = Just x } }) "PATH")
-         "Path to the MIL-tools JAR file"
+    -- , Option [] ["mil-jar"] (ReqArg (\x opt -> opt { milOptions = (milOptions opt) { MILTools.jarPath = Just x } }) "PATH")
+    --      "Path to the MIL-tools JAR file"
 
-    , Option [] ["llvm-main"] (ReqArg (\x opt -> opt{ milOptions = (milOptions opt){ MILTools.llvmMain = Just x }}) "STRING")
-           "Name of the main/initialization function to be generated in LLVM"
-
-    , Option [] ["mil-opt"] (ReqArg (\x opt -> opt { milOptions = (milOptions opt) { MILTools.otherOptions = x ++ otherOptions (milOptions opt) }}) "STRING")
-          "Other options to MIL-tools"
+    , Option [] ["milc"] (ReqArg (\x opt -> opt { milOptions = (milOptions opt) { MILTools.milcPath = Just x} }) "FILE")
+         "Path to the milc script"
 
     , Option [] ["include-mil"] (ReqArg (\x opt -> opt{ milOptions = (milOptions opt){ extraMilFiles = extraMilFiles (milOptions opt) ++ [x] } }) "FILE")
           "Additional MIL files to pass to MIL-tools"
 
+    , Option [] ["llvm-main"] (ReqArg (\x opt -> opt{ milOptions = (milOptions opt){ MILTools.llvmMain = Just x }}) "STRING")
+           "Name of the main/initialization function to be generated in LLVM"
+
+    -- , Option [] ["mil-opt"] (ReqArg (\x opt -> opt { milOptions = (milOptions opt) { MILTools.otherOptions = x ++ otherOptions (milOptions opt) }}) "STRING")
+    --       "Other options to MIL-tools"
+
+    , Option [] ["milc-opt"] (ReqArg (\x opt -> opt{ milOptions = (milOptions opt) {MILTools.otherOptions = x ++ otherOptions (milOptions opt)} }) "STRING")
+         "Other options to milc"
+
     , Option [] ["fake-mil"] (NoArg (\opt -> opt { milOptions = (milOptions opt) { MILTools.fake = True } }))
-          "Generate LC output and MIL-tools command, but do not actually invoke MIL-tools"
+          "Generate LC output and milc command, but do not actually invoke milc"
 
     , Option [] ["clang"] (ReqArg (\x opt -> opt{ milOptions = (milOptions opt){ clangPath = Just x } }) "FILE")
           "Path to clang binary (or replacement script)"
