@@ -49,13 +49,23 @@ RUNNING
 Albatross is a batch compiler, and currently lacks an interactive mode.
 Flags can be listed using command line option `--help`.
 
-Without overriding flags, Alb will attempt to generate LC and invoke the MIL tools to produce an
-executable.
+Without overriding flags, Alb will attempt to generate LC and invoke the [MIL
+tools](https://github.com/habit-lang/mil-tools) to produce an executable. The
+`milc` script provided by MIL tools must be in your path. 
 
 Unless the `--no-dot-files` option is specified, Alb will look for files called ".alb" in your home
 directory and the current directory, and will read options from those files.  Options on the command
 line override options in files, and options in the local directory override options in your home
 directory.
+
+It is possible to customize the location of the `milc` script using the `--milc`
+command line option. The optional `--milc-opt` flag specifies additional command
+line options to pass to `milc`.
+
+#### Convering old `.alb` files
+
+Older `.alb` files *must* remove the `--mil-jar` option. If you need to specify
+a custom location for MIL tools, use the `--milc` and `--milc-opt` options.
 
 HABIT LANGUAGE EXTENSIONS
 -------------------------

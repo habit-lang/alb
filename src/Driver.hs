@@ -204,9 +204,6 @@ options =
     , Option [] ["no-dot-files"] (NoArg (\opt -> opt { dotFiles = False } ))
         "Does not include preferences from any previously checked dot files"
 
-    -- , Option [] ["mil-jar"] (ReqArg (\x opt -> opt { milOptions = (milOptions opt) { MILTools.jarPath = Just x } }) "PATH")
-    --      "Path to the MIL-tools JAR file"
-
     , Option [] ["milc"] (ReqArg (\x opt -> opt { milOptions = (milOptions opt) { MILTools.milcPath = Just x} }) "FILE")
          "Path to the milc script"
 
@@ -215,9 +212,6 @@ options =
 
     , Option [] ["llvm-main"] (ReqArg (\x opt -> opt{ milOptions = (milOptions opt){ MILTools.llvmMain = Just x }}) "STRING")
            "Name of the main/initialization function to be generated in LLVM"
-
-    -- , Option [] ["mil-opt"] (ReqArg (\x opt -> opt { milOptions = (milOptions opt) { MILTools.otherOptions = x ++ otherOptions (milOptions opt) }}) "STRING")
-    --       "Other options to MIL-tools"
 
     , Option [] ["milc-opt"] (ReqArg (\x opt -> opt{ milOptions = (milOptions opt) {MILTools.otherOptions = x ++ otherOptions (milOptions opt)} }) "STRING")
          "Other options to milc"
