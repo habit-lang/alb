@@ -21,6 +21,7 @@ import Analyzer
 import Common
 import LC
 import MILTools
+import Normalizer.BitPatterns as Bits
 import Normalizer.Eta
 import Normalizer.Inliner
 import Normalizer.Matches as Matches
@@ -333,7 +334,8 @@ buildPipeline options =
             = filePipe' (\s q -> toInferTypes s) >=> pure concat' >=> specializeProgram exported
 
           toNormalized
-            = toSpecialized >=> pure (inlineProgram exported) >=> pure (Matches.normalizeProgram) >=> pure etaExpand
+            = toSpecialized >=> pure (inlineProgram exported) >=> pure compilePatterns >=>
+              pure (Matches.normalizeProgram) >=> pure etaExpand
 
           toLCed
             | Nothing <- mainId options = error "Unable to generate LC without main"
