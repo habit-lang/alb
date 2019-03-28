@@ -18,7 +18,7 @@ import System.Process
 
 
 -- Options for invoking the LC Compiler
-data MILOptions = MILOptions { jarPath       :: Maybe FilePath,
+data MILOptions = MILOptions { milcPath      :: Maybe FilePath,
                                llvmMain      :: Maybe String,
                                extraMilFiles :: [FilePath],
                                otherOptions  :: String,
@@ -26,7 +26,7 @@ data MILOptions = MILOptions { jarPath       :: Maybe FilePath,
                                clangOptions  :: String,
                                fake          :: Bool }
 
-defaultMILOptions = MILOptions { jarPath       = Nothing,
+defaultMILOptions = MILOptions { milcPath      = Nothing,
                                  llvmMain      = Nothing,
                                  extraMilFiles = [],
                                  otherOptions  = "",
@@ -39,9 +39,8 @@ milCompile milo outputFileName invokeClang (prog, entrypoints) =
     do writeFile lcFileName (show prog)
        execPath <- getExecutablePath
 
-       let jarPath' = fromMaybe (takeDirectory execPath </> "mil-tools.jar") (jarPath milo)
-           milCmd = intercalate " " $ [ "java",
-                                        "-jar", jarPath' ] ++
+       let milc = fromMaybe "milc" (milcPath milo)
+           milCmd = intercalate " " $ [ milc ] ++
                                       extraMilFiles milo ++
                                       [ lcFileName,
                                         "-l" ++ llFileName,
@@ -49,7 +48,7 @@ milCompile milo outputFileName invokeClang (prog, entrypoints) =
                                         maybe "" ("--llvm-main=" ++) (llvmMain milo),
                                         otherOptions milo ]
            main = fromId (head [ id | (id, b) <- entrypoints, b ])
-           clang = fromMaybe ("clang") (clangPath milo)
+           clang = fromMaybe "clang" (clangPath milo)
            exeName = replaceExtension outputFileName (takeExtension execPath)
            clangCmd = intercalate " " [ clang,
                                         "-o", exeName,
@@ -58,16 +57,20 @@ milCompile milo outputFileName invokeClang (prog, entrypoints) =
 
        if fake milo
        then putStrLn milCmd
-       else do exitCode <- system milCmd
-               if exitCode /= ExitSuccess
-               then hPutStrLn stderr ("mil-tools invocation failed (" ++ show exitCode ++ ")")
-               else do removeFile lcFileName
-                       if invokeClang
-                       then do exitCode <- system clangCmd
-                               if exitCode /= ExitSuccess
-                               then hPutStrLn stderr ("clang invocation failed (" ++ show exitCode ++")")
-                               else removeFile llFileName
-                       else return ()
+       else runExternal milCmd
+            (do removeFile lcFileName
+                runExternal clangCmd
+                  (removeFile llFileName))
 
     where lcFileName = replaceExtension outputFileName "lc"
           llFileName = replaceExtension outputFileName "ll"
+
+runExternal :: String -> IO () -> IO ()
+runExternal cmd next =
+  do exitCode <- system cmd
+     case exitCode of
+       ExitSuccess -> next
+       _           -> showError cmd exitCode
+
+showError :: String -> ExitCode -> IO ()
+showError msg code = hPutStrLn stderr (msg ++ " (" ++ show code ++ ")")
