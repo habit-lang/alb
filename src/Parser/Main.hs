@@ -570,17 +570,33 @@ structDecl = do reserved "struct"
                   (do t@(At l _) <- located (type_)
                       return [At l (StructRegion Nothing t)])
 
-areaDecl :: ParseM Area
-areaDecl = do v <- option False (reserved "volatile" >> return True)
-              reserved "area"
-              ids <- commaSep $ do id <- located varid
-                                   minit <- optionMaybe $ reservedOp "<-" >> eInfix
-                                   return (id, minit)
-              reservedOp "::"
-              t <- qual type_
-              align <- optionMaybe $ reserved "aligned" >> located (qual type_)
-              mdecls <- optionMaybe $ reserved "where" >> decls
-              return (Area v ids t align mdecls)
+areaDeclInit :: ParseM Area
+areaDeclInit = do v <- option False (reserved "volatile" >> return True)
+                  reserved "area"
+                  ids <- commaSep $ do id <- located varid
+                                       minit <- optionMaybe $ reservedOp "<-" >> eInfix
+                                       return (id, minit)
+                  reservedOp "::"
+                  t <- qual type_
+                  align <- optionMaybe $ reserved "aligned" >> located (qual type_)
+                  mdecls <- optionMaybe $ reserved "where" >> decls
+                  return (Area v ids t align mdecls)
+
+areaDeclExt :: ParseM Area
+areaDeclExt = do v <- option False (reserved "volatile" >> return True)
+                 reserved "external"
+                 reserved "area"
+                 ids <- commaSep $ do id <- located varid
+                                      reservedOp "="
+                                      l <- located literal
+                                      return (id, Just (fmap (\x -> ELit x) l))
+                 reservedOp "::"
+                 t <- qual type_
+                 align <- optionMaybe $ reserved "aligned" >> located (qual type_)
+                 mdecls <- optionMaybe $ reserved "where" >> decls
+                 return (Area v ids t align mdecls)
+
+areaDecl = areaDeclInit <|> areaDeclExt
 
 primitive :: ParseM [Primitive]
 primitive = do reserved "primitive"

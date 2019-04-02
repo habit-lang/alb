@@ -1,5 +1,5 @@
 -- TODO: compilation fails with alb: type_prim undefined prim name:primStructInit, ...
-requires miniprelude
+requires prelude
 requires ondeckprelude
 
 struct S [ x, y, z :: Stored Unsigned ]
@@ -10,6 +10,8 @@ baz = S [ x <- initialize | y <- initialize | z <- initialize ]
 -}
 
 area test <- nullInit :: ARef 4 S
+
+external area test' = 0x0012 :: ARef 6 S
 
 myInit :: Init S
 myInit  = nullInit

@@ -338,7 +338,7 @@ primitive primIxShiftR :: Ix n -> Ix m -> Ix n
 
 -- References and memory areas: ---------------------------------
 
--- primitive type ARef  :: nat -> area -> *
+primitive type ARef  :: nat -> area -> *
 -- type Ref = ARef MinAlign
 
 primitive type Ref :: area -> *
