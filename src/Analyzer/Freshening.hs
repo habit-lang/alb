@@ -81,13 +81,13 @@ freshenProgram = up body
                           classMethods = [At s id | At s (Class _ _ _ (Just d)) <- classes p, Signature id _ <- signatures d]
                           opaqueDataMethods = [At s id | At s (Datatype _ _ _ (Just ds)) <- datatypes p, Signature id _ <- signatures ds]
                           opaqueSynonymMethods = [At s id | At s (Synonym _ _ (Just ds)) <- synonyms p, Signature id _ <- signatures ds]
-                          areaNames = concat [map fst inits | At _ (Area _ inits _ _ _) <- areas p]
+                          areaNames = concat [map fst3 inits | At _ (Area _ inits _ _ _) <- areas p]
                           (publicPrimNames, privatePrimNames) = partitionEithers $ concatMap bindingsFromPrimitive (primitives p)
                           newGlobals = declVars ++ classMethods ++ opaqueDataMethods ++ opaqueSynonymMethods ++ areaNames ++ publicPrimNames
                       liftBase (rejectDuplicates (oldGlobals ++ oldPrivates) (newGlobals ++ privatePrimNames))
                       put (oldGlobals ++ newGlobals, oldPrivates ++ privatePrimNames)
                       liftBase (runReaderT (freshenProgram' p) (Map.fromList [(dislocate id, dislocate id) | id <- oldGlobals ++ newGlobals ++ privatePrimNames]))
-
+          fst3 (x, _, _) = x
 bindingsFromPrimitive (At s (PrimValue (Signature id _) _ True)) = [Left (At s id)]
 bindingsFromPrimitive (At s (PrimValue (Signature id _) _ False)) = [Right (At s id)] -- private
 bindingsFromPrimitive (At _ (PrimCon {})) = []

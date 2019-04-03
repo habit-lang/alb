@@ -218,7 +218,10 @@ instance Printable StructRegion
 instance Printable Area
     where ppr (Area v ids ty align decls) =
               nest 4 ((if v then text "volatile " else empty) <>
-                      text "area" <+> cat (punctuate (comma <> softline) [ ppr name <> maybe empty (\init -> space <> text "<-" <+> ppr init) init | (name, init) <- ids ])
+                      text "area" <+> cat (punctuate (comma <> softline) [ ppr name
+                                                                           <> maybe empty (\a -> space <> text "=" <+> ppr a) addr
+                                                                           <> maybe empty (\init -> space <> text "<-" <+> ppr init) init
+                                                                         | (name, addr, init) <- ids ])
                                </> text "::" <+> ppr ty <>
                                (maybe empty ((" aligned" <+>) . ppr) align) <>
                                printMaybeDecls decls)

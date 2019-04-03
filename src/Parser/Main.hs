@@ -571,30 +571,31 @@ structDecl = do reserved "struct"
                       return [At l (StructRegion Nothing t)])
 
 areaDeclInit :: ParseM Area
-areaDeclInit = do v <- option False (reserved "volatile" >> return True)
-                  reserved "area"
-                  ids <- commaSep $ do id <- located varid
-                                       minit <- optionMaybe $ reservedOp "<-" >> eInfix
-                                       return (id, minit)
-                  reservedOp "::"
-                  t <- qual type_
-                  align <- optionMaybe $ reserved "aligned" >> located (qual type_)
-                  mdecls <- optionMaybe $ reserved "where" >> decls
-                  return (Area v ids t align mdecls)
+areaDeclInit = (do v <- option False (reserved "volatile" >> return True)
+                   reserved "area"
+                   ids <- commaSep $ do id <- located varid
+                                        minit <- optionMaybe $ reservedOp "<-" >> eInfix
+                                        return (id, Nothing, minit)
+                   reservedOp "::"
+                   t <- qual type_
+                   align <- optionMaybe $ reserved "aligned" >> located (qual type_)
+                   mdecls <- optionMaybe $ reserved "where" >> decls
+                   return (Area v ids t align mdecls)) <?> "Area initializer declaration"
 
 areaDeclExt :: ParseM Area
-areaDeclExt = do v <- option False (reserved "volatile" >> return True)
-                 reserved "external"
-                 reserved "area"
-                 ids <- commaSep $ do id <- located varid
-                                      reservedOp "="
-                                      l <- located literal
-                                      return (id, Just (fmap (\x -> ELit x) l))
-                 reservedOp "::"
-                 t <- qual type_
-                 align <- optionMaybe $ reserved "aligned" >> located (qual type_)
-                 mdecls <- optionMaybe $ reserved "where" >> decls
-                 return (Area v ids t align mdecls)
+areaDeclExt = (do v <- option False (reserved "volatile" >> return True)
+                  reserved "external"
+                  reserved "area"
+                  ids <- commaSep $ do id <- located varid
+                                       reservedOp "="
+                                       l <- located literal
+                                       minit <- optionMaybe $ reserved "<-" >> eInfix
+                                       return (id, Just (fmap (\x -> ELit x) l), minit)
+                  reservedOp "::"
+                  t <- qual type_
+                  -- align <- optionMaybe $ reserved "aligned" >> located (qual type_)
+                  mdecls <- optionMaybe $ reserved "where" >> decls
+                  return (Area v ids t Nothing mdecls)) <?> "External area declaration"
 
 areaDecl = areaDeclInit <|> areaDeclExt
 

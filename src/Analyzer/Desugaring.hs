@@ -908,11 +908,19 @@ instance Sugared S.Area (Top, [TypingGroup PredFN Id])
                  (ps, inits) <- unzip `fmap` mapM rewriteInit namesAndInits
                  return ( Area v ps tys align'
                         , groups ++ [Explicit (v, [], MCommit e) initTy | (v, e) <- inits] )
-
-              where rewriteInit (At loc name, Nothing) =
+                 
+              where
+                rewriteInit :: (Located t, Maybe (Located S.Expr),
+                                Maybe (Located S.Expr))
+                            -> M ((Located t, Id), (Id, Located (Expr PredFN Id)))
+                rewriteInit (At loc name, Nothing, Nothing) =
                         do v <- fresh "init"
                            return ((At loc name, v), (v, At loc (EVar "initialize")))
-                    rewriteInit (name, Just init) =
+                rewriteInit (At loc name, Just addr, Nothing) =
+                        do v <- fresh "init"
+                           addr' <- desugar addr
+                           return ((At loc name, v), (v, At loc (EVar "initialize")))
+                rewriteInit (name, Just addr, Just init) =
                         do v <- fresh "init"
                            init' <- desugar init
                            return ((name, v), (v, init'))
@@ -1046,12 +1054,13 @@ desugarProgram = up (\p -> PassM (StateT (f p)))
                                 [map ctorName ctors | At _ (S.Bitdatatype _ _ ctors _) <- S.bitdatatypes p])
                     ctorNames = map dislocate locatedCtorNames
                     areaNames =
-                        concat [map dislocate (fst (unzip inits)) | At _ (S.Area _ inits _ _ _) <- S.areas p]
+                        concat [map dislocate (fst3 (unzip3 inits)) | At _ (S.Area _ inits _ _ _) <- S.areas p]
                     primitiveNames =
                         [id | At _ (S.PrimValue (S.Signature id _) _ _) <- S.primitives p]
                     primitiveNamesAndVisibilities =
                         [(id, visible) | At _ (S.PrimValue (S.Signature id _) _ visible) <- S.primitives p]
-
+                    fst3 :: (a, b, c) -> a
+                    fst3 (x, _, _) = x
 -- TODO: consider rewording the text of the error message produced by this function so that it fits
 -- with all uses.
 rejectDuplicates :: [Located Id] -> M ()
