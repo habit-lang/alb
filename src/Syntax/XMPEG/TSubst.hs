@@ -256,7 +256,7 @@ instance HasEvidenceVariables Decls
     where fevs (Decls gs) = concatMap fevs gs
 
 instance HasTypeVariables (TopDecl KId)
-  where s # Area v ids t w o = Area v [(id, s # tapp) | (id, tapp) <- ids] (s # t) w o
+  where s # Area v ids t w o = Area v [(id, a, s # tapp) | (id, a, tapp) <- ids] (s # t) w o
         s # d                = d
 
 ----------------------------------------------------------------------------------------------------

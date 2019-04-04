@@ -304,12 +304,12 @@ checkTopDecl (Area v inits tys _align) =
                 size  <- getNat "size" s
                 align <- getNat "alignment" l
                 return ( X.Area v inits' (convert (dislocate ty)) size align
-                       , Map.fromList [(name, (tys', 0, 0)) | (name, _) <- inits'] )
+                       , Map.fromList [(name, (tys', (0::Int), (0::Int))) | (name, _, _) <- inits'] )
          _ ->
              failWithS ("Unsupported area declaration; declared type " ++ show (ppr tys)
                        ++ ", simplified type " ++ show (ppr tys'))
-    where checkInit :: (Located Id, Maybe integer, Id) -> M (Id, X.Inst)
-          checkInit (At _ name, _, init)
+    where checkInit :: (Located Id, Maybe Integer, Id) -> M (Id, Maybe Integer, X.Inst)
+          checkInit (At _ name, addr, init)
             = appendFailureContextS ("In the initializer for area " ++ fromId name) $
               do b <- bindingOf init
                  case b of
@@ -323,7 +323,7 @@ checkTopDecl (Area v inits tys _align) =
                           contextTooWeak remaining
                         let typarams = [convert (TyVar kid)                 | kid <- kids]
                             evparams = [fromMaybe (X.EvVar ev) (lookup ev evsubst) | (ev, At _ (Pred _ _ Holds)) <- preds]
-                        return (name, X.Inst init typarams evparams)
+                        return (name, addr, X.Inst init typarams evparams)
 
           getNat what t = do t' <- substitute t
                              case t' of

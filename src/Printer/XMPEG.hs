@@ -212,7 +212,9 @@ instance Printable typaram => Printable (TopDecl typaram)
 
           ppr (Area v ids ty size align) =
               hang 4 ((if v then text "volatile " else empty) <>
-                      text "area" <+> cat (punctuate (comma <> softline) [ ppr name <+> text "<-" <+> ppr init | (name, init) <- ids ])
+                      text "area" <+> cat (punctuate (comma <> softline) [ ppr name
+                                                                           <+> maybe empty (\a -> text "=" <+> text (show a)) addr 
+                                                                           <+> text "<-" <+> ppr init | (name, addr, init) <- ids ])
                                   </> text "::" <+> ppr ty
                                   <+> sizeAlign size align)
 

@@ -287,7 +287,7 @@ data TopDecl typaram
                       Int                              -- alignment in bytes
                       [StructField]                    -- fields
 
-             | Area Bool [(Id, Inst)] Type Int Int     -- (name, init) type size alignment
+             | Area Bool [(Id, Maybe Integer, Inst)] Type Int Int     -- (name, init) type size alignment
   deriving (Data, Typeable)
 
 type BitdataCtor  = (Id, [BitdataField], BDD.Pat)      -- (name, list of fields, coverage)

@@ -890,10 +890,10 @@ specialized code).
 >    = do (ids', c') <- specIds c ids
 >         return (Area v ids' ty w a, c')
 >      where specIds c [] = return ([], c)
->            specIds c ((id, tapp):ids)
+>            specIds c ((id, addr, tapp):ids)
 >              = do (e,c1)     <- dictify tapp >>= specDApp c
 >                   (ids', c2) <- specIds c1 ids
->                   return ((id, toInst e):ids', c2)
+>                   return ((id, addr, toInst e):ids', c2)
 >            toInst (ELamVar i)    = Inst i [] []
 >            toInst (ELetVar tapp) = tapp
 
@@ -904,7 +904,7 @@ quantified variables and predicates as a result of using functional notation and
 type synonyms.)
 
 > areaIds                   :: TopDecl typaram -> [Inst]
-> areaIds (Area _ areas _ _ _) = [ ini | (_, ini) <- areas ]
+> areaIds (Area _ areas _ _ _) = [ ini | (_, _, ini) <- areas ]
 > areaIds _                    = []
 
 -------------------------------------------------------------------------------

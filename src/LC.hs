@@ -15,6 +15,7 @@ import Data.List (intercalate)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe
+import Numeric (showHex)
 import Prelude hiding ((<$>))
 
 import Debug.Trace
@@ -160,8 +161,10 @@ instance LCable (TopDecl Type)
 
           lc envs (Area v namesAndInits ty size align) =
               vcat [nest 4 ((if v then text "volatile" <> space else empty) <>
-                            text "area" <+> (ppr name <+> text "<-" <+> ppr init) </> text "::" <+> lc envs ty <+> sizeAlign size align)
-                     | (name, Inst init [] []) <- namesAndInits]
+                            text "area" <+> (ppr name
+                                             <+> maybe empty (\a -> text "=" <> space <> text (showHex a "")) addr
+                                             <+> text "<-" <+> ppr init) </> text "::" <+> lc envs ty <+> sizeAlign size align)
+                     | (name, addr, Inst init [] []) <- namesAndInits]
 
 sizeAlign size align = text ("{- size = "++show size++", align = "++show align++" -}")
 
