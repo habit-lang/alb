@@ -228,7 +228,7 @@ paramName (Right name)           = name
 data TopDecl p tyid typaram = Datatype tyid [Located typaram] [Located (PredType p tyid)] [Ctor tyid (PredType p tyid) (Type tyid)] [Id]
                             | Bitdatatype Id (Maybe (Scheme p tyid)) [Ctor tyid (PredType p tyid) (BitdataField tyid)] [Id]
                             | Struct Id (Maybe (Scheme p tyid)) (Ctor tyid (PredType p tyid) (StructRegion tyid)) (Maybe (Located (Scheme p tyid))) [Id]
-                            | Area Bool [(Located Id, Id)] (Scheme p tyid) (Maybe (Located (Scheme p tyid)))
+                            | Area Bool [(Located Id, Maybe Integer, Id)] (Scheme p tyid) (Maybe (Located (Scheme p tyid)))
                             | Class Id [Located typaram] [Located ClassConstraint] [Signature p tyid] (Functions p tyid)
                             | Instance Id Id [(Qual (PredType p tyid) (PredType p tyid), Functions p tyid)]
                             | Require [(Id, Located (PredType p tyid))] [Located (PredType p tyid)]

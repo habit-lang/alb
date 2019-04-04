@@ -202,7 +202,7 @@ data StructRegion = StructRegion (Maybe StructField) (Located Type)
 data StructField = StructField (Located Id) (Maybe (Located Expr))
                  deriving (Eq, Show, Typeable, Data)
 
-data Area = Area Bool [(Located Id, Maybe (Located Expr), Maybe (Located Expr))] (Qual Type) (Maybe (Located (Qual Type))) (Maybe Decls)
+data Area = Area Bool [(Located Id, Maybe (Located Integer), Maybe (Located Expr))] (Qual Type) (Maybe (Located (Qual Type))) (Maybe Decls)
             deriving (Eq, Show, Typeable, Data)
 
 --------------------------------------------------------------------------------

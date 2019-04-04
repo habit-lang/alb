@@ -219,7 +219,7 @@ instance Printable Area
     where ppr (Area v ids ty align decls) =
               nest 4 ((if v then text "volatile " else empty) <>
                       text "area" <+> cat (punctuate (comma <> softline) [ ppr name
-                                                                           <> maybe empty (\a -> space <> text "=" <+> ppr a) addr
+                                                                           <> maybe empty (\a -> space <> text "=" <+> text (show a)) addr
                                                                            <> maybe empty (\init -> space <> text "<-" <+> ppr init) init
                                                                          | (name, addr, init) <- ids ])
                                </> text "::" <+> ppr ty <>

@@ -588,9 +588,9 @@ areaDeclExt = (do v <- option False (reserved "volatile" >> return True)
                   reserved "area"
                   ids <- commaSep $ do id <- located varid
                                        reservedOp "="
-                                       l <- located literal
+                                       l <- (located intLiteral <?> "Address Parser")
                                        minit <- optionMaybe $ reserved "<-" >> eInfix
-                                       return (id, Just (fmap (\x -> ELit x) l), minit)
+                                       return (id, Just l, minit)
                   reservedOp "::"
                   t <- qual type_
                   -- align <- optionMaybe $ reserved "aligned" >> located (qual type_)

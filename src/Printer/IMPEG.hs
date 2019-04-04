@@ -275,7 +275,10 @@ instance (TyId tyid, TyParam typaram, Printable (PredType p tyid), HasTypeVariab
 
           ppr (Area v ids ty align) =
               nest 4 ((if v then text "volatile " else empty) <>
-                      text "area" <+> cat (punctuate (comma <> softline) [ ppr name <+> text "<-" <+> ppr init | (name, init) <- ids ])
+                      text "area" <+> cat (punctuate (comma <> softline) [ ppr name
+                                                                           <+> maybe empty (\a -> text "=" <> space <> text (show a)) addr
+                                                                           <+> text "<-" <+> ppr init
+                                                                         | (name, addr, init) <- ids ])
                                </> text "::" <+> ppr ty <>
                                (maybe empty (\qt -> softline <> "aligned" <+> ppr qt) align))
 

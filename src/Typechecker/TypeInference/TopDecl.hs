@@ -284,7 +284,7 @@ checkTopDecl (Struct name mtys ctor _align derives) =
       regionType (StructRegion _ ty) = return ty
 
 checkTopDecl (Area v inits tys _align) =
-    appendFailureContextS ("In the definition for the areas " ++ intercalate ", " (map (fromId . dislocate . fst) inits)) $
+    appendFailureContextS ("In the definition for the areas " ++ intercalate ", " (map (fromId . dislocate . fst3) inits)) $
     do tys'   <- simplifyScheme (ForallK [] tys)
        inits' <- mapM checkInit inits
        case tys' of
@@ -308,8 +308,8 @@ checkTopDecl (Area v inits tys _align) =
          _ ->
              failWithS ("Unsupported area declaration; declared type " ++ show (ppr tys)
                        ++ ", simplified type " ++ show (ppr tys'))
-    where checkInit :: (Located Id, Id) -> M (Id, X.Inst)
-          checkInit (At _ name, init)
+    where checkInit :: (Located Id, Maybe integer, Id) -> M (Id, X.Inst)
+          checkInit (At _ name, _, init)
             = appendFailureContextS ("In the initializer for area " ++ fromId name) $
               do b <- bindingOf init
                  case b of
@@ -329,6 +329,7 @@ checkTopDecl (Area v inits tys _align) =
                              case t' of
                                TyNat n -> return (fromIntegral n)
                                _       -> failWithS (what ++ " cannot be determined")
+          fst3 (x, _, _) = x
 
 checkTopDecl _ = error "Typechecker.TypeInference:checkTopDecl"
 
@@ -593,7 +594,7 @@ checkProgram fn p =
                                 = (d : types, areas, classes, instances, requirements)
 
           areaTypes = [(name, At loc tys) | At loc (Area _ inits tys _) <- areaDecls,
-                                            name <- [name | (At _ name, _) <- inits]]
+                                            name <- [name | (At _ name, _, _) <- inits]]
 
           simplifyAreaType (At loc tys) =
               failAt loc $

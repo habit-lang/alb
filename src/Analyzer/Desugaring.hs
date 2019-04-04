@@ -910,20 +910,23 @@ instance Sugared S.Area (Top, [TypingGroup PredFN Id])
                         , groups ++ [Explicit (v, [], MCommit e) initTy | (v, e) <- inits] )
                  
               where
-                rewriteInit :: (Located t, Maybe (Located S.Expr),
+                rewriteInit :: (Located t, Maybe (Located Integer),
                                 Maybe (Located S.Expr))
-                            -> M ((Located t, Id), (Id, Located (Expr PredFN Id)))
+                            -> M ((Located t, Maybe Integer, Id), (Id, Located (Expr PredFN Id)))
                 rewriteInit (At loc name, Nothing, Nothing) =
                         do v <- fresh "init"
-                           return ((At loc name, v), (v, At loc (EVar "initialize")))
-                rewriteInit (At loc name, Just addr, Nothing) =
+                           return ((At loc name, Nothing, v), (v, At loc (EVar "initialize")))
+                rewriteInit (At loc name, Just (At _ addr), Nothing) =
                         do v <- fresh "init"
-                           addr' <- desugar addr
-                           return ((At loc name, v), (v, At loc (EVar "initialize")))
-                rewriteInit (name, Just addr, Just init) =
+                           return ((At loc name, Just addr, v), (v, At loc (EVar "initialize")))
+                rewriteInit (name, Just (At _ addr), Just init) =
                         do v <- fresh "init"
                            init' <- desugar init
-                           return ((name, v), (v, init'))
+                           return ((name, Just addr, v), (v, init'))
+                rewriteInit (name, Nothing, Just init) =
+                        do v <- fresh "init"
+                           init' <- desugar init
+                           return ((name, Nothing, v), (v, init'))
 
 ----------------------------------------------------------------------------------------------------
 -- Primitives
