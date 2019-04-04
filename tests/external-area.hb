@@ -3,11 +3,14 @@ requires prelude
 struct S [ x, y, z :: Stored Unsigned ]
  deriving (NullInit, NoInit)
 
+-- Works fine
 external area test = 0x00a <- i :: Ref S
   where  i = nullInit
 
-external area test' = 0x001a :: Ref S
+area test' <- i :: Ref S
+  where  i = nullInit
 
--- area test' <- nullInit :: ARef 4 S
+-- This fails due to context too weak 
+-- external area test'' = 0x001a :: Ref S
 
 main = id True
