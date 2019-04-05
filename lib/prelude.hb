@@ -511,7 +511,10 @@ else     ByteSize (Stored (Bit n)) = 2 if n <= 16
 else     ByteSize (Stored (Bit n)) = 4 if n <= 32
 else     ByteSize (Stored (Bit n)) = n fails
 
-primitive (@)      :: Ref (Array n a) -> Ix n -> Ref a
+primitive primAt :: Ref (Array n a) -> Ix n -> Ref a
+
+(@) :: Ref (Array n a) -> Ix n -> Ref a
+(@) = primAt
 
 
 -- Initialization: ----------------------------------------------
