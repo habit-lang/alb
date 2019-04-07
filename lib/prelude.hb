@@ -174,8 +174,10 @@ instance Eq (Bit n) if Width n where   -- comment this requirement out at your p
 primitive primBitEq :: Bit n -> Bit n -> Bool
 
 instance Ord (Bit n) if Width n where   -- comment this requirement out at your peril ...
-  (<) = primBitLt
-  (<=) = primBitLe
+  (<)    = primBitLt
+  (<=)   = primBitLe
+  x >  y = y < x
+  x >= y = y <= x
 
 primitive primBitLt :: Bit n -> Bit n -> Bool
 primitive primBitLe :: Bit n -> Bit n -> Bool
@@ -404,8 +406,10 @@ instance Eq (Ix n)         if Index n
 primitive primIxEq :: Ix n -> Ix n -> Bool
 
 instance Ord (Ix n)        if Index n
- where (<)  = primIxLt
-       (<=) = primIxLe
+ where (<)    = primIxLt
+       (<=)   = primIxLe
+       x >= y = y <= x
+       x >  y = y < x
 
 primitive primIxLt, primIxLe :: Ix n -> Ix n -> Bool
 
