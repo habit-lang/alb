@@ -93,13 +93,13 @@ ALB_TEST_DIR=tests
 # MIL locations
 #FIXME! we assume that mil-tools and alb are under the same root directory. It may not be the case.
 MIL_DIR=../mil-tools
-MIL_JAR=mil-tools.jar
+MILC=milc
 
 CLANG_EXE=/usr/bin/clang
 
 ALB_EXE=cabal new-run alb
 
-MIL_OPTS=--mil-jar=$(MIL_DIR)/$(MIL_JAR) --include-mil $(MIL_DIR)/lib/basic.mil --llvm-main main --mil-opt "--64"
+MIL_OPTS=--milc=$(MIL_DIR)/$(MILC) --include-mil $(MIL_DIR)/lib/basic.mil --llvm-main main
 
 ALB_OPTS=--verbose --no-dot-files --path=$(ALB_TEST_DIR) --clang=$(CLANG_EXE)
 
