@@ -7,7 +7,7 @@
 ### TODO! We need a better system (probably hspec?) that automatically pulls in all the *.hb files compiles them and runs them
 
 # WARNING: Be sure to include the "./" at the front.  Otherwise, testHarness.hs will fail the whole file.
-TESTS=$(ALB_TEST_DIR)/example-test.out $(ALB_TEST_DIR)/State.out $(ALB_TEST_DIR)/foo.out $(ALB_TEST_DIR)/requirements.out
+TESTS=$(ALB_TEST_DIR)/example-test.out $(ALB_TEST_DIR)/State.out $(ALB_TEST_DIR)/foo.out $(ALB_TEST_DIR)/requirements.out $(ALB_TEST_DIR)/external-area.out 
 
 # Need to add them or leave them out?
 NON_EXISTENT_TESTS=$(ALB_TEST_DIR)/prioset.out $(ALB_TEST_DIR)/cases2.out $(ALB_TEST_DIR)/bugIxBound.out

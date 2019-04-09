@@ -1,3 +1,4 @@
+requires test
 requires prelude
 
 struct S [ x, y, z :: Stored Unsigned ]
@@ -13,4 +14,6 @@ area test' <- i :: Ref S
 -- This fails due to context too weak 
 -- external area test'' = 0x001a :: Ref S
 
-main = id True
+main = do
+  x <- runTests ((Cons (return (True == True)) Nil))
+  return x
