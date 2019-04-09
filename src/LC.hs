@@ -162,7 +162,7 @@ instance LCable (TopDecl Type)
           lc envs (Area v namesAndInits ty size align) =
               vcat [nest 4 ((if v then text "volatile" <> space else empty) <>
                             text "area" <+> (ppr name
-                                             <+> maybe empty (\a -> text "=" <> space <> text (showHex a "")) addr
+                                             <+> maybe empty (\a -> text "=" <> space <> text "0x" <>text (showHex a "")) addr
                                              <+> text "<-" <+> ppr init) </> text "::" <+> lc envs ty <+> sizeAlign size align)
                      | (name, addr, Inst init [] []) <- namesAndInits]
 
