@@ -497,47 +497,38 @@ synonymDecl = do opaque <- option False (reserved "opaque" >> return True)
                               then Just `fmap` option emptyDecls (reserved "where" >> decls)
                               else return Nothing
                  return (Synonym lhs rhs interface)
--- parses a datatype declaration
--- for testing use:
--- import 
--- parse dataDecl  "" (Text.Parsec.Indentation.mkIndentStream 1 80 True Any $ mkCharIndentStream ("data T t = Mk1 a | Mk2 a b"::String))
---
-parseTest :: (ParseM d) -> String -> Either ParseError d
-parseTest p t = parse p  "" (Text.Parsec.Indentation.mkIndentStream 1 80 True Any $ Text.Parsec.Indentation.Char.mkCharIndentStream t)
 
 dataDecl :: ParseM Datatype
 dataDecl = do opaque <- option False (reserved "opaque" >> return True)
               reserved "data"
               lhs <- qual type_
               ctors <- option [] $ do reservedOp "="
-                                      dataCtor `sepBy` reservedOp "|"
+                                      ctor `sepBy` reservedOp "|"
               drvlist <- deriveList
               interface <- if opaque
                            then Just `fmap` option emptyDecls (reserved "where" >> decls)
                            else return Nothing
               return (Datatype lhs ctors drvlist interface)
-
-dataCtor :: ParseM (Ctor Id Pred Type)
-dataCtor = choice [ try $ do lhs <- located atype
-                             name <- located consym
-                             rhs <- located atype
-                             preds <- option []
-                               $ reserved "if"
-                               >> commaSep1 (located predicate)
-                             universals <- option []
-                               $ reserved "forall"
-                               >> spaceSep1 aVarid
-                             return (Ctor name universals preds [lhs, rhs])
-                  , do name <- located conid
-                       fields <- many (located atype)
-                       preds <- option []
-                         $ reserved "if"
-                         >> commaSep1 (located predicate)
-                       universals <- option []
-                         $ reserved "forall"
-                         >> spaceSep1 aVarid
-                       return (Ctor name universals preds fields) ]
-
+                where ctor = choice [ try $ do qualifs <- option [] $ parens (reserved "forall" >> commaSep aVarid)
+                                               lhs <- located atype
+                                               name <- located consym
+                                               rhs <- located atype
+                                               preds <- option [] $ reserved "if" >> commaSep1 (located predicate)
+                                               return (Ctor name qualifs preds [at lhs (DataField Nothing lhs), at rhs (DataField Nothing rhs)])
+                                    , try $ do qualifs <- option [] $ parens (reserved "forall" >> commaSep aVarid) 
+                                               name <- located conid
+                                               fields <- brackets (field `sepBy` reservedOp "|")
+                                               preds <- option [] $ reserved "if" >> commaSep1 (located predicate)
+                                               return (Ctor name qualifs preds (concat fields))
+                                    , do qualifs <- option [] $ parens (reserved "forall" >> commaSep aVarid)
+                                         name <- located conid
+                                         ftypes <- many (located atype)
+                                         preds <- option [] $ reserved "if" >> commaSep1 (located predicate)
+                                         return (Ctor name qualifs preds [at t (DataField Nothing t) | t <- ftypes]) ]
+                      field = try (do labels <- commaSep1 (located varid)
+                                      reservedOp "::"
+                                      t <- located atype
+                                      return [At loc (DataField (Just lab) t) | At loc lab <- labels])
 deriveList :: ParseM [Id]
 deriveList  = option []
             $ do reserved "deriving"

@@ -1,7 +1,7 @@
 data Either a b = Left a | Right b
 
-data T t =   MkT1 t u forall u
-            | MkT2 (v t) forall v
+data T t =   (forall u) MkT1 t u 
+            | (forall v) MkT2 (v t) 
 
 -- data SillyPair a = MkSP a List b forall b
 
