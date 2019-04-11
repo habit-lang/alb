@@ -233,9 +233,9 @@ instance (TyId tyid, TyParam typaram, Printable (PredType p tyid), HasTypeVariab
 
           ppr (Datatype name params constraints ctors drv) =
               nest 4 (text "data" <+> ppr (constraints :=> introduced name) <+> cat (punctuate space (map ppr params)) <+> pprCtors <> pprDrvs)
-              where pprCtor (Ctor name quant preds fields) = ppr name <+> align (sep (map (atPrecedence 10 . ppr) fields) <> pprQuant <> pprPreds)
+              where pprCtor (Ctor name quant preds fields) = pprQuant <+> ppr name <+> align (sep (map (atPrecedence 10 . ppr) fields) <> pprPreds)
                         where pprQuant | null quant = empty
-                                       | otherwise  = softline <> text "forall" <+> align (cat (punctuate (comma <> softline) (map ppr quant)))
+                                       | otherwise  = softline <> text "forall" <+> align (cat (punctuate (comma <> softline) (map ppr quant))) <> text "."
                               pprPreds | null preds = empty
                                        | otherwise  = softline <> text "if" <+> align (cat (punctuate (comma <> softline) (map ppr preds)))
                     pprCtors =

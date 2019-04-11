@@ -144,7 +144,9 @@ atype' = choice [ reservedOp "_" >> return TyWild
                              choice [ do reservedOp ","
                                          ts <- commaSep1 (located type_)
                                          return (TyTuple (t:ts))
-                                    , return (dislocate t) ]) ]
+                                    , return (dislocate t) ]) 
+                -- , try $ parens
+                ]
 
 typeApp :: ParseM Type
 typeApp = dislocate `fmap` chainl1 (located atype) (return app)
