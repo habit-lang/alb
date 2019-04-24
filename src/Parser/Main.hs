@@ -129,6 +129,7 @@ atype = do t <- located atype'
            return (dislocate (foldl tyselect t ss))
     where tyselect t id = at t (TySelect t id)
 
+atype' :: ParseM Type
 atype' = choice [ reservedOp "_" >> return TyWild
                 , try (reserved "()") >> return (TyCon "Unit")
                 , do char '#'
@@ -145,7 +146,6 @@ atype' = choice [ reservedOp "_" >> return TyWild
                                          ts <- commaSep1 (located type_)
                                          return (TyTuple (t:ts))
                                     , return (dislocate t) ]) 
-                -- , try $ parens
                 ]
 
 typeApp :: ParseM Type
@@ -153,12 +153,17 @@ typeApp = dislocate `fmap` chainl1 (located atype) (return app)
     where app t t' = at t (TyApp t t')
 
 type_ :: ParseM Type
-type_ = do t <- chain typeApp tyconsym TyInfix
-           k <- optionMaybe (reservedOp "::" >> located kind)
-           return $ case k of
-                      Nothing -> dislocate t
-                      Just k  -> TyKinded t k
-
+type_ = choice [ do t <- chain typeApp tyconsym TyInfix
+                    k <- optionMaybe (reservedOp "::" >> located kind)
+                    return $ case k of
+                               Nothing -> dislocate t
+                               Just k  -> TyKinded t k
+               , do try (parens (reserved "forall" >> commaSep aVarid))
+                    t <- chain typeApp tyconsym TyInfix
+                    k <- optionMaybe (reservedOp "::" >> located kind)
+                    return $ case k of
+                               Nothing -> dislocate t
+                               Just k  -> TyKinded t k ]
 {- Section 3.3.3 -}
 
 predicate :: ParseM Pred
@@ -511,22 +516,22 @@ dataDecl = do opaque <- option False (reserved "opaque" >> return True)
                            then Just `fmap` option emptyDecls (reserved "where" >> decls)
                            else return Nothing
               return (Datatype lhs ctors drvlist interface)
-                where ctor = choice [ try $ do qualifs <- option [] $ parens (reserved "forall" >> commaSep aVarid)
+                where ctor = choice [ try $ do univs <- option [] $ parens (reserved "forall" >> commaSep aVarid)
                                                lhs <- located atype
                                                name <- located consym
                                                rhs <- located atype
                                                preds <- option [] $ reserved "if" >> commaSep1 (located predicate)
-                                               return (Ctor name qualifs preds [at lhs (DataField Nothing lhs), at rhs (DataField Nothing rhs)])
-                                    , try $ do qualifs <- option [] $ parens (reserved "forall" >> commaSep aVarid) 
+                                               return (Ctor name univs preds [at lhs (DataField Nothing lhs), at rhs (DataField Nothing rhs)])
+                                    , try $ do univs <- option [] $ parens (reserved "forall" >> commaSep aVarid) 
                                                name <- located conid
                                                fields <- brackets (field `sepBy` reservedOp "|")
                                                preds <- option [] $ reserved "if" >> commaSep1 (located predicate)
-                                               return (Ctor name qualifs preds (concat fields))
-                                    , do qualifs <- option [] $ parens (reserved "forall" >> commaSep aVarid)
+                                               return (Ctor name univs preds (concat fields))
+                                    , do univs <- option [] $ parens (reserved "forall" >> commaSep aVarid)
                                          name <- located conid
                                          ftypes <- many (located atype)
                                          preds <- option [] $ reserved "if" >> commaSep1 (located predicate)
-                                         return (Ctor name qualifs preds [at t (DataField Nothing t) | t <- ftypes]) ]
+                                         return (Ctor name univs preds [at t (DataField Nothing t) | t <- ftypes]) ]
                       field = try (do labels <- commaSep1 (located varid)
                                       reservedOp "::"
                                       t <- located atype

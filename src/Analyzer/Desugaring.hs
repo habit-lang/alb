@@ -806,6 +806,7 @@ desugarCtor enclosing (Ctor name _ quals fields) =
        fields' <- mapM desugar fields
        let vs = filter (`notElem` enclosing) (nub (concatMap tvs quals' ++ concatMap tvs fields'))
        return (Ctor name vs (gen 0 vs quals') (gen 0 vs fields'))
+         -- Hope this does the right thing for universals
 
 instance Sugared S.Datatype [Top]
     where desugar (S.Datatype lhs ctors drv interface) =

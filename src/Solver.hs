@@ -42,7 +42,7 @@ instance Convertable AxId Id
 instance Convertable IType S.Type
     where convert (I.TyCon tyid)               = S.TyCon tyid
           convert (I.TyVar tyid)               = S.TyVar tyid
-          convert (I.TyGen {})                 = internal "I.TyGen"
+          convert (I.TyGen i)                 = S.TyGen i
           convert (I.TyApp (At _ t) (At _ t')) = convert t :@ convert t'
           convert (I.TyNat i)                  = S.TyLit i
           convert (I.TyKinded (At _ t) _)      = convert t
@@ -53,7 +53,7 @@ instance Convertable S.Type IType
               | take 6 name == "$Label" = I.TyLabel (Ident (drop 6 name) n f)
               | otherwise               = I.TyCon tyid
           convert (S.TyVar tyid)        = I.TyVar tyid
-          convert (S.TyGen _)           = internal "S.TyGen"
+          convert (S.TyGen i)           = I.TyGen i
           convert (t S.:@ t')           = I.TyApp (introduced (convert t)) (introduced (convert t'))
           convert (S.TyLit i)           = I.TyNat i
 
@@ -100,7 +100,7 @@ instance Convertable (I.Fundep Int) (S.FunDep)
 instance Convertable X.Type S.Type
     where convert (X.TyCon kid)    = S.TyCon kid
           convert (X.TyVar kid)    = S.TyVar kid
-          convert (X.TyGen i)      = internal "I.TyGen"
+          convert (X.TyGen i)      = S.TyGen i
           convert (X.TyApp t t')   = convert t :@ convert t'
           convert (X.TyNat i)      = S.TyLit i
           convert (X.TyLabel (Ident name n f)) = S.TyCon (Kinded (Ident ("$Label" ++ name) n f) KLabel)
@@ -110,7 +110,7 @@ instance Convertable S.Type X.Type
               | take 6 name == "$Label" = X.TyLabel (Ident (drop 6 name) n f)
               | otherwise               = X.TyCon tyid
           convert (S.TyVar tyid)        = X.TyVar tyid
-          convert (S.TyGen _)           = internal "S.TyGen"
+          convert (S.TyGen i)           = X.TyGen i
           convert (t S.:@ t')           = X.TyApp (convert t) (convert t')
           convert (S.TyLit i)           = X.TyNat i
 
