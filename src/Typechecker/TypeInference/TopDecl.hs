@@ -44,20 +44,30 @@ addEvidence evsubst (X.Decls groups) = X.Decls (map addEvidence' groups)
 -- TODO: make sure checkTopDecl is called in dependency order---I think that topdecls come out of
 -- kind inference in such an order...
 
-simplifyCtor :: (K.HasKinds t, HasTypeVariables t KId) => [KId] -> Ctor KId (PredType Pred KId) t -> M (Ctor KId (PredType Pred KId) t)
+simplifyCtor :: (K.HasKinds t, HasTypeVariables t KId) =>
+                [KId]
+             -> Ctor KId (PredType Pred KId) t
+             -> M (Ctor KId (PredType Pred KId) t)
 simplifyCtor univs (Ctor id@(At l _) kids ps0 t) =
     failAt l $
     do evvars <- freshFor "e" ps2
        (s, _, ps3, _) <- entails' (tvs t) (tvs t) [] (zip evvars ps2)
        let ps4 = s ## (map snd ps3 ++ qs)
            t'' = s ## t'
-           kids' = kids `intersect` (concatMap tvs ps4 ++ tvs t'')
+           kids' = kids `intersect` nub (concatMap tvs ps4 ++ tvs t'')
        fds <- inducedDependencies ps4
-       -- traceM $ show kids'
-       -- traceM (show $ close univs fds)
-       -- when (not (null (kids' \\ close univs fds)))
-       --      (failWithS $ "Unsupported existential type in constructor. " ++ (show kids') ++ show (close univs fds)) -- [ANI] TODO: This should not fail
-       return (Ctor id kids' (gen 0 kids' ps4) (gen 0 kids' t''))
+       let exis = (kids' \\ close univs fds)  
+       traceM ( "TopDecl.simplifyingCtor: "
+         ++ "\n\tunivs: " ++ show univs
+         ++ "\n\tkids': " ++ show kids'
+         ++ "\n\tkids: " ++ show kids
+         ++ "\n\tts: " ++ show ts
+         ++ "\n\tinst exis: " ++ show (fmap TyVar exis))
+       --   ++ "\n\tclose univs fds: " ++ (show $ close univs fds)
+       when (not (null exis))
+            (traceM $ "Existential(s) found in type in constructor: " ++ show exis)
+       -- return (Ctor id kids' (inst (fmap TyVar exis) (gen 0 kids' ps4)) (inst (fmap TyVar exis) (gen 0 kids' t'')))
+       return (Ctor id kids' (gen 0 (kids' \\ exis) ps4) (gen 0 (kids' \\ exis) t''))
     where ts = map TyVar kids
           ps1 = inst ts ps0
           t' = inst ts t
@@ -88,37 +98,46 @@ checkTopDecl :: TopDecl Pred KId KId -> M (X.TopDecl KId, CtorEnv)
 checkTopDecl (Datatype (Kinded name k) params ps ctors _) =
     -- Nothing much to do here; all the hard part of checking that datatype declarations are well
     -- formed was done during kind inference.
-    do ctors' <- mapM (simplifyCtor params') ctors
+    do traceM ("Before simplifyCtor: " ++ show name
+                     ++ "\n\tparams': " ++ show params')
+       ctors' <- mapM (simplifyCtor params') ctors
        xctors <- mapM convertCtor ctors'
        ctorEnv <- mapM augmentCtor ctors'
-       trace (show ("Binding constructors:" <+> vcat [ ppr id <::> ppr ksc | (id, (ksc, _, _)) <- ctorEnv ])) $
-           return ( X.Datatype name params' xctors
-                  , Map.fromList ctorEnv )
-    where convertCtor (Ctor (At _ name) kids qs ts) =
+       traceM (show ("Binding constructors:" <+> vcat [ ppr id <::> ppr ksc | (id, (ksc, _, _)) <- ctorEnv ]))
+       -- traceM (show ctorEnv)
+       return ( X.Datatype name params' xctors
+              , Map.fromList ctorEnv )
+    where -- convertCtor :: _
+          convertCtor (Ctor (At _ name) kids qs ts) =
               return (name, kids, map (convert . dislocate) qs, map (convert . dislocate) ts)
 
-          augmentCtor (Ctor (At _ ctorName) kids qs ts) =
-              do hvars <- freshFor "h" (ps ++ qs)
-                 cvars <- freshFor "c" validityPreds
-                 (_, validityPreds') <- withoutConditionalBindings (entails [] [] (zip hvars (ps ++ qs)) (zip cvars validityPreds))
-                 return (ctorName, (kindQuantify (Forall (kids ++ params')
-                                                  (gen (length kids) params' ((ps ++ map snd validityPreds' ++ qs) :=>
-                                                                              introduced (map dislocate ts `allTo` t)))),
-                                    length kids, length ps + length validityPreds'))
-              where validityPreds = concatMap predAtConstraints (ps ++ qs) ++
-                                    concatMap atConstraints ts ++
-                                    atConstraints (introduced t)
-{-
-
-       ctorEnv <- mapM augmentCtor ctors'
-               [ (ctorName, (kindQuantify (Forall (kids ++ params')
-                                           (gen (length kids) params' ((allConstraints ++ qs)
-                                                                       :=> introduced (map dislocate ts `allTo` t)))),
-                             length kids, length allConstraints))
-               | Ctor (At _ ctorName) kids qs ts <- ctors',
-                 let allConstraints = ps ++ concatMap atConstraints (introduced t : ts) ]
-       ctorEnv' <- mapM simplCtorScheme ctorEnv
--}
+          augmentCtor ctr@(Ctor (At _ ctorName) kids qs ts) =
+            do traceM ("checkTopDecl.augmentCtor: "
+                         ++ "\n\t ctrName: " ++ show ctorName
+                         ++ "\n\tparams': " ++ show params')
+               hvars <- freshFor "h" (ps ++ qs)
+               cvars <- freshFor "c" validityPreds
+               -- tcstate <- get
+               -- (ks, is) <- gets genericVars
+               -- currunif <- gets currentSubstitution
+               -- let unif' = (fst currunif, snd currunif `compose` (solverSubsts kids))
+               -- traceM ("\n\tUnif': " ++ show unif')
+                       -- ++ "\n\tts': " ++ show ts')
+               -- put $ tcstate { currentSubstitution = unif'}
+               -- traceM ("\tgenericVars: " ++ show (ks, is))
+               -- traceM ("\t vars ts:" ++ show $ K.vars (fmap dislocate ts) (fmap (idFromKid . dislocate) ts))
+               let entailment = entails [] [] (zip hvars (ps ++ qs)) (zip cvars validityPreds)
+               (ks', is') <- gets genericVars
+               traceM ("\tkids: " ++ show kids)
+               (_, validityPreds') <- withoutConditionalBindings entailment
+               let qualiftys = (ps ++ map snd validityPreds' ++ qs)
+                              :=> introduced (map dislocate ts `allTo` t)
+                   kd = kindQuantify (Forall (kids ++ params')
+                                       (gen (length kids) params' qualiftys))
+               return (ctorName, (kd, length kids, length ps + length validityPreds'))
+                 where validityPreds = concatMap predAtConstraints (ps ++ qs) ++
+                         concatMap atConstraints ts ++
+                         atConstraints (introduced t)
           params'   = map dislocate params
           t         = foldl (@@) (TyCon (Kinded name k)) (map TyVar params')
 
@@ -562,7 +581,9 @@ checkProgram fn p =
                                            return (n, LamBound ty)) areaTypes
        let globals = Map.unions (Map.fromList areaTypes' : methodTypeEnvironments)
        binds globals $
-            do (typeDecls', ctorEnvironments) <- unzip `fmap` mapM (mapLocated checkTopDecl) typeDecls
+            do traceM ("checkprogram typeDecls start")
+               (typeDecls', ctorEnvironments) <- unzip `fmap` mapM (mapLocated checkTopDecl) typeDecls
+               traceM ("checkprogram typeDecls end")
                let ctorEnvironment = Map.unions (primCtors ++  ctorEnvironments)
                    ctorTypes       = tyEnvFromCtorEnv ctorEnvironment
                bindCtors ctorEnvironment

@@ -975,7 +975,12 @@ solve (Q axioms fds rqs ops (gvs0, gkvs0) tvs0 uniformVariables hypotheses concl
     traceInput (intercalate ", " tracedConclusions ++
                 (if null hypotheses then "" else " if " ++ intercalate ", " tracedHypotheses) ++
                 "?") $
-    trace ("Uniform variables: " ++ intercalate ", " [ppx v | Kinded v _ <- uniformVariables]) $
+    trace ("Uniform variables: " ++ intercalate ", " [ppx v | Kinded v _ <- uniformVariables]
+          ++ "\nGenericVariables gvs0: " ++ show gvs0
+          ++ "\nTypeVariables tvs0: " ++ show tvs0
+          ++ "\nGeneric Kind Variables gkvs0: " ++ show gkvs0
+          ++ "\nHypotheses: " ++ show hypotheses
+          ++ "\nUniformVariables: " ++ show uniformVariables) $
     answerFrom (runTactic (init >> go) s0)
 
     where initialAssumptions = [(i, \pid -> PAssump pid id, p) | (i, (id, p)) <- zip [0..] hypotheses]

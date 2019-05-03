@@ -228,7 +228,7 @@ varBind (gtvs, gkvs) v@(Kinded name k) t
 kindOfGen :: [KId] -> Type KId -> Kind
 kindOfGen _ (TyCon (Kinded _ k))  = k
 kindOfGen _ (TyVar (Kinded _ k))  = k
-kindOfGen ks (TyGen i)            = if i < length ks then kind (ks !! i) else error "Syntax.IMPEG.TSubst:173"
+kindOfGen ks (TyGen i)            = if i < length ks then kind (ks !! i) else error "kindOfGen Syntax.IMPEG.TSubst:173"
 kindOfGen ks (TyApp (At _ t) _) =
     case kindOfGen ks t of
       KFun _ result -> result

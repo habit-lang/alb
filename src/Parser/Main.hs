@@ -157,12 +157,6 @@ type_ = choice [ do t <- chain typeApp tyconsym TyInfix
                     k <- optionMaybe (reservedOp "::" >> located kind)
                     return $ case k of
                                Nothing -> dislocate t
-                               Just k  -> TyKinded t k
-               , do try (parens (reserved "forall" >> commaSep aVarid))
-                    t <- chain typeApp tyconsym TyInfix
-                    k <- optionMaybe (reservedOp "::" >> located kind)
-                    return $ case k of
-                               Nothing -> dislocate t
                                Just k  -> TyKinded t k ]
 {- Section 3.3.3 -}
 

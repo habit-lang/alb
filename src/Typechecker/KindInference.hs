@@ -362,16 +362,25 @@ checkTopDecl (At loc tdecl) =
     case tdecl of
       Datatype name params constraints ctors drv ->
           withGeneric gkvars $
-          do k  <- assertType =<< lookupType name
+          do traceM ("Kindinference.checkTopDecl for " ++ (show name)
+                      ++ "\n\tgkvars" ++ show gkvars
+                      ++ "\n\tparams" ++ show params)
+             k  <- assertType =<< lookupType name
              ks <- parameterKinds params'
+             traceM ("\tk: " ++ show k
+                     ++ "\n\tks: " ++ show ks
+                     ++ "\n\texistentials: " ++ show existentials)
              unifies (foldr KFun KStar ks) k
+             traceM ("\t:After unifies")
              bindLocals (Map.fromList (zip pnames (map Left ks))) $
                  do constraints' <- mapM checkPred constraints
                     ctors' <- mapM (checkCtor (checkType KStar)) ctors
+                    traceM ("\tbefore return")
                     return (At loc (Datatype (Kinded name k) (rebuildParameters params pnames ks) constraints' ctors' drv))
-          where gkvars  = vars params
+          where gkvars  = vars params ++ existentials
                 params' = map dislocate params
                 pnames  = map paramName params'
+                existentials = join ((mapM ctorParams) ctors)
       Bitdatatype name size ctors drv ->
           do size' <- checkSize size
              ctors' <- mapM (checkCtor checkField) ctors

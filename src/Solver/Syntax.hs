@@ -17,13 +17,15 @@ data Type = TyCon TyId  | TyVar TyId | TyGen Int | TyLit Integer | Type :@ Type 
 kindOf                     :: Type -> Kind
 kindOf (TyCon (Kinded _ k)) = k
 kindOf (TyVar (Kinded _ k)) = k
-kindOf (TyGen _)            = error "Solver.Syntax:16"
+kindOf (TyGen i)            = error "kindOf quantified variable"
 kindOf (TyLit _)            = KNat
 kindOf (t :@ t')            =
     case kindOf t of
       KFun _ result -> result
       KVar v        -> KVar v -- bogus (included because the ilab parser doesn't understand kinds)
-      _             -> error "Solver.Syntax:21"
+      _             -> error ( "kindOf: "
+                               ++ "\n\t: " ++ show t
+                               ++ "\n\t: " ++ show t')
 
 data Flag = Inc | Exc deriving (Eq, Read, Show)
 data Pred = Pred Id [Type] Flag Location deriving (Show)
