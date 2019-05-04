@@ -63,10 +63,13 @@ executable alb
                   , indentation-parsec >= 0.0
 
   default-extensions:       DoAndIfThenElse
-                         , OverloadedStrings
+                          , OverloadedStrings
+                          , ScopedTypeVariables
+                          
   Build-tools:
   Hs-Source-Dirs: src
 
+  ghc-options: -prof -fprof-auto
   other-modules:   Analyzer
                  , Analyzer.Desugaring
                  , Analyzer.Fixity

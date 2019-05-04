@@ -28,6 +28,8 @@ import Syntax.IMPEG hiding (replacement)
 import qualified Syntax.IMPEG.KSubst as K
 import Syntax.IMPEG.TSubst
 
+import Debug.Trace
+
 -- DONE: factor out tuples
 -- DONE: factor out isBound
 -- DONE: duplicate name checking (leaving it in for now)
@@ -799,14 +801,22 @@ instance Sugared S.Synonym [Top]
 
 
 -- TODO: generalizing over one (1) case here...
-desugarCtor :: (Sugared p p', Sugared t t', HasTypeVariables p' Id, HasTypeVariables t' Id) =>
+desugarCtor :: (Show t, Show t', Sugared p p', Sugared t t', HasTypeVariables p' Id, HasTypeVariables t' Id) =>
                [Id] -> Ctor Id p t -> M (Ctor Id p' t')
-desugarCtor enclosing (Ctor name _ quals fields) =
+desugarCtor enclosing (Ctor name univs quals fields) =
     do quals' <- mapM desugar quals
        fields' <- mapM desugar fields
        let vs = filter (`notElem` enclosing) (nub (concatMap tvs quals' ++ concatMap tvs fields'))
+       traceM ("desugarCtor: "
+              ++ "\n\tenclosing: " ++ show enclosing
+              ++ "\n\tvs: " ++ show vs
+              ++ "\n\tfields'" ++ show fields'
+              ++ "\n\tgen fields'" ++ show (gen 0 vs fields'))
        return (Ctor name vs (gen 0 vs quals') (gen 0 vs fields'))
-         -- Hope this does the right thing for universals
+              -- Hope this does the right thing for universals
+              -- FIXME! This is assuming all the variables are universal.
+              -- Need a way to filter out the universals from existentials
+              -- and then add them to vs.
 
 instance Sugared S.Datatype [Top]
     where desugar (S.Datatype lhs ctors drv interface) =

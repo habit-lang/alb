@@ -375,7 +375,6 @@ checkTopDecl (At loc tdecl) =
              bindLocals (Map.fromList (zip pnames (map Left ks))) $
                  do constraints' <- mapM checkPred constraints
                     ctors' <- mapM (checkCtor (checkType KStar)) ctors
-                    traceM ("\tbefore return")
                     return (At loc (Datatype (Kinded name k) (rebuildParameters params pnames ks) constraints' ctors' drv))
           where gkvars  = vars params ++ existentials
                 params' = map dislocate params

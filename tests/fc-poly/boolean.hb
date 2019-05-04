@@ -12,10 +12,14 @@ primitive type (->) :: * -> * -> *
 
 data Boolean = (forall a) B (a -> a -> a)
 
--- true,  false :: Boolean
--- true :: Boolean
--- true         =  B (\t -> \_ -> t) 
--- false        =  B (\_ -> \f -> f)  
+tr :: a -> a -> a
+-- tr = \t -> \f -> t
+tr t f = t
+
+-- true   :: Boolean
+-- true   =  B tr 
+-- false  :: Boolean
+-- false  =  B (\_ -> \f -> f)  
 
 -- cond     :: Boolean -> a -> a -> a
 -- cond (B b) = b
