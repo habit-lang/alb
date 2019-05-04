@@ -726,6 +726,13 @@ const x y = x
 id :: a -> a
 id x = x
 
+fst :: (a, b) -> a
+fst (x, y)  = x 
+
+snd :: (a, b) -> b
+snd (a, b) = b
+
+
 otherwise :: Bool
 otherwise = True
 

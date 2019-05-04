@@ -57,12 +57,12 @@ simplifyCtor univs (Ctor id@(At l _) kids ps0 t) =
            kids' = kids `intersect` nub (concatMap tvs ps4 ++ tvs t'')
        fds <- inducedDependencies ps4
        let exis = (kids' \\ close univs fds)  
-       traceM ( "TopDecl.simplifyingCtor: "
-         ++ "\n\tunivs: " ++ show univs
-         ++ "\n\tkids': " ++ show kids'
-         ++ "\n\tkids: " ++ show kids
-         ++ "\n\tts: " ++ show ts
-         ++ "\n\tinst exis: " ++ show (fmap TyVar exis))
+       -- traceM ( "TopDecl.simplifyingCtor: "
+       --   ++ "\n\tunivs: " ++ show univs
+       --   ++ "\n\tkids': " ++ show kids'
+       --   ++ "\n\tkids: " ++ show kids
+       --   ++ "\n\tts: " ++ show ts
+       --   ++ "\n\tinst exis: " ++ show (fmap TyVar exis))
        --   ++ "\n\tclose univs fds: " ++ (show $ close univs fds)
        when (not (null exis))
             (traceM $ "Existential(s) found in type in constructor: " ++ show exis)
@@ -98,8 +98,8 @@ checkTopDecl :: TopDecl Pred KId KId -> M (X.TopDecl KId, CtorEnv)
 checkTopDecl (Datatype (Kinded name k) params ps ctors _) =
     -- Nothing much to do here; all the hard part of checking that datatype declarations are well
     -- formed was done during kind inference.
-    do traceM ("Before simplifyCtor: " ++ show name
-                     ++ "\n\tparams': " ++ show params')
+    do -- traceM ("Before simplifyCtor: " ++ show name
+       --               ++ "\n\tparams': " ++ show params')
        ctors' <- mapM (simplifyCtor params') ctors
        xctors <- mapM convertCtor ctors'
        ctorEnv <- mapM augmentCtor ctors'
@@ -112,9 +112,10 @@ checkTopDecl (Datatype (Kinded name k) params ps ctors _) =
               return (name, kids, map (convert . dislocate) qs, map (convert . dislocate) ts)
 
           augmentCtor ctr@(Ctor (At _ ctorName) kids qs ts) =
-            do traceM ("checkTopDecl.augmentCtor: "
-                         ++ "\n\t ctrName: " ++ show ctorName
-                         ++ "\n\tparams': " ++ show params')
+            do
+            -- traceM ("checkTopDecl.augmentCtor: "
+            --              ++ "\n\t ctrName: " ++ show ctorName
+            --              ++ "\n\tparams': " ++ show params')
                hvars <- freshFor "h" (ps ++ qs)
                cvars <- freshFor "c" validityPreds
                -- tcstate <- get
@@ -133,7 +134,7 @@ checkTopDecl (Datatype (Kinded name k) params ps ctors _) =
                               :=> introduced (map dislocate ts `allTo` t)
                    kdqfy = kindQuantify (Forall (kids ++ params')
                                        (gen (length kids) params' qualiftys))
-               traceM ("\tkids: " ++ show kids)
+               -- traceM ("\tkids: " ++ show kids)
                -- traceM ("\n\t kindQuantify: " ++ show kdqfy)
                return (ctorName, (kdqfy, length kids, length ps + length validityPreds'))
                  where validityPreds = concatMap predAtConstraints (ps ++ qs) ++
@@ -426,11 +427,9 @@ assertInstances :: [Id] -> [Located (TopDecl Pred KId KId)] -> M ([(Id, X.EvDecl
 assertInstances derived insts =
     do insts' <- mapM augmentInstance insts
        let axs = [(name, map fst chain, name `elem` derived) | At l (Instance name _ chain) <- insts']
-       traceM (">>>>>>>> assertInstances.assert axs <<<<<<<<<")
        (simplAxs, ws) <- assert (Solver.newAxioms axs)
        mapM_ (warn . text) ws
        let simplInsts = zipWith reconstitute insts' simplAxs
-       traceM (">>>>>>>> ps <<<<<<<<<")
        ps <- mapM (mapLocated translateInstance) simplInsts
        let (xevdecls, tgs) = unzip ps
        return (concat xevdecls, concat tgs)
@@ -579,16 +578,12 @@ checkProgram fn p =
            instanceDecls' = instanceDecls ++ [i | i@(At _ Instance{}) <- derived]
            derivedRqs     = [r | r@(At _ Require{}) <- derived]
        mapM_ (assertRequirement . dislocate) derivedRqs
-       traceM (" >>>>>>>   Asserting instances START <<<<<<  ")
        (evDecls, methodImpls) <- assertInstances derivedInstNames instanceDecls'
-       traceM (" >>>>>>>   Asserting instances DONE <<<<<<  ")
        areaTypes' <- mapM (\(n, tys) -> do ty <- simplifyAreaType tys
                                            return (n, LamBound ty)) areaTypes
        let globals = Map.unions (Map.fromList areaTypes' : methodTypeEnvironments)
        binds globals $
-            do traceM (" >>>>>>>>>>>> checkprogram.typeDecls start <<<<<<<<<<<<< ")
-               (typeDecls', ctorEnvironments) <- unzip `fmap` mapM (mapLocated checkTopDecl) typeDecls
-               traceM (" >>>>>>>>>>>>> checkprogram typeDecls end <<<<<<<<<<<< ")
+            do (typeDecls', ctorEnvironments) <- unzip `fmap` mapM (mapLocated checkTopDecl) typeDecls
                let ctorEnvironment = Map.unions (primCtors ++  ctorEnvironments)
                    ctorTypes       = tyEnvFromCtorEnv ctorEnvironment
                bindCtors ctorEnvironment

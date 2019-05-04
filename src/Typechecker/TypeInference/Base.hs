@@ -136,18 +136,18 @@ entails' transparents outputVariables hypotheses conclusions =
        classEnv <- gets classEnvironment
        gvars    <- gets genericVars
        z        <- M (lift getCounter)
-       Trace.traceM ("Base.entails':"
-              ++ "\n\ttransparents: " ++ show transparents
-              ++ "\n\toutputVariables: " ++ show outputVariables
-              ++ "\n\tgvars: " ++ show gvars)
+       -- Trace.traceM ("Base.entails':"
+       --        ++ "\n\ttransparents: " ++ show transparents
+       --        ++ "\n\toutputVariables: " ++ show outputVariables
+       --        ++ "\n\tgvars: " ++ show gvars)
        let -- How do we get unsubstituted type variables?
            substitute ps    = [(id, subst ## p) | (id, p) <- ps]
            hypotheses'      = substitute hypotheses
            conclusions'     = substitute conclusions
            transparents'    = tvs [subst ## TyVar kid | kid <- transparents]
            outputVariables' = tvs [subst ## TyVar kid | kid <- outputVariables]
-       Trace.traceM("\ttransparents: " ++ show transparents'
-                    ++ "\n\toutputVariables: " ++ show outputVariables')
+       -- Trace.traceM("\ttransparents: " ++ show transparents'
+       --              ++ "\n\toutputVariables: " ++ show outputVariables')
        case Solver.entails (solverEnvironment classEnv) gvars transparents' outputVariables' hypotheses' conclusions' z of  -- FIXME
          Left (At loc p) -> failWith (shorten p (hang 10 (group (text "Disproved" <+> ppr p <$> "arising at" <+> ppr loc))))
          Right (ev, ps, ks, impr, cbinds, z') ->
@@ -158,7 +158,7 @@ entails' transparents outputVariables hypotheses conclusions =
 withoutConditionalBindings :: M (EvSubst, Preds, [ConditionalBindings]) -> M (EvSubst, Preds)
 withoutConditionalBindings c =
     do (evs, ps, cbindss) <- c
-       Trace.traceM("\twithoutConditionalBindings")
+       -- Trace.traceM("\twithoutConditionalBindings")
        if all emptyBindings cbindss
           then return (evs, ps)
           else failWith ("Unexpected conditional type bindings")
