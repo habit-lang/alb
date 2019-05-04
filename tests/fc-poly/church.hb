@@ -17,7 +17,7 @@ succ n = Ch (\f -> \x -> (unCh n f (f x)))
 pred :: Church -> Church
 pred n  = fst (unCh n s z)
   where s (_, y) = (y, succ y)
-        z        = z
+        z        = undefined
 
 isZero :: Church -> Bool
 isZero n = unCh n (\_ -> False) True
