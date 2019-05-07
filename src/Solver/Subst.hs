@@ -346,9 +346,9 @@ varBind infinitary gkvars (Kinded name k) (TyVar (Kinded name' k'))
 varBind infinitary gkvars v@(Kinded name k) t
     | not infinitary && v `elem` vars t = occursCheck v t
     | otherwise       =
-        trace ("varBind v: " ++ show v
-               ++ "\n\tt: " ++ show t
-               ++ "\n\tgkvars:" ++ show gkvars) $
+        -- trace ("varBind v: " ++ show v
+        --        ++ "\n\tt: " ++ show t
+        --        ++ "\n\tgkvars:" ++ show gkvars) $
         case K.unify gkvars k k' of
           Left _   -> kindsDontMatchGeneral k k'
           Right ks -> singleton' ks v t

@@ -21,11 +21,12 @@ kindOf (TyGen i)            = error "kindOf quantified variable"
 kindOf (TyLit _)            = KNat
 kindOf (t :@ t')            =
     case kindOf t of
-      KFun _ result -> result
-      KVar v        -> KVar v -- bogus (included because the ilab parser doesn't understand kinds)
-      _             -> error ( "kindOf: "
-                               ++ "\n\t: " ++ show t
-                               ++ "\n\t: " ++ show t')
+      KFun _ result      -> result
+      KVar v             -> KVar v -- bogus (included because the ilab parser doesn't understand kinds)
+      KStar              -> KStar
+      _                  -> error ( "kindOf: "
+                                    ++ "\n\t: " ++ show t
+                                    ++ "\n\t: " ++ show t')
 
 data Flag = Inc | Exc deriving (Eq, Read, Show)
 data Pred = Pred Id [Type] Flag Location deriving (Show)

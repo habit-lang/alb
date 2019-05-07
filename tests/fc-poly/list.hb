@@ -1,12 +1,9 @@
 requires prelude
 
-data List a = (forall b) L ((a -> b -> b) -> b -> b)
+data List a = (forall e) L ((a -> e -> e) -> e -> e)
 
 fold :: List a -> (a -> b -> b) -> b -> b
 fold (L f) = f
-
-map :: (a -> b) -> List a -> List b
-map = undefined 
 
 nil :: List a
 nil = L (\_ n -> n)
@@ -22,8 +19,11 @@ tl l = fst (fold l c n)
   where c x (_, t) = (t, cons x t)
         n          = undefined
 
+map :: (a -> b) -> List a -> List b
+map = \f -> \l -> (fold l) (cons `compose` f) nil
+
 concat :: List a -> List a -> List a
-concat = undefined  
+concat l r = (fold l) cons r  
 
 null :: List a -> Bool
 null = undefined

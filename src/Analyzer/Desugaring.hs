@@ -807,6 +807,9 @@ desugarCtor enclosing (Ctor name univs quals fields) =
     do quals' <- mapM desugar quals
        fields' <- mapM desugar fields
        let vs = filter (`notElem` enclosing) (nub (concatMap tvs quals' ++ concatMap tvs fields'))
+       -- traceM ("Desugaring.desugarCtor: " ++ show name
+       --        ++ "\n\tvs: " ++ show vs
+       --        ++ "\n\tenclosing: " ++ show enclosing)
        return (Ctor name vs (gen 0 vs quals') (gen 0 vs fields'))
 
 instance Sugared S.Datatype [Top]

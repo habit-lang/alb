@@ -63,11 +63,11 @@ simplifyCtor univs (Ctor id@(At l _) kids ps0 t) =
        --   ++ "\n\tkids: " ++ show kids
        --   ++ "\n\tts: " ++ show ts
        --   ++ "\n\tinst exis: " ++ show (fmap TyVar exis))
-       --   ++ "\n\tclose univs fds: " ++ (show $ close univs fds)
        when (not (null exis))
             (traceM $ "Existential(s) found in type in constructor: " ++ show exis)
        -- return (Ctor id kids' (inst (fmap TyVar exis) (gen 0 kids' ps4)) (inst (fmap TyVar exis) (gen 0 kids' t'')))
        return (Ctor id kids' (gen 0 (kids' \\ exis) ps4) (gen 0 (kids' \\ exis) t''))
+       -- return (Ctor id kids' (gen 0 (kids') ps4) (gen 0 (kids') t''))
     where ts = map TyVar kids
           ps1 = inst ts ps0
           t' = inst ts t
@@ -118,15 +118,6 @@ checkTopDecl (Datatype (Kinded name k) params ps ctors _) =
             --              ++ "\n\tparams': " ++ show params')
                hvars <- freshFor "h" (ps ++ qs)
                cvars <- freshFor "c" validityPreds
-               -- tcstate <- get
-               -- (ks, is) <- gets genericVars
-               -- currunif <- gets currentSubstitution
-               -- let unif' = (fst currunif, snd currunif `compose` (solverSubsts kids))
-               -- traceM ("\n\tUnif': " ++ show unif')
-                       -- ++ "\n\tts': " ++ show ts')
-               -- put $ tcstate { currentSubstitution = unif'}
-               -- traceM ("\tgenericVars: " ++ show (ks, is))
-               -- traceM ("\t vars ts:" ++ show $ K.vars (fmap dislocate ts) (fmap (idFromKid . dislocate) ts))
                let entailment = entails [] [] (zip hvars (ps ++ qs)) (zip cvars validityPreds)
                (ks', is') <- gets genericVars
                (_, validityPreds') <- withoutConditionalBindings entailment
@@ -426,11 +417,15 @@ assertClass _ = error "TypeChecking.TypeInference:823"
 assertInstances :: [Id] -> [Located (TopDecl Pred KId KId)] -> M ([(Id, X.EvDecl)], [TypingGroup Pred KId])
 assertInstances derived insts =
     do insts' <- mapM augmentInstance insts
+       -- traceM("after augmentInstances")
        let axs = [(name, map fst chain, name `elem` derived) | At l (Instance name _ chain) <- insts']
+       -- traceM("Solver.axs" ++ show (fmap (\x -> (com1 x, com3 x)) axs))
        (simplAxs, ws) <- assert (Solver.newAxioms axs)
+       -- traceM("after Solver.newAxioms")
        mapM_ (warn . text) ws
        let simplInsts = zipWith reconstitute insts' simplAxs
        ps <- mapM (mapLocated translateInstance) simplInsts
+       -- traceM("after translateInstance")
        let (xevdecls, tgs) = unzip ps
        return (concat xevdecls, concat tgs)
 
@@ -456,6 +451,8 @@ assertInstances derived insts =
                  trace (unlines ["Augmenting instance:", show (ppr (hypotheses :=> conclusion)), "becomes:", show (ppr ((hypotheses ++ ps) :=> conclusion))]) $
                      return ((hypotheses ++ ps) :=> conclusion, methodImpls)
               where ps = concatMap predAtConstraints hypotheses ++ predAtConstraints conclusion
+          -- com1 (a, _, _) = a
+          -- com3 (_, _, a) = a 
 
 translateInstance :: TopDecl Pred KId KId -> M ([(Id, X.EvDecl)], [TypingGroup Pred KId])
 
@@ -578,12 +575,17 @@ checkProgram fn p =
            instanceDecls' = instanceDecls ++ [i | i@(At _ Instance{}) <- derived]
            derivedRqs     = [r | r@(At _ Require{}) <- derived]
        mapM_ (assertRequirement . dislocate) derivedRqs
+       -- traceM (" >>>>>>>   Asserting instances START <<<<<<  ")
+       -- traceM ("DerivedInstNames: " ++ show derivedInstNames)
        (evDecls, methodImpls) <- assertInstances derivedInstNames instanceDecls'
+       -- traceM (" >>>>>>>   Asserting instances DONE <<<<<<  ")
        areaTypes' <- mapM (\(n, tys) -> do ty <- simplifyAreaType tys
                                            return (n, LamBound ty)) areaTypes
        let globals = Map.unions (Map.fromList areaTypes' : methodTypeEnvironments)
        binds globals $
-            do (typeDecls', ctorEnvironments) <- unzip `fmap` mapM (mapLocated checkTopDecl) typeDecls
+            do -- traceM (" >>>>>>>>>>>> checkprogram.typeDecls START <<<<<<<<<<<<< ")
+               (typeDecls', ctorEnvironments) <- unzip `fmap` mapM (mapLocated checkTopDecl) typeDecls
+               -- traceM (" >>>>>>>>>>>>> checkprogram typeDecls END <<<<<<<<<<<< ")
                let ctorEnvironment = Map.unions (primCtors ++  ctorEnvironments)
                    ctorTypes       = tyEnvFromCtorEnv ctorEnvironment
                bindCtors ctorEnvironment
