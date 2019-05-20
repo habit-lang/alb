@@ -20,7 +20,7 @@ import           Syntax.Common
 
 data Type id = TyCon id
              | TyVar id
-             | TyGen Int -- quantified type variable what is the Int for?
+             | TyGen Int
              | TyApp !(Located (Type id)) !(Located (Type id))
              | TyNat Integer
              | TyKinded (Located (Type id)) (Located Kind)

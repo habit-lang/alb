@@ -68,7 +68,9 @@ instance HasTypeVariables Binding KId
           gen _ _ _                      = error "gen applied to Binding"
 
 type TyEnv       = Map Id Binding
-type CtorEnv     = Map Id (KScheme TyS, Int, Int)
+type CtorEnv     = Map Id (KScheme TyS  -- Kind Scheme for constructor
+                          , Int         -- Existential count
+                          , Int)        -- validity predicate count
 
 tyEnvFromCtorEnv :: CtorEnv -> TyEnv
 tyEnvFromCtorEnv = Map.map (LetBound . (\(s, _, _) -> s))

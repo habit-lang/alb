@@ -66,6 +66,7 @@ simplifyCtor univs (Ctor id@(At l _) kids ps0 t) =
        when (not (null exis))
             (traceM $ "Existential(s) found in type in constructor: " ++ show exis)
        -- return (Ctor id kids' (inst (fmap TyVar exis) (gen 0 kids' ps4)) (inst (fmap TyVar exis) (gen 0 kids' t'')))
+       -- withGeneric (exis, fmap (\(Kinded t k) -> t) exis) $
        return (Ctor id kids' (gen 0 (kids' \\ exis) ps4) (gen 0 (kids' \\ exis) t''))
        -- return (Ctor id kids' (gen 0 (kids') ps4) (gen 0 (kids') t''))
     where ts = map TyVar kids
@@ -98,42 +99,32 @@ checkTopDecl :: TopDecl Pred KId KId -> M (X.TopDecl KId, CtorEnv)
 checkTopDecl (Datatype (Kinded name k) params ps ctors _) =
     -- Nothing much to do here; all the hard part of checking that datatype declarations are well
     -- formed was done during kind inference.
-    do -- traceM ("Before simplifyCtor: " ++ show name
-       --               ++ "\n\tparams': " ++ show params')
-       ctors' <- mapM (simplifyCtor params') ctors
+    do ctors' <- mapM (simplifyCtor params') ctors
        xctors <- mapM convertCtor ctors'
        ctorEnv <- mapM augmentCtor ctors'
        traceM (show ("Binding constructors:" <+> vcat [ ppr id <::> ppr ksc | (id, (ksc, _, _)) <- ctorEnv ]))
-       -- traceM (show ctorEnv)
        return ( X.Datatype name params' xctors
               , Map.fromList ctorEnv )
-    where -- convertCtor :: _
-          convertCtor (Ctor (At _ name) kids qs ts) =
+    where convertCtor (Ctor (At _ name) kids qs ts) =
               return (name, kids, map (convert . dislocate) qs, map (convert . dislocate) ts)
 
           augmentCtor ctr@(Ctor (At _ ctorName) kids qs ts) =
             do
-            -- traceM ("checkTopDecl.augmentCtor: "
-            --              ++ "\n\t ctrName: " ++ show ctorName
-            --              ++ "\n\tparams': " ++ show params')
                hvars <- freshFor "h" (ps ++ qs)
                cvars <- freshFor "c" validityPreds
                let entailment = entails [] [] (zip hvars (ps ++ qs)) (zip cvars validityPreds)
-               (ks', is') <- gets genericVars
                (_, validityPreds') <- withoutConditionalBindings entailment
                let qualiftys = (ps ++ map snd validityPreds' ++ qs)
                               :=> introduced (map dislocate ts `allTo` t)
                    kdqfy = kindQuantify (Forall (kids ++ params')
                                        (gen (length kids) params' qualiftys))
-               -- traceM ("\tkids: " ++ show kids)
-               -- traceM ("\n\t kindQuantify: " ++ show kdqfy)
                return (ctorName, (kdqfy, length kids, length ps + length validityPreds'))
                  where validityPreds = concatMap predAtConstraints (ps ++ qs) ++
                          concatMap atConstraints ts ++
                          atConstraints (introduced t)
           params'   = map dislocate params
           t         = foldl (@@) (TyCon (Kinded name k)) (map TyVar params')
-
+          
 checkTopDecl (Bitdatatype name mtys ctors derives) =
     -- Checking a bitdata type has three steps: for each constructor, we generate the XMPEG
     -- constructor and a set of predicates; we concatenate the predicates from all the constructors

@@ -19,6 +19,8 @@ import qualified Syntax.XMPEG as X
 import qualified Syntax.XMPEG.TSubst as X
 import Typechecker.TypeInference.Base
 
+import qualified Debug.Trace as T
+
 ----------------------------------------------------------------------------------------------------
 
 checkExpr :: Located Exp -> Ty -> M (X.Expr, Preds)
@@ -61,12 +63,13 @@ checkExpr (At loc (EVar name)) expected =
 
 checkExpr (At loc (ECon name)) expected =
     failAt loc $
-    trace (show ("At" <+> ppr loc <+> "expect type" <+> ppr expected)) $
-    do (tys, _, typePredCount) <- ctorBinding name
+    trace (show ("At ECon" <+> ppr name <+> ppr loc <+> "expect type" <+> ppr expected)) $
+    do (tys, extCount, typePredCount) <- ctorBinding name
        (kvars, kids, ps :=> At _ ty) <- instantiate tys
+       tcstate <- get
        unifies expected ty
        evNames <- freshFor "e" ps
-       return ( X.ECon (X.Inst name (map X.TyVar kids) (map X.EvVar (drop typePredCount evNames)))
+       return (X.ECon (X.Inst name (map X.TyVar kids) (map X.EvVar (drop typePredCount evNames)))
               , zip evNames [At loc p | At _ p <- ps])
 
 checkExpr (At loc (EBitCon ctor fs)) expected =
@@ -121,7 +124,7 @@ checkExpr (At loc (EMatch m)) expected =
 
 checkExpr (At loc (EApp f a)) expected =
     failAt loc $
-    trace (show ("At" <+> ppr loc <+> "expect type" <+> ppr expected)) $
+    trace (show ("At EApp" <+> ppr loc <+> "expect type" <+> ppr expected)) $
     do t <- newTyVar KStar
        (f', ps) <- checkExpr f (t `to` expected)
        (a', qs) <- checkExpr a t
@@ -292,6 +295,7 @@ checkTypingGroup (Explicit (name, params, body) expectedTyS) =
               (body', evsubst, ps') <-
                   withGeneric (declaredTyVars, declaredKVars) $
                       do -- Check that body has declared type
+                         modify (\st -> st { genericVars = (declaredTyVars ++ fst (genericVars st), snd (genericVars st)) })
                          (body', ps) <- checkFunction params body expected
                          -- Ensure that the expected type's predicates are sufficient to prove the inferred predicates
                          (evsubst, ps', cbindss) <-
