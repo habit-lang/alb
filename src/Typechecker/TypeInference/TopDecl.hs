@@ -408,15 +408,11 @@ assertClass _ = error "TypeChecking.TypeInference:823"
 assertInstances :: [Id] -> [Located (TopDecl Pred KId KId)] -> M ([(Id, X.EvDecl)], [TypingGroup Pred KId])
 assertInstances derived insts =
     do insts' <- mapM augmentInstance insts
-       -- traceM("after augmentInstances")
        let axs = [(name, map fst chain, name `elem` derived) | At l (Instance name _ chain) <- insts']
-       -- traceM("Solver.axs" ++ show (fmap (\x -> (com1 x, com3 x)) axs))
        (simplAxs, ws) <- assert (Solver.newAxioms axs)
-       -- traceM("after Solver.newAxioms")
        mapM_ (warn . text) ws
        let simplInsts = zipWith reconstitute insts' simplAxs
        ps <- mapM (mapLocated translateInstance) simplInsts
-       -- traceM("after translateInstance")
        let (xevdecls, tgs) = unzip ps
        return (concat xevdecls, concat tgs)
 
@@ -442,8 +438,8 @@ assertInstances derived insts =
                  trace (unlines ["Augmenting instance:", show (ppr (hypotheses :=> conclusion)), "becomes:", show (ppr ((hypotheses ++ ps) :=> conclusion))]) $
                      return ((hypotheses ++ ps) :=> conclusion, methodImpls)
               where ps = concatMap predAtConstraints hypotheses ++ predAtConstraints conclusion
-          -- com1 (a, _, _) = a
-          -- com3 (_, _, a) = a 
+          com1 (a, _, _) = a
+          com3 (_, _, a) = a 
 
 translateInstance :: TopDecl Pred KId KId -> M ([(Id, X.EvDecl)], [TypingGroup Pred KId])
 

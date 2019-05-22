@@ -160,7 +160,6 @@ entails' transparents outputVariables hypotheses conclusions =
 withoutConditionalBindings :: M (EvSubst, Preds, [ConditionalBindings]) -> M (EvSubst, Preds)
 withoutConditionalBindings c =
     do (evs, ps, cbindss) <- c
-       -- Trace.traceM("\twithoutConditionalBindings")
        if all emptyBindings cbindss
           then return (evs, ps)
           else failWith ("Unexpected conditional type bindings")

@@ -30,3 +30,10 @@ fl  =  B (\_ -> \f -> f)
 and, or  :: Boolean -> Boolean -> Boolean
 and x y = cond x y fl
 or x y = cond x y tr
+
+id :: a -> a
+id x = x
+
+-- compose f g = \x -> f (g x)
+
+on = id On

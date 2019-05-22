@@ -14,7 +14,7 @@ import Syntax.IMPEG.TSubst
 import Typechecker.TypeInference.Base
 
 import Prelude hiding ((<$>))
-
+import qualified Debug.Trace as Trace
 type TDecl    = TopDecl Pred KId KId  -- Abbreviation for top level declarations in this module.
 type Deriving = ([TDecl], [Id])       -- Pairs a list of generated instances (TDecls) with a
                                       -- list of requested classes.
@@ -136,17 +136,22 @@ alignType = natType "align"
 ----------------------------------------------------------------------------------------------------
 -- Deriving for types introduced in data declarations:
 
-deriveDatatype :: KId -> [Located KId] -> [Located (PredType Pred KId)] -> [Ctor KId (PredType Pred KId) (Type KId)] -> [Id] -> M [TDecl]
+deriveDatatype :: KId
+               -> [Located KId]
+               -> [Located (PredType Pred KId)]
+               -> [Ctor KId (PredType Pred KId) (Type KId)] -> [Id] -> M [TDecl]
 deriveDatatype name params ps ctors
- = makeInstances (always "@" shouldNotList deriveAt
-              >=> deriveEq       `ifRequested` "Eq"
-              >=> deriveOrd      `ifRequested` "Ord"
-              >=> deriveBounded  `ifRequested` "Bounded"
-              >=> deriveNum      `ifRequested` "Num"
-              >=> deriveBoolean  `ifRequested` "Boolean"
-              >=> deriveShift    `ifRequested` "Shift"
-              >=> deriveMonad    `ifRequested` "Monad")
-   where
+ = makeInstances (
+  always "@" shouldNotList deriveAt
+    >=> deriveEq       `ifRequested` "Eq"
+    >=> deriveOrd      `ifRequested` "Ord"
+    >=> deriveBounded  `ifRequested` "Bounded"
+    >=> deriveNum      `ifRequested` "Num"
+    >=> deriveBoolean  `ifRequested` "Boolean"
+    >=> deriveShift    `ifRequested` "Shift"
+    >=> deriveMonad    `ifRequested` "Monad")
+
+  where
     -- The type for which these instances are being defined:
     namedType           = foldl (\f x -> TyApp (at x f) x) (TyCon name) (map (TyVar `fmap`) params)
 
@@ -156,13 +161,14 @@ deriveDatatype name params ps ctors
         | otherwise = do insts <- deriveInstances
                          reqs <- deriveRequirements
                          return (insts ++ reqs)
-
         where (_, steps) = mapAccumL (\t u -> let next = tyapp t u in (next, next)) (TyCon name) (map (fmap TyVar) params)
               tyapp t u@(At l _) = TyApp (At l t) u
               impliedAts = concat [ atConstraints t
-                                  | Ctor _ kparams qs ts <- ctors,
-                                    t <- ts,
-                                    all (`notElem` kparams) (tvs ts) ]
+                                  | Ctor _ kparams qs ts <- ctors
+                                  , t <- ts
+                                  , all (`notElem` kparams)
+                                        (tvs (inst (fmap TyVar kparams) (map dislocate ts)))
+                                  ]
               allPreds = ps ++ impliedAts
               predsFor t = filter (\p -> all (`elem` vs) (tvs p)) allPreds
                   where vs = tvs t
@@ -170,11 +176,10 @@ deriveDatatype name params ps ctors
                               Left _ -> False
                               Right _ -> True
 
-
               deriveInstances =
                   do instanceNames <- freshFor "derived" steps
                      return [ Instance instName "@" ((ps :=> at, []) :
-                                                     if null ps then [] else [([] :=> introduced (predf "@" [u, u']), [])])
+                                                      if null ps then [] else [([] :=> introduced (predf "@" [u, u']), [])])
                             | (instName, t@(TyApp u u')) <- zip instanceNames steps,
                               let at = introduced (predh "@" [u, u'])
                                   notMe (At _ p) = not (matches p (predh "@" [u, u']))
