@@ -1,30 +1,37 @@
 requires prelude
+-- class (@) (t :: k' -> k) (u :: k')
 
--- Pierce and Turner Object calculus with classes
-data Obj m = (forall s) (if m @ s) MkObj s       -- state
-                                         (m s)   -- method
+-- primitive type (->) :: * -> * -> *
+-- infixr type 5 ->
 
-data Class m s = (forall f) (if m @ f) MkClass  ((f -> s)              -- extract
-                                                -> (f -> s -> f)         -- overwrite
-                                                ->  m f                   -- self 
-                                                ->  m f)
+-- Pierce and Turner Object calculus (essentially F_omega with subtyping)
 
-{- FAILS!! with
-Context too weak to prove:
-    (@) (m :: (* -> *)) (s :: *) arising at tests/fc-poly/class.hb:7:33-38
-    In the explicit binding for new :: forall (m :: * -> *) (s :: *).
-                                           (Class :: ((* -> *) -> * -> *))
-                                               (m :: (* -> *))
-                                               (s :: *) (-> :: (* -> * -> *))
-                                           (s :: *) (-> :: (* -> * -> *))
-                                           (Obj :: ((* -> *) -> *)) (m :: (* -> *))
--}
--- new :: Class m s -> s -> Obj m
--- new (MkClass c) s = MkObj s m
---        where m = c (\r -> r) (\_ r -> r) m
+data Point = (forall r) MkPt r                     -- state
+                             (r -> Unsigned -> r)  -- set state
+                             (r -> Unsigned)       -- get state
 
+class PointM r where
+   bump :: (r -> r)
+   setX :: (r -> Unsigned -> r)
+   getX :: (r -> Unsigned)
+
+data Obj m = (forall p) (if m @ p) MkObj p       -- state
+                                         (m p)   -- method
+
+
+data Class m n f = MkClass ((f -> n)              -- extract
+                        ->  (f -> n -> f)         -- overwrite
+                        ->  m f                   -- self 
+                        ->  m f )
+
+new :: (m @ s) => Class m s -> s -> Obj m
+new (MkClass c) s = MkObj s m'
+                -- c:: (f -> n) -> (f -> n -> f) -> (m f) -> (m f) 
+       where m' = c (\r -> r) (\_ r -> r) m'
+
+{-
 -- Natural transformations:
-data NT m n = (forall a) MkNT (m a -> n a)
+data NT m n = (forall a) (if m @ a, n @ a) MkNT (m a -> n a)
 
 coerce :: NT m n -> (m a -> n a)
 coerce (MkNT t) = t
@@ -44,38 +51,23 @@ get (MkP s g) = g
 pointClass :: Class PointM Unsigned
 pointClass = MkClass (\extr over _ -> MkP (\r i -> over r i) (\r -> extr r))
 
-
 -- Inheritance:
 data Inc s n r
-  = (forall f) MkInc ((f -> r)        -- extract
+  = MkInc ((f -> r)        -- extract
                      -> (f -> r -> f)   -- overwrite
                      -> s f             -- super methods
                      -> n f             -- self methods
                      -> n f)            -- new methods
 
-{- FAILS! with
+
+{-
 Context too weak to prove:
-    (@) (q :: (* -> *)) (t :: *) arising at tests/fc-poly/class.hb:7:33-38
-    (@) (p :: (* -> *)) (t :: *) arising at tests/fc-poly/class.hb:43:25-44:22
-Note: the type variable (t :: *) is ambiguous.
-    In the explicit binding for ext :: forall (p :: * -> *) (q :: * -> *)
-                                              (s :: *) (r :: *).
-                                           (NT :: ((* -> *) -> (* -> *) -> *))
-                                               (p :: (* -> *))
-                                               (q :: (* -> *)) (-> :: (* -> * -> *))
-                                           (Class :: ((* -> *) -> * -> *))
-                                               (q :: (* -> *))
-                                               (s :: *) (-> :: (* -> * -> *))
-                                           (Inc :: ((* -> *) -> (* -> *) -> * -> *))
-                                               (q :: (* -> *))
-                                               (p :: (* -> *))
-                                               (r :: *) (-> :: (* -> * -> *))
-                                           ((r :: *) (-> :: (* -> * -> *))
-                                            (s :: *)) (-> :: (* -> * -> *))
-                                           ((r :: *) (-> :: (* -> * -> *))
-                                            (s :: *) (-> :: (* -> * -> *))
-                                            (r :: *)) (-> :: (* -> * -> *))
-                                           (Class :: ((* -> *) -> * -> *)) (p :: (* -> *)) (r :: *)
+    (@) q s$1 arising at tests/fc-poly/class.hb:7:34-39
+    (@) p s$1 arising at tests/fc-poly/class.hb:53:25-54:22
+Note: the type variable s$1 is ambiguous.
+    In the explicit binding for ext :: NT p q ->
+                                       Class q s ->
+                                       Inc q p r -> (r -> s) -> (r -> s -> r) -> Class p r
 
 -}
 -- ext :: NT p q
@@ -90,3 +82,4 @@ Note: the type variable (t :: *) is ambiguous.
 --                         (\s t -> p s (pt (g s) t))
 --                         (coerce st self))
 --               self)
+-}

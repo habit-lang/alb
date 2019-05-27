@@ -69,7 +69,7 @@ executable alb
   Build-tools:
   Hs-Source-Dirs: src
 
-  ghc-options: -prof -fprof-auto
+  ghc-options: -prof -fprof-auto -rtsopts
   other-modules:   Analyzer
                  , Analyzer.Desugaring
                  , Analyzer.Fixity

@@ -64,7 +64,7 @@ simplifyCtor univs (Ctor id@(At l _) kids ps0 t) =
        --   ++ "\n\tts: " ++ show ts
        --   ++ "\n\tinst exis: " ++ show (fmap TyVar exis))
        when (not (null exis))
-            (traceM $ "Existential(s) found in type in constructor: " ++ show exis)
+            (traceM $ "Existential(s) found in type in constructor: " ++ show (ppr id <::> vcat (fmap ppr exis)))
        -- return (Ctor id kids' (inst (fmap TyVar exis) (gen 0 kids' ps4)) (inst (fmap TyVar exis) (gen 0 kids' t'')))
        -- withGeneric (exis, fmap (\(Kinded t k) -> t) exis) $
        return (Ctor id kids' (gen 0 (kids' \\ exis) ps4) (gen 0 (kids' \\ exis) t''))
