@@ -362,21 +362,21 @@ checkTopDecl (At loc tdecl) =
     case tdecl of
       Datatype name params constraints ctors drv ->
           withGeneric gkvars $
-          do -- traceM ("Kindinference.checkTopDecl for " ++ (show name)
+          do -- traceM ("Kindinference.checkTopDecl for " ++ (show (ppr name))
              --          ++ "\n\tgkvars" ++ show gkvars
+             --          ++ "\n\texistentials: " ++ show existentials
              --          ++ "\n\tparams" ++ show params)
              k  <- assertType =<< lookupType name
              ks <- parameterKinds params'
              -- traceM ("\tk: " ++ show k
              --         ++ "\n\tks: " ++ show ks
-             --         ++ "\n\texistentials: " ++ show existentials)
              unifies (foldr KFun KStar ks) k
              -- traceM ("\t:After unifies")
              bindLocals (Map.fromList (zip pnames (map Left ks))) $
                  do constraints' <- mapM checkPred constraints
                     ctors' <- mapM (checkCtor (checkType KStar)) ctors
                     return (At loc (Datatype (Kinded name k) (rebuildParameters params pnames ks) constraints' ctors' drv))
-          where gkvars  = vars params ++ existentials
+          where gkvars  = vars params -- ++ existentials
                 params' = map dislocate params
                 pnames  = map paramName params'
                 existentials = join ((mapM ctorParams) ctors)

@@ -511,22 +511,22 @@ dataDecl = do opaque <- option False (reserved "opaque" >> return True)
                            then Just `fmap` option emptyDecls (reserved "where" >> decls)
                            else return Nothing
               return (Datatype lhs ctors drvlist interface)
-                where ctor = choice [ try $ do univs <- option [] $ parens (reserved "forall" >> commaSep aVarid)
+                where ctor = choice [ try $ do exists <- option [] $ parens (reserved "forall" >> commaSep aVarid)
                                                preds <- option [] $ parens (reserved "if" >> commaSep1 (located predicate))
                                                lhs <- located atype
                                                name <- located consym
                                                rhs <- located atype
-                                               return (Ctor name univs preds [at lhs (DataField Nothing lhs), at rhs (DataField Nothing rhs)])
-                                    , try $ do univs <- option [] $ parens (reserved "forall" >> commaSep aVarid) 
+                                               return (Ctor name exists preds [at lhs (DataField Nothing lhs), at rhs (DataField Nothing rhs)])
+                                    , try $ do exists <- option [] $ parens (reserved "forall" >> commaSep aVarid) 
                                                preds <- option [] $ parens (reserved "if" >> commaSep1 (located predicate))
                                                name <- located conid
                                                fields <- brackets (field `sepBy` reservedOp "|")
-                                               return (Ctor name univs preds (concat fields))
-                                    , do univs <- option [] $ parens (reserved "forall" >> commaSep aVarid)
+                                               return (Ctor name exists preds (concat fields))
+                                    , do exists <- option [] $ parens (reserved "forall" >> commaSep aVarid)
                                          preds <- option [] $ parens (reserved "if" >> commaSep1 (located predicate))
                                          name <- located conid
                                          ftypes <- many (located atype)
-                                         return (Ctor name univs preds [at t (DataField Nothing t) | t <- ftypes]) ]
+                                         return (Ctor name exists preds [at t (DataField Nothing t) | t <- ftypes]) ]
                       field = try (do labels <- commaSep1 (located varid)
                                       reservedOp "::"
                                       t <- located atype

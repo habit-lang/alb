@@ -65,8 +65,6 @@ simplifyCtor univs (Ctor id@(At l _) kids ps0 t) =
        --   ++ "\n\tinst exis: " ++ show (fmap TyVar exis))
        when (not (null exis))
             (traceM $ "Existential(s) found in type in constructor: " ++ show (ppr id <::> vcat (fmap ppr exis)))
-       -- return (Ctor id kids' (inst (fmap TyVar exis) (gen 0 kids' ps4)) (inst (fmap TyVar exis) (gen 0 kids' t'')))
-       -- withGeneric (exis, fmap (\(Kinded t k) -> t) exis) $
        return (Ctor id kids' (gen 0 (kids' \\ exis) ps4) (gen 0 (kids' \\ exis) t''))
        -- return (Ctor id kids' (gen 0 (kids') ps4) (gen 0 (kids') t''))
     where ts = map TyVar kids
@@ -106,7 +104,7 @@ checkTopDecl (Datatype (Kinded name k) params ps ctors _) =
        return ( X.Datatype name params' xctors
               , Map.fromList ctorEnv )
     where convertCtor (Ctor (At _ name) kids qs ts) =
-              return (name, kids, map (convert . dislocate) qs, map (convert . dislocate) ts)
+            return (name, kids, map (convert . dislocate) qs, map (convert . dislocate) ts)
 
           augmentCtor ctr@(Ctor (At _ ctorName) kids qs ts) =
             do

@@ -20,7 +20,7 @@ import qualified Data.Map as Map
 import Data.Maybe (catMaybes)
 
 import Common
-import Printer.Common ((<+>), text)
+import Printer.Common ((<+>), text, hsep)
 import Printer.Surface
 import Printer.IMPEG hiding (paramName)
 import qualified Syntax.Surface as S
@@ -806,11 +806,12 @@ desugarCtor :: (Show t, Show t', Sugared p p', Sugared t t', HasTypeVariables p'
 desugarCtor enclosing (Ctor name univs quals fields) =
     do quals' <- mapM desugar quals
        fields' <- mapM desugar fields
-       let vs = filter (`notElem` enclosing) (nub (concatMap tvs quals' ++ concatMap tvs fields'))
-       -- traceM ("Desugaring.desugarCtor: " ++ show name
-       --        ++ "\n\tvs: " ++ show vs
-       --        ++ "\n\tenclosing: " ++ show enclosing)
-       return (Ctor name vs (gen 0 vs quals') (gen 0 vs fields'))
+       case (length (tvs fields') > (length enclosing + length univs)) of
+         True   -> failWithS ("Unbound identifier(s) " ++ show (hsep (fmap ppr (tvs fields' \\ (enclosing ++ univs))))
+                              ++ " in constructor definition " ++ show (ppr name))
+         False  -> do let vs = filter (`notElem` enclosing) (nub (concatMap tvs quals' ++ concatMap tvs fields'))
+                      return (Ctor name vs (gen 0 vs quals') (gen 0 vs fields'))
+            
 
 instance Sugared S.Datatype [Top]
     where desugar (S.Datatype lhs ctors drv interface) =
