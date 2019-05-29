@@ -165,8 +165,8 @@ instance Printable Synonym
 instance Printable Datatype
     where ppr (Datatype lhs ctors drv interface) = nest 4 ((if isJust interface then text "opaque" <> space else empty) <>
                                                            text "data" <+> ppr lhs <> pprCtors <> pprDrvs <> nest 4 (printMaybeDecls interface))
-              where pprCtor (Ctor name _ [] fields) = ppr name <+> pprFields fields
-                    pprCtor (Ctor name _ preds fields) = ppr name <+> pprFields fields <+> text "if" <+> cat (punctuate comma (map ppr preds))
+              where pprCtor (Ctor name _ _ [] fields) = ppr name <+> pprFields fields
+                    pprCtor (Ctor name _ _ preds fields) = ppr name <+> pprFields fields <+> text "if" <+> cat (punctuate comma (map ppr preds))
                     pprFields fs
                         | all unlabeled fs = sep (map (atPrecedence 10 . pprField) fs)
                         | otherwise        = brackets (cat (punctuate " | " (map pprField fs)))
@@ -184,8 +184,8 @@ instance Printable Datatype
 
 instance Printable Bitdatatype
     where ppr (Bitdatatype lhs size ctors drv) = nest 4 (text "bitdata" <+> ppr lhs <> (maybe empty (\t -> slash <> ppr t) size) <> pprCtors <> pprDrvs)
-              where pprCtor (Ctor name _ [] fields) = ppr name <+> brackets (cat (punctuate (space <> bar <> space) (map ppr fields)))
-                    pprCtor (Ctor name _ preds fields) = ppr name <+> brackets (cat (punctuate (space <> bar <> space) (map ppr fields)))  <+> text "if" <+> cat (punctuate comma (map ppr preds))
+              where pprCtor (Ctor name _ _ [] fields) = ppr name <+> brackets (cat (punctuate (space <> bar <> space) (map ppr fields)))
+                    pprCtor (Ctor name _ _ preds fields) = ppr name <+> brackets (cat (punctuate (space <> bar <> space) (map ppr fields)))  <+> text "if" <+> cat (punctuate comma (map ppr preds))
                     pprCtors =
                         case ctors of
                           [] -> empty
@@ -199,7 +199,7 @@ instance Printable BitdataField
           ppr (ConstantField e) = ppr e
 
 instance Printable Struct
-    where ppr (Struct name size (Ctor _ _ preds regions) align drv) =
+    where ppr (Struct name size (Ctor _ _ _ preds regions) align drv) =
               nest 4 (ppr name <>
                       maybe empty (\t -> slash <> ppr t) size <+>
                       brackets (cat (punctuate (softline <> bar <> space) (map ppr regions))) <>

@@ -48,15 +48,15 @@ simplifyCtor :: (K.HasKinds t, HasTypeVariables t KId) =>
                 [KId]
              -> Ctor KId (PredType Pred KId) t
              -> M (Ctor KId (PredType Pred KId) t)
-simplifyCtor univs (Ctor id@(At l _) kids ps0 t) =
+simplifyCtor params (Ctor id@(At l _) univs exis ps0 t) =
     failAt l $
     do evvars <- freshFor "e" ps2
        (s, _, ps3, _) <- entails' (tvs t) (tvs t) [] (zip evvars ps2)
        let ps4 = s ## (map snd ps3 ++ qs)
            t'' = s ## t'
-           kids' = kids `intersect` nub (concatMap tvs ps4 ++ tvs t'')
+           univs' = univs `intersect` nub (concatMap tvs ps4 ++ tvs t'')
        fds <- inducedDependencies ps4
-       let exis = (kids' \\ close univs fds)  
+       -- let exis = (kids' \\ close univs fds)  
        -- traceM ( "TopDecl.simplifyingCtor: "
        --   ++ "\n\tunivs: " ++ show univs
        --   ++ "\n\tkids': " ++ show kids'
@@ -64,13 +64,16 @@ simplifyCtor univs (Ctor id@(At l _) kids ps0 t) =
        --   ++ "\n\tts: " ++ show ts
        --   ++ "\n\tinst exis: " ++ show (fmap TyVar exis))
        when (not (null exis))
-            (traceM $ "Existential(s) found in type in constructor: " ++ show (ppr id <::> vcat (fmap ppr exis)))
-       return (Ctor id kids' (gen 0 (kids' \\ exis) ps4) (gen 0 (kids' \\ exis) t''))
+            (traceM $ "Existential(s) found in type in constructor: " ++ show (ppr id <::> hsep (fmap ppr exis)))
+       when (not (null univs))
+            (traceM $ "Universals(s) found in type in constructor: " ++ show (ppr id <::> hsep (fmap ppr univs)))
+       -- return (Ctor id (univs' ++ params) exis (gen 0 (univs' \\ exis) ps4) (gen 0 (univs' \\ exis) t''))
        -- return (Ctor id kids' (gen 0 (kids') ps4) (gen 0 (kids') t''))
-    where ts = map TyVar kids
+       return (Ctor id univs' exis ps4 t'')
+    where ts = map TyVar (univs ++ exis)
           ps1 = inst ts ps0
           t' = inst ts t
-          (ps2, qs) = partition (all (`elem` kids) . tvs) ps1
+          (ps2, qs) = partition (all (`elem` (univs ++ exis)) . tvs) ps1
 
 solveForNat :: (Located Ty -> PredType Pred KId) -> M Int
 solveForNat pcon =
@@ -103,10 +106,10 @@ checkTopDecl (Datatype (Kinded name k) params ps ctors _) =
        traceM (show ("Binding constructors:" <+> vcat [ ppr id <::> ppr ksc | (id, (ksc, _, _)) <- ctorEnv ]))
        return ( X.Datatype name params' xctors
               , Map.fromList ctorEnv )
-    where convertCtor (Ctor (At _ name) kids qs ts) =
-            return (name, kids, map (convert . dislocate) qs, map (convert . dislocate) ts)
+    where convertCtor (Ctor (At _ name) univs exis qs ts) =
+            return (name, univs, map (convert . dislocate) qs, map (convert . dislocate) ts)
 
-          augmentCtor ctr@(Ctor (At _ ctorName) kids qs ts) =
+          augmentCtor ctr@(Ctor (At _ ctorName) univs exis qs ts) =
             do
                hvars <- freshFor "h" (ps ++ qs)
                cvars <- freshFor "c" validityPreds
@@ -114,12 +117,12 @@ checkTopDecl (Datatype (Kinded name k) params ps ctors _) =
                (_, validityPreds') <- withoutConditionalBindings entailment
                let qualiftys = (ps ++ map snd validityPreds' ++ qs)
                               :=> introduced (map dislocate ts `allTo` t)
-                   kdqfy = kindQuantify (Forall (kids ++ params')
-                                       (gen (length kids) params' qualiftys))
-               return (ctorName, (kdqfy, length kids, length ps + length validityPreds'))
-                 where validityPreds = concatMap predAtConstraints (ps ++ qs) ++
-                         concatMap atConstraints ts ++
-                         atConstraints (introduced t)
+                   kdqfy = kindQuantify (Forall (univs ++ params')
+                                       (gen (length univs) params' qualiftys))
+               return (ctorName, (kdqfy, length exis, length ps + length validityPreds'))
+                 where validityPreds = concatMap predAtConstraints (ps ++ qs)
+                         ++ concatMap atConstraints ts
+                         ++ atConstraints (introduced t)
           params'   = map dislocate params
           t         = foldl (@@) (TyCon (Kinded name k)) (map TyVar params')
           
@@ -169,7 +172,7 @@ checkTopDecl (Bitdatatype name mtys ctors derives) =
        -- Return XMPEG version of this bitdatatype decl:
        return ( X.Bitdatatype name bddpat xctors
               , Map.fromList [(cname, (ForallK [] (Forall [] ([] :=> introduced (ctorType cname fields))), 0, 0))
-                             | Ctor (At _ cname) _ _ fields <- ctors'] )
+                             | Ctor (At _ cname) _ _ _ fields <- ctors'] )
 
     where tycon          :: Ty
           tycon           = TyCon (Kinded name KStar)
@@ -186,7 +189,7 @@ checkTopDecl (Bitdatatype name mtys ctors derives) =
           convertCtor :: Int ->
                          Ctor KId (PredType Pred KId) (BitdataField KId) -> -- original constructor spec
                          M X.BitdataCtor                                    -- XMPEG fields
-          convertCtor totalSize (Ctor (At l cname) [] [] fields)
+          convertCtor totalSize (Ctor (At l cname) [] [] [] fields)
             = failAt l $
               do fieldTypes <- mapM (fieldType . dislocate) fields
                  determinedSizes <- mapM (solveForNat . bitSize) (filter sizeDetermined fieldTypes)
@@ -256,7 +259,7 @@ checkTopDecl (Struct name mtys ctor _align derives) =
 
     appendFailureContextS ("In the definition of a structure type " ++ fromId name) $
     do -- Simplify region and object to existentials
-       Ctor _ ks ps locatedRegions <- simplifyCtor [] ctor
+       Ctor _ ks es ps locatedRegions <- simplifyCtor [] ctor
        when (not (null ks) || not (null ps))
             (failWithS "Unsupported structure declaration")
        let regions = map dislocate locatedRegions
@@ -406,7 +409,7 @@ assertClass _ = error "TypeChecking.TypeInference:823"
 assertInstances :: [Id] -> [Located (TopDecl Pred KId KId)] -> M ([(Id, X.EvDecl)], [TypingGroup Pred KId])
 assertInstances derived insts =
     do insts' <- mapM augmentInstance insts
-       let axs = [(name, map fst chain, name `elem` derived) | At l (Instance name _ chain) <- insts']
+       let axs = nub [(name, map fst chain, name `elem` derived) | At l (Instance name _ chain) <- insts']
        (simplAxs, ws) <- assert (Solver.newAxioms axs)
        mapM_ (warn . text) ws
        let simplInsts = zipWith reconstitute insts' simplAxs
@@ -560,17 +563,12 @@ checkProgram fn p =
            instanceDecls' = instanceDecls ++ [i | i@(At _ Instance{}) <- derived]
            derivedRqs     = [r | r@(At _ Require{}) <- derived]
        mapM_ (assertRequirement . dislocate) derivedRqs
-       -- traceM (" >>>>>>>   Asserting instances START <<<<<<  ")
-       -- traceM ("DerivedInstNames: " ++ show derivedInstNames)
        (evDecls, methodImpls) <- assertInstances derivedInstNames instanceDecls'
-       -- traceM (" >>>>>>>   Asserting instances DONE <<<<<<  ")
        areaTypes' <- mapM (\(n, tys) -> do ty <- simplifyAreaType tys
                                            return (n, LamBound ty)) areaTypes
        let globals = Map.unions (Map.fromList areaTypes' : methodTypeEnvironments)
        binds globals $
-            do -- traceM (" >>>>>>>>>>>> checkprogram.typeDecls START <<<<<<<<<<<<< ")
-               (typeDecls', ctorEnvironments) <- unzip `fmap` mapM (mapLocated checkTopDecl) typeDecls
-               -- traceM (" >>>>>>>>>>>>> checkprogram typeDecls END <<<<<<<<<<<< ")
+            do (typeDecls', ctorEnvironments) <- unzip `fmap` mapM (mapLocated checkTopDecl) typeDecls
                let ctorEnvironment = Map.unions (primCtors ++  ctorEnvironments)
                    ctorTypes       = tyEnvFromCtorEnv ctorEnvironment
                bindCtors ctorEnvironment

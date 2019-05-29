@@ -5,7 +5,7 @@ module Typechecker.TypeInference.Instances(deriveInstances) where
 import Common
 import Control.Monad.State
 import Data.Graph
-import Data.List (intercalate, mapAccumL, partition)
+import Data.List (intercalate, mapAccumL, partition, nub)
 import Data.Maybe (isJust)
 import Printer.Common
 import Printer.IMPEG
@@ -163,12 +163,12 @@ deriveDatatype name params ps ctors
                          return (insts ++ reqs)
         where (_, steps) = mapAccumL (\t u -> let next = tyapp t u in (next, next)) (TyCon name) (map (fmap TyVar) params)
               tyapp t u@(At l _) = TyApp (At l t) u
-              impliedAts = concat [ atConstraints t
-                                  | Ctor _ kparams qs ts <- ctors
-                                  , t <- ts
-                                  , all (`notElem` kparams)
-                                        (tvs (inst (fmap TyVar kparams) (map dislocate ts)))
-                                  ]
+              impliedAts = nub $ concat [ atConstraints t
+                                        | Ctor _ kparams exis qs ts <- ctors
+                                        , t <- ts
+                                        , all (`notElem` (kparams ++ exis))
+                                          (tvs (inst (fmap TyVar (kparams ++ exis)) (map dislocate ts)))
+                                        ]
               allPreds = ps ++ impliedAts
               predsFor t = filter (\p -> all (`elem` vs) (tvs p)) allPreds
                   where vs = tvs t
@@ -205,13 +205,13 @@ deriveDatatype name params ps ctors
 
     -- Build an instance for a class using the given implementations of its members with
     -- a single clause that requires instances of the derived class for each component type.
-    -- Instantiates the ctorParams and adds ctorQualifiers for each constructor, as necessary.
+    -- Instantiates the ctorExis and adds ctorQualifiers for each constructor, as necessary.
     allComponentsInst :: Id -> [Function Pred KId] -> M [TDecl]
     allComponentsInst cls impl
      = do instName   <- fresh "derived"
           hypotheses <- concatMapM for ctors
           return [Instance instName cls [(hypotheses :=> pred (introduced namedType), impl)]]
-       where for ctor = do ts <- freshParams (ctorParams ctor)
+       where for ctor = do ts <- freshParams (ctorExis ctor)
                            let comps = ctorFields ctor
                            return (map (inst ts) (ctorQualifiers ctor ++ map pred comps))
              pred t   = introduced (predh cls [t])
@@ -359,7 +359,7 @@ deriveDatatype name params ps ctors
     -- data T args = K t, generate:  instance C (T args) if C t where funs
     inst0            :: Id -> [Function Pred KId] -> M [TDecl]
     inst0 cls funs    = do instName <- fresh "derived"
-                           ts       <- freshParams (ctorParams ctor0)
+                           ts       <- freshParams (ctorExis ctor0)
                            let arg0@(At l _) = head (ctorFields ctor0) -- the type of the first constructor's only argument
                                hypotheses    = At l (predh cls [arg0]) : ctorQualifiers ctor0
                                conclusion    = At l (predh cls [At l namedType])
@@ -454,7 +454,7 @@ deriveBitdatatype name msize ctors drv
       ctorWidths :: Located Ty ->                                      -- total width
                     Ctor KId (PredType Pred KId) (BitdataField KId) -> -- constructor
                     M [Located (PredType Pred KId)]                    -- (field widths, size-determining predicates)
-      ctorWidths totalWidth (Ctor _ kids ps fields) =
+      ctorWidths totalWidth (Ctor _ kids _ ps fields) =
           do ts         <- freshParams kids
              fieldTypes <- mapM fieldType [ f | At _ f <- fields ]
              let (determined, undetermined) = partition sizeDetermined fieldTypes
@@ -478,7 +478,7 @@ deriveBitdatatype name msize ctors drv
     --     where update = bitdataUpdate
     --   else ...
     --
-    ctorSelectUpdate (Ctor (At l cname) kids ps fields)
+    ctorSelectUpdate (Ctor (At l cname) kids _ ps fields)
       = do selInstName <- fresh "selInst"
            updInstName <- fresh "updInst"
            ts          <- freshParams kids
@@ -521,7 +521,7 @@ deriveBitdatatype name msize ctors drv
     -- anyway, even if we wanted to, because there isn't enough information in the
     -- system to infer that:  forall f, t. Select T f t ==> Select (BitdataCase T C) f t.
     --
-    singleCtorSelectUpdate [Ctor (At l cname) _ _ fields]
+    singleCtorSelectUpdate [Ctor (At l cname) _ _ _ fields]
       = do selInstName <- fresh "selInst"
            updInstName <- fresh "updInst"
            return ([Instance selInstName "Select" selChain | not (null selChain)],
@@ -555,7 +555,7 @@ deriveBitdatatype name msize ctors drv
      = do instName   <- fresh "derived"
           hypotheses <- concatMapM for ctors
           return [Instance instName cls [(hypotheses :=> pred (introduced namedType), impl)]]
-       where for ctor = do ts <- freshParams (ctorParams ctor)
+       where for ctor = do ts <- freshParams (ctorExis ctor)
                            let comps = [ t | At _ (LabeledField _ t _) <- ctorFields ctor ]
                            return (map (inst ts) (ctorQualifiers ctor ++ map pred comps))
              pred t   = introduced (predh cls [t])
@@ -621,7 +621,7 @@ deriveBitdatatype name msize ctors drv
     -- form bitdata T = K[x::t], generate:  instance C T if C t where funs
     inst0            :: Id -> [Function Pred KId] -> M [TDecl]
     inst0 cls funs    = do instName <- fresh "derived"
-                           ts       <- freshParams (ctorParams ctor0)
+                           ts       <- freshParams (ctorExis ctor0)
                            let hypotheses    = at cname0 (predh cls [lty0]) : ctorQualifiers ctor0
                                conclusion    = at cname0 (predh cls [at cname0 namedType])
                            return [Instance instName cls [(inst ts (hypotheses :=> conclusion), funs)]]
@@ -697,7 +697,7 @@ deriveBitdatatype name msize ctors drv
 
 deriveStruct :: Id -> Maybe (Scheme Pred KId) -> Ctor KId (PredType Pred KId) (StructRegion KId)
              -> Maybe (Located (Scheme Pred KId)) -> [Id] -> M [TDecl]
-deriveStruct name msize (Ctor _ kids ps regions) mLocatedAlign drv
+deriveStruct name msize (Ctor _ kids _ ps regions) mLocatedAlign drv
     | any (`notElem` ["NoInit", "NullInit"]) drv = failWith ("No support for deriving instances of" <+>
                                                              hsep (punctuate comma (map ppr (filter (`notElem` ["NoInit", "NullInit"]) drv))))
     | otherwise =

@@ -104,7 +104,7 @@ instance References t => References (KScheme t)
     where references (ForallK _ x) = references x
 
 instance (References p, References t) => References (Ctor tyid p t)
-    where references (Ctor _ _ ps ts) = concatMap references ps ++ concatMap references ts
+    where references (Ctor _ _ _ ps ts) = concatMap references ps ++ concatMap references ts
 
 instance References (BitdataField Id)
     where references (LabeledField _ ty _) = references ty
@@ -363,23 +363,25 @@ checkTopDecl (At loc tdecl) =
       Datatype name params constraints ctors drv ->
           withGeneric gkvars $
           do -- traceM ("Kindinference.checkTopDecl for " ++ (show (ppr name))
-             --          ++ "\n\tgkvars" ++ show gkvars
+             --          ++ "\n\tgkvars: " ++ show gkvars
+             --          ++ "\n\tunivs: " ++ show (join ((mapM ctorUniv) ctors))
              --          ++ "\n\texistentials: " ++ show existentials
-             --          ++ "\n\tparams" ++ show params)
+             --          ++ "\n\tparams: " ++ show params)
              k  <- assertType =<< lookupType name
              ks <- parameterKinds params'
              -- traceM ("\tk: " ++ show k
              --         ++ "\n\tks: " ++ show ks
              unifies (foldr KFun KStar ks) k
-             -- traceM ("\t:After unifies")
+             -- traceM ("\tAfter unifies")
              bindLocals (Map.fromList (zip pnames (map Left ks))) $
                  do constraints' <- mapM checkPred constraints
                     ctors' <- mapM (checkCtor (checkType KStar)) ctors
+                    -- traceM("\tAfter checkCtor")
                     return (At loc (Datatype (Kinded name k) (rebuildParameters params pnames ks) constraints' ctors' drv))
-          where gkvars  = vars params -- ++ existentials
+          where gkvars  = vars params ++ (join ((mapM ctorUniv) ctors))
                 params' = map dislocate params
                 pnames  = map paramName params'
-                existentials = join ((mapM ctorParams) ctors)
+                -- existentials = join ((mapM ctorExis) ctors)
       Bitdatatype name size ctors drv ->
           do size' <- checkSize size
              ctors' <- mapM (checkCtor checkField) ctors
@@ -442,14 +444,17 @@ checkTopDecl (At loc tdecl) =
           checkAlign Nothing = return Nothing
           checkAlign (Just (At loc align)) = (Just . At loc) `fmap` checkScheme KNat align
 
-          checkCtor f (Ctor name qvars preds xs) =
-              do knames <- freshFor "k" qvars
-                 bindLocals (Map.fromList (zip qvars (map (Left . KVar) knames))) $
-                     do let qvars' = map TyVar qvars
-                        preds' <- mapM (checkPred . inst qvars') preds
-                        xs'    <- mapM (f . inst qvars') xs
-                        let kids = zipWith Kinded qvars (map KVar knames)
-                        return (Ctor name kids (map (gen 0 kids) preds') (map (gen 0 kids) xs'))
+          checkCtor f (Ctor name univs exis preds xs) =
+              do knamesU <- freshFor "k" univs
+                 knamesE <- freshFor "k" exis
+                 bindLocals (Map.fromList (zip (univs ++ exis) (fmap (Left . KVar) (knamesU ++ knamesE)))) $
+                     do let univs' = map TyVar univs
+                        let exis' = map TyVar exis
+                        preds' <- mapM (checkPred . (inst (univs'))) preds
+                        xs'    <- mapM (f . (inst (univs'))) xs
+                        let kidsU = zipWith Kinded univs (map KVar knamesU)
+                        let kidsE = zipWith Kinded exis (map KVar knamesE)
+                        return (Ctor name kidsU kidsE (map (gen 0 (kidsU)) preds') (map (gen 0 (kidsU)) xs'))
 {-  Type of top level declaration
      
 

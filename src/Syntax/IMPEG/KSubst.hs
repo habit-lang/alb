@@ -201,8 +201,8 @@ instance (HasKinds tyid, HasKinds typaram, HasKinds (PredType p tyid)) => HasKin
           s # Require ps qs                   = Require (s # ps) (s # qs)
 
 instance (HasKinds tyid, HasKinds p, HasKinds t) => HasKinds (Ctor tyid p t)
-    where vars (Ctor _ quant ps ts)   = nub (vars quant ++ vars ps ++ vars ts)
-          s # (Ctor name quant ps ts) = Ctor name (s # quant) (s # ps) (s # ts)
+    where vars (Ctor _ univ exis ps ts)   = nub (vars univ ++ vars exis ++ vars ps ++ vars ts)
+          s # (Ctor name univ exis ps ts) = Ctor name (s # univ) (s # exis) (s # ps) (s # ts)
 
 instance HasKinds tyid => HasKinds (BitdataField tyid)
     where vars (LabeledField _ ty _) = vars ty

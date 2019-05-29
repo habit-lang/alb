@@ -803,14 +803,15 @@ instance Sugared S.Synonym [Top]
 -- TODO: generalizing over one (1) case here...
 desugarCtor :: (Show t, Show t', Sugared p p', Sugared t t', HasTypeVariables p' Id, HasTypeVariables t' Id) =>
                [Id] -> Ctor Id p t -> M (Ctor Id p' t')
-desugarCtor enclosing (Ctor name univs quals fields) =
+desugarCtor enclosing (Ctor name univs exis quals fields) =
     do quals' <- mapM desugar quals
        fields' <- mapM desugar fields
-       case (length (tvs fields') > (length enclosing + length univs)) of
-         True   -> failWithS ("Unbound identifier(s) " ++ show (hsep (fmap ppr (tvs fields' \\ (enclosing ++ univs))))
-                              ++ " in constructor definition " ++ show (ppr name))
-         False  -> do let vs = filter (`notElem` enclosing) (nub (concatMap tvs quals' ++ concatMap tvs fields'))
-                      return (Ctor name vs (gen 0 vs quals') (gen 0 vs fields'))
+       case (length (nub (tvs fields')) > (length (nub enclosing) + length (nub univs) + length (nub exis))) of
+         True   -> failWithS ("Unbound identifier(s) "
+                              ++ show (hsep (fmap ppr (((nub (tvs fields')) \\ (nub (enclosing ++ exis ++ univs))))))
+                              ++ " in constructor " ++ show (ppr name))
+         False  -> do let vs = filter (`notElem` (enclosing ++ exis)) (nub (concatMap tvs quals' ++ concatMap tvs fields'))
+                      return (Ctor name vs exis (gen 0 vs quals') (gen 0 vs fields'))
             
 
 instance Sugared S.Datatype [Top]
@@ -846,13 +847,13 @@ type Init t = (Id, t, Located (Expr PredFN Id))
 
 desugarCtorWithInit :: (Sugared t (t', Maybe (Init (Located (Type Id)))), HasTypeVariables t' Id)
                     => [Id] -> Ctor Id S.Pred t -> M (Ctor Id (PredType PredFN Id) t', [Init (KScheme (Scheme PredFN Id))])
-desugarCtorWithInit enclosing (Ctor name _ quals fields) =
+desugarCtorWithInit enclosing (Ctor name _ _ quals fields) =
     do quals' <- mapM desugar quals
        (fields', minits) <- unzipLocated `fmap` mapM desugar fields
        let vs = filter (`notElem` enclosing) (nub (concatMap tvs quals' ++ concatMap tvs fields'))
            inits = catMaybes minits
        let initTyss = map (\(_, ty, _) -> toKScheme [] [] (quals' :=> ty)) inits
-       return (Ctor name vs (gen 0 vs quals') (gen 0 vs fields'), [(id, tys, e) | ((id, _, e), tys) <- zip inits initTyss])
+       return (Ctor name vs vs (gen 0 vs quals') (gen 0 vs fields'), [(id, tys, e) | ((id, _, e), tys) <- zip inits initTyss])
 
 instance Sugared S.Bitdatatype (Top, [TypingGroup PredFN Id])
     where desugar (S.Bitdatatype name size ctors drv) =
@@ -1035,11 +1036,11 @@ desugarProgram = up (\p -> PassM (StateT (f p)))
                         , (methodNames', (bitCtorNames, structCtorNames)))
 
               where bitCtorNames    = [(name, nullary fields) | At _ (S.Bitdatatype _ _ ctors _) <- S.bitdatatypes p,
-                                                                Ctor (At _ name) _ _ fields <- ctors]
+                                                                Ctor (At _ name) _ _ _ fields <- ctors]
                                       ++ globalBitCtors
                     nullary fields  = null [n | At _ (S.LabeledField n _ _) <- fields]
 
-                    structCtorNames = [name | At _ (S.Struct _ _ (Ctor _ _ _ regions) _ _) <- S.structures p,
+                    structCtorNames = [name | At _ (S.Struct _ _ (Ctor _ _ _ _ regions) _ _) <- S.structures p,
                                               At _ (S.StructRegion (Just (S.StructField (At _ name) _)) _) <- regions]
                                       ++ globalStructCtors
 

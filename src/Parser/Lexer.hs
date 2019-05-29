@@ -34,7 +34,7 @@ languageDef  = T.LanguageDef {
                , T.opLetter      = oneOf ":!#$%&*+./<=>?@\\^|-~"
                , T.reservedNames = [ "area", "aligned", "bitdata","case", "class"
                                    , "data", "deriving", "do", "else"
-                                   , "extends", "fails", "forall", "if", "in"
+                                   , "extends", "exists", "fails", "forall", "if", "in"
                                    , "infix", "infixl", "infixr"
                                    , "instance", "let", "of", "struct"
                                    , "then", "type", "where"

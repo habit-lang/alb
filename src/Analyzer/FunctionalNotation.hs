@@ -189,22 +189,22 @@ instance HasTypeFunctions (TypingGroup PredFN Id) (TypingGroup Pred Id)
 instance HasTypeFunctions (Decls PredFN Id) (Decls Pred Id)
     where rewrite (Decls groups) = liftM Decls (mapM rewrite groups)
 
-rewriteCtor :: (HasTypeVariables t Id, HasTypeVariables u Id) -- [ANI] any changes here?
+rewriteCtor :: (HasTypeVariables t Id, HasTypeVariables u Id)
   => ([Located t]
   -> M ([Located u], [(Located (PredType Pred Id), Id)]))
   -> Ctor Id (PredType PredFN Id) t
   -> M (Ctor Id (PredType Pred Id) u)
-rewriteCtor f (Ctor name qvars preds fields) =
-    do let tyvars  = map TyVar qvars
+rewriteCtor f (Ctor name univs exis preds fields) =
+    do let tyvars  = map TyVar (univs ++ exis)
            preds'  = inst tyvars preds
            fields' = inst tyvars fields
        (fields'', qs') <- f fields'
        let (qs, vs) = unzip qs'
        (ps', vs') <- rewritePredicates preds
        let newVs = vs ++ vs'
-       return (Ctor name (qvars ++ newVs)
-                         (gen 0 (qvars ++ newVs) (ps' ++ qs))
-                         (gen 0 (qvars ++ newVs) fields''))
+       return (Ctor name (univs ++ newVs) exis
+                         (gen 0 (univs ++ newVs) (ps' ++ qs))
+                         (gen 0 (univs ++ newVs) fields''))
 
 instance HasTypeFunctions (TopDecl PredFN Id (Either KId Id)) (TopDecl Pred Id (Either KId Id))
     where rewrite (Datatype name params constraints ctors drv) =

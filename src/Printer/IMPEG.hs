@@ -233,9 +233,12 @@ instance (TyId tyid, TyParam typaram, Printable (PredType p tyid), HasTypeVariab
 
           ppr (Datatype name params constraints ctors drv) =
               nest 4 (text "data" <+> ppr (constraints :=> introduced name) <+> cat (punctuate space (map ppr params)) <+> pprCtors <> pprDrvs)
-              where pprCtor (Ctor name quant preds fields) = pprQuant <+> ppr name <+> align (sep (map (atPrecedence 10 . ppr) fields) <> pprPreds)
-                        where pprQuant | null quant = empty
-                                       | otherwise  = softline <> text "forall" <+> align (cat (punctuate (comma <> softline) (map ppr quant))) <> text "."
+              where pprCtor (Ctor name univs exis preds fields) = pprQuant <+> ppr name <+> align (sep (map (atPrecedence 10 . ppr) fields) <> pprPreds)
+                        where pprQuant | null univs && null exis = empty
+                                       | null exis  = softline <> text "forall" <+> align (cat (punctuate (comma <> softline) (map ppr (univs)))) <> text "."
+                                       | null univs  = softline <> text "exists" <+> align (cat (punctuate (comma <> softline) (map ppr exis))) <> text "."
+                                       | otherwise  = softline <> text "forall" <+> align (cat (punctuate (comma <> softline) (map ppr univs))) <> text "."
+                                                      <> softline <> text "exists" <+> align (cat (punctuate (comma <> softline) (map ppr exis))) <> text "."
                               pprPreds | null preds = empty
                                        | otherwise  = softline <> text "if" <+> align (cat (punctuate (comma <> softline) (map ppr preds)))
                     pprCtors =
@@ -246,9 +249,12 @@ instance (TyId tyid, TyParam typaram, Printable (PredType p tyid), HasTypeVariab
                             | otherwise = softline <> text "deriving" <+> parens (cat (punctuate comma (map ppr drv)))
 
           ppr (Bitdatatype name size ctors drv) = nest 4 (text "bitdata" <+> ppr name <> (maybe empty (\t -> slash <> ppr t) size) <+> pprCtors <> pprDrvs)
-              where pprCtor (Ctor name quant preds fields) = ppr name <+> brackets (cat (punctuate (space <> bar <> space) (map ppr fields))) <> pprQuant <> pprPreds
-                        where pprQuant | null quant = empty
-                                       | otherwise  = space <> text "forall" <+> cat (punctuate (comma <> space) (map ppr quant))
+              where pprCtor (Ctor name univs exis preds fields) = ppr name <+> brackets (cat (punctuate (space <> bar <> space) (map ppr fields))) <> pprQuant <> pprPreds
+                        where pprQuant | null univs && null exis = empty
+                                       | null exis  = softline <> text "forall" <+> align (cat (punctuate (comma <> softline) (map ppr univs))) <> text "."
+                                       | null univs  = softline <> text "exists" <+> align (cat (punctuate (comma <> softline) (map ppr exis))) <> text "."
+                                       | otherwise  = softline <> text "forall" <+> align (cat (punctuate (comma <> softline) (map ppr univs))) <> text "."
+                                                      <> softline <> text "exists" <+> align (cat (punctuate (comma <> softline) (map ppr exis))) <> text "."
                               pprPreds | null preds = empty
                                        | otherwise  = space <> text "if" <+> cat (punctuate (comma <> space) (map ppr preds))
                     pprCtors =
@@ -258,7 +264,7 @@ instance (TyId tyid, TyParam typaram, Printable (PredType p tyid), HasTypeVariab
                     pprDrvs | null drv = empty
                             | otherwise = softline <> text "deriving" <+> parens (cat (punctuate comma (map ppr drv)))
 
-          ppr (Struct name size (Ctor _ ks ps regions) align drv) =
+          ppr (Struct name size (Ctor _ ks _ ps regions) align drv) =
               nest 4 (text "struct" <+>
                       ppr name <>
                       maybe empty (\t -> slash <> ppr t) size <+>

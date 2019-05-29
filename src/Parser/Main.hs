@@ -511,22 +511,25 @@ dataDecl = do opaque <- option False (reserved "opaque" >> return True)
                            then Just `fmap` option emptyDecls (reserved "where" >> decls)
                            else return Nothing
               return (Datatype lhs ctors drvlist interface)
-                where ctor = choice [ try $ do exists <- option [] $ parens (reserved "forall" >> commaSep aVarid)
-                                               preds <- option [] $ parens (reserved "if" >> commaSep1 (located predicate))
+                where ctor = choice [ try $ do univs <- option [] $ try (parens (reserved "forall" >> commaSep aVarid))
+                                               exists <- option [] $ try (parens (reserved "exists" >> commaSep aVarid))
+                                               preds <- option [] $ try (parens (reserved "if" >> commaSep1 (located predicate)))
                                                lhs <- located atype
                                                name <- located consym
                                                rhs <- located atype
-                                               return (Ctor name exists preds [at lhs (DataField Nothing lhs), at rhs (DataField Nothing rhs)])
-                                    , try $ do exists <- option [] $ parens (reserved "forall" >> commaSep aVarid) 
-                                               preds <- option [] $ parens (reserved "if" >> commaSep1 (located predicate))
+                                               return (Ctor name univs exists preds [at lhs (DataField Nothing lhs), at rhs (DataField Nothing rhs)])
+                                    , try $ do univs <- option [] $ try (parens (reserved "forall" >> commaSep aVarid))
+                                               exists <- option [] $ try (parens (reserved "exists" >> commaSep aVarid))
+                                               preds <- option [] $ try (parens (reserved "if" >> commaSep1 (located predicate)))
                                                name <- located conid
                                                fields <- brackets (field `sepBy` reservedOp "|")
-                                               return (Ctor name exists preds (concat fields))
-                                    , do exists <- option [] $ parens (reserved "forall" >> commaSep aVarid)
-                                         preds <- option [] $ parens (reserved "if" >> commaSep1 (located predicate))
+                                               return (Ctor name univs exists preds (concat fields))
+                                    , do univs <- option [] $ try (parens (reserved "forall" >> commaSep aVarid))
+                                         exists <- option [] $ try (parens (reserved "exists" >> commaSep aVarid))
+                                         preds <- option [] $ try (parens (reserved "if" >> commaSep1 (located predicate)))
                                          name <- located conid
                                          ftypes <- many (located atype)
-                                         return (Ctor name exists preds [at t (DataField Nothing t) | t <- ftypes]) ]
+                                         return (Ctor name univs exists preds [at t (DataField Nothing t) | t <- ftypes]) ]
                       field = try (do labels <- commaSep1 (located varid)
                                       reservedOp "::"
                                       t <- located atype
@@ -547,7 +550,7 @@ bitdataDecl = do reserved "bitdata"
                      fields <- concat `fmap` brackets (field `sepBy` reservedOp "|")
                      preds <- option [] $
                        reserved "if" >> commaSep1 (located predicate)
-                     return (Ctor name [] preds fields) -- [ANI] FIXME: 2nd args should return the ctorParams
+                     return (Ctor name [] [] preds fields)
            field = try (do labels <- commaSep1 (located label)
                            reservedOp "::"
                            typ <- located type_
@@ -565,7 +568,7 @@ structDecl = do reserved "struct"
                 fields <- brackets (field `sepBy` reservedOp "|")
                 ps <- option [] $ reserved "if" >> commaSep1 (located predicate)
                 align <- optionMaybe $ reserved "aligned" >> located (qual type_)
-                Struct id width (Ctor lid [] ps (concat fields)) align `fmap` deriveList
+                Struct id width (Ctor lid [] [] ps (concat fields)) align `fmap` deriveList
 
     where field = (do idInits <- commaSep1 (located varid +++ optionMaybe (reservedOp "<-" >> located exprApp))
                       reservedOp "::"

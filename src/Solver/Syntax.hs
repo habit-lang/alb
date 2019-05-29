@@ -17,7 +17,7 @@ data Type = TyCon TyId  | TyVar TyId | TyGen Int | TyLit Integer | Type :@ Type 
 kindOf                     :: Type -> Kind
 kindOf (TyCon (Kinded _ k)) = k
 kindOf (TyVar (Kinded _ k)) = k
-kindOf (TyGen i)            = error "kindOf quantified variable"
+kindOf (TyGen i)            = error $ "kindOf quantified variable TyGen " ++ show i
 kindOf (TyLit _)            = KNat
 kindOf (t :@ t')            =
     case kindOf t of

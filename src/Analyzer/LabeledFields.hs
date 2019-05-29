@@ -62,7 +62,7 @@ rewritePattern _ p = return p
 collect :: [Located Datatype] -> LabeledFields
 collect = Map.fromList . concatMap collect'
     where collect' (At _ (Datatype _ ctors _ _)) = concat (map fields ctors)
-          fields (Ctor (At _ name) _ _ fields) =
+          fields (Ctor (At _ name) _ _ _ fields) =
               case mapM fieldFrom fields of
                 Nothing -> []
                 Just fs -> [(name, fs)]
@@ -74,9 +74,9 @@ build = concatMap builder
     where builder (At loc (Datatype (qs :=> t) ctors _ _))
               | null labels = []
               | otherwise = map (At loc . selInstFor) labels ++ map (At loc . updInstFor) labels
-              where ctorLabels (Ctor _ _ _ fields) = catMaybes [label | At _ (DataField label _) <- fields]
+              where ctorLabels (Ctor _ _ _ _ fields) = catMaybes [label | At _ (DataField label _) <- fields]
                     labels = nub (concatMap ctorLabels ctors)
-                    selEqnFor field ctor@(Ctor (At loc name) _ _ _)
+                    selEqnFor field ctor@(Ctor (At loc name) _ _ _ _)
                         | field `elem` ctorLabels ctor =
                             [(At loc (PVar "select") `papp` At loc (PLabeled name [At loc (FieldPattern field (At loc (PVar field)))]) `papp` At loc PWild) :=
                              Unguarded (At loc (EVar field)) Nothing]
@@ -86,8 +86,8 @@ build = concatMap builder
                             [((qs :=> At loc (Pred (At loc (TyCon "Select") @@ t @@ At loc (TyLabel field) @@ fieldType) Nothing Holds)),
                               (Just emptyDecls{ equations = concatMap (selEqnFor field) ctors }))]
                         where fieldType = head (concat (map typeFrom ctors))
-                              typeFrom (Ctor _ _ _ fields) = [t | At _ (DataField (Just label) t) <- fields, label == field]
-                    updEqnFor field ctor@(Ctor (At loc name) _ _ _)
+                              typeFrom (Ctor _ _ _ _ fields) = [t | At _ (DataField (Just label) t) <- fields, label == field]
+                    updEqnFor field ctor@(Ctor (At loc name) _ _ _ _)
                         | field `elem` labels =
                             [(At loc (PVar "update") `papp` (foldl papp (At loc (PCon name)) patterns) `papp` At loc PWild `papp` At loc (PVar field)) :=
                                 Unguarded (foldl eapp (At loc (ECon name)) exprs) Nothing]
