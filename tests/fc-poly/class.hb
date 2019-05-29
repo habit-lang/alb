@@ -15,21 +15,21 @@ class PointM r where
    setX :: (r -> Unsigned -> r)
    getX :: (r -> Unsigned)
 
-data Obj m = (forall p) (if m @ p) MkObj p       -- state
-                                         (m p)   -- method
+data Obj m = (exists s) (if m @ s) MkObj s       -- state
+                                         (m s)   -- method
 
 
-data Class m n f = MkClass ((f -> n)              -- extract
-                        ->  (f -> n -> f)         -- overwrite
-                        ->  m f                   -- self 
-                        ->  m f )
+data Class m n = (forall f) MkClass ((f -> n)              -- extract
+                                ->  (f -> n -> f)         -- overwrite
+                                ->  m f                   -- self 
+                                ->  m f )
 
 new :: (m @ s) => Class m s -> s -> Obj m
 new (MkClass c) s = MkObj s m'
                 -- c:: (f -> n) -> (f -> n -> f) -> (m f) -> (m f) 
        where m' = c (\r -> r) (\_ r -> r) m'
 
-{-
+
 -- Natural transformations:
 data NT m n = (forall a) (if m @ a, n @ a) MkNT (m a -> n a)
 
@@ -53,11 +53,11 @@ pointClass = MkClass (\extr over _ -> MkP (\r i -> over r i) (\r -> extr r))
 
 -- Inheritance:
 data Inc s n r
-  = MkInc ((f -> r)        -- extract
-                     -> (f -> r -> f)   -- overwrite
-                     -> s f             -- super methods
-                     -> n f             -- self methods
-                     -> n f)            -- new methods
+  = (forall f) MkInc ((f -> r)        -- extract
+                   -> (f -> r -> f)   -- overwrite
+                   -> s f             -- super methods
+                   -> n f             -- self methods
+                   -> n f)            -- new methods
 
 
 {-
@@ -82,4 +82,3 @@ Note: the type variable s$1 is ambiguous.
 --                         (\s t -> p s (pt (g s) t))
 --                         (coerce st self))
 --               self)
--}
