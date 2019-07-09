@@ -6,14 +6,14 @@ requires prelude
 
 -- Pierce and Turner Object calculus (essentially F_omega with subtyping)
 
-data Point = (forall r) MkPt r                     -- state
-                             (r -> Unsigned -> r)  -- set state
-                             (r -> Unsigned)       -- get state
+-- data Point = (forall r) MkPt r                     -- state
+--                              (r -> Unsigned -> r)  -- set state
+--                              (r -> Unsigned)       -- get state
 
-class PointM r where
-   bump :: (r -> r)
-   setX :: (r -> Unsigned -> r)
-   getX :: (r -> Unsigned)
+-- class PointM r where
+--    bump :: (r -> r)
+--    setX :: (r -> Unsigned -> r)
+--    getX :: (r -> Unsigned)
 
 data Obj m = (exists s) (if m @ s) MkObj s       -- state
                                          (m s)   -- method
@@ -31,33 +31,33 @@ new (MkClass c) s = MkObj s m'
 
 
 -- Natural transformations:
-data NT m n = (forall a) (if m @ a, n @ a) MkNT (m a -> n a)
+-- data NT m n = (forall a) (if m @ a, n @ a) MkNT (m a -> n a)
 
-coerce :: NT m n -> (m a -> n a)
-coerce (MkNT t) = t
+-- coerce :: NT m n -> (m a -> n a)
+-- coerce (MkNT t) = t
 
-data PointM s = MkP (s -> Unsigned -> s) (s -> Unsigned)
+-- data PointM s = MkP (s -> Unsigned -> s) (s -> Unsigned)
 
-set :: PointM s -> (s -> Unsigned -> s)
-set (MkP s g) = s
+-- set :: PointM s -> (s -> Unsigned -> s)
+-- set (MkP s g) = s
 
-get :: PointM s -> (s -> Unsigned)
-get (MkP s g) = g
+-- get :: PointM s -> (s -> Unsigned)
+-- get (MkP s g) = g
 
 -- pointSet' :: NT p PointM -> (Obj p -> Unsigned -> Obj p)
 -- pointSet' st (MkObj s m) i
 --   = MkObj (set (coerce st m) s i) m
 
-pointClass :: Class PointM Unsigned
-pointClass = MkClass (\extr over _ -> MkP (\r i -> over r i) (\r -> extr r))
+-- pointClass :: Class PointM Unsigned
+-- pointClass = MkClass (\extr over _ -> MkP (\r i -> over r i) (\r -> extr r))
 
 -- Inheritance:
-data Inc s n r
-  = (forall f) MkInc ((f -> r)        -- extract
-                   -> (f -> r -> f)   -- overwrite
-                   -> s f             -- super methods
-                   -> n f             -- self methods
-                   -> n f)            -- new methods
+-- data Inc s n r
+--   = (forall f) MkInc ((f -> r)        -- extract
+--                    -> (f -> r -> f)   -- overwrite
+--                    -> s f             -- super methods
+--                    -> n f             -- self methods
+--                    -> n f)            -- new methods
 
 
 {-

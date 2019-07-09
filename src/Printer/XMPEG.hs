@@ -186,10 +186,11 @@ instance Printable typaram => Printable (TopDecls typaram)
 
 instance Printable typaram => Printable (TopDecl typaram)
     where ppr (Datatype name params ctors) = nest 4 (text "data" <+> ppr name <+> cat (punctuate space (map (atPrecedence 10 . ppr) params)) <> pprCtors)
-              where pprCtor (name, ks, ps, fields) = hang 4 ((if null ks then empty else (text "forall" <+> cat (punctuate (comma <> space) (map ppr ks))) <> text ".")
-                                                             </> ppr name
-                                                             </> sep (map (atPrecedence 10 . ppr) fields)
-                                                             </> (if null ps then empty else (text "if" <+> cat (punctuate (comma <> space) (map ppr ps)))))
+              where pprCtor (name, univs, ks, ps, fields) = hang 4 ((if null univs then empty else (text "forall" <+> cat (punctuate (comma <> space) (map ppr univs))) <> text ".")
+                                                                   </> (if null ks then empty else (text "exists" <+> cat (punctuate (comma <> space) (map ppr ks))) <> text ".")
+                                                                   </> ppr name
+                                                                   </> sep (map (atPrecedence 10 . ppr) fields)
+                                                                   </> (if null ps then empty else (text "if" <+> cat (punctuate (comma <> space) (map ppr ps)))))
                     pprCtors =
                         case ctors of
                           [] -> empty

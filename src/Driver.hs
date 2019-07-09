@@ -326,8 +326,8 @@ buildPipeline options =
             = toDesugar >=> inferKinds
 
           toInferTypes s
-            = toInferKinds >=> inferTypes s >=>
-              first cleanupProgram
+            = toInferKinds >=> inferTypes s
+              -- >=> first cleanupProgram
 
           toSpecialized
             = filePipe' (\s q -> toInferTypes s) >=> pure concat' >=> specializeProgram exported

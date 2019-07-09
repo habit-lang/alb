@@ -140,7 +140,7 @@ instance LCable (TopDecl Type)
     where lc envs@(cenv, tenv) (Datatype name params ctors)
               | name == "Unit" = empty
               | otherwise = nest 4 (text "data" <+> ppr (fromMaybe (error "LC.hs:134") (Map.lookup (foldl TyApp (TyCon (Kinded name KStar)) params) tenv)) <+> pprCtors)
-              where pprCtor (name, _, _, fields) = ppr (fromMaybe (error "LC.hs:141") (Map.lookup (name, params) cenv)) <+> sep (map (atPrecedence 10 . lc envs) fields)
+              where pprCtor (name, _, _, _, fields) = ppr (fromMaybe (error "LC.hs:141") (Map.lookup (name, params) cenv)) <+> sep (map (atPrecedence 10 . lc envs) fields)
                     pprCtors =
                         case ctors of
                           [] -> empty
@@ -188,11 +188,11 @@ buildEnvironments = foldM buildEnvironment (Map.empty, Map.empty)
     where buildEnvironment :: (CtorEnv, TypeEnv) -> TopDecl Type -> Base (CtorEnv, TypeEnv)
           buildEnvironment  (cenv, tenv) (Datatype k ts ctors)
               | k == "Unit" = return (cenv, tenv)
-              | otherwise = do ctorNames <- mapM (\(k, _, _, _) -> fresh k) ctors
+              | otherwise = do ctorNames <- mapM (\(k, _, _, _, _) -> fresh k) ctors
                                return (foldr (buildCtor ts) cenv (zip ctors ctorNames),
                                        Map.insert ty (fromString $ stringOfStrings (fromId k : map (show . ppr) ts)) tenv)
               where ty = foldl TyApp (TyCon (Kinded k (foldr (\_ k -> KFun KStar k) KStar ts))) ts
-                    buildCtor ts ((k, _, _, _), z) = Map.insert (k, ts) (fromString (fromId z))
+                    buildCtor ts ((k, _, _, _, _), z) = Map.insert (k, ts) (fromString (fromId z))
           buildEnvironment envs _ = return envs
 
 

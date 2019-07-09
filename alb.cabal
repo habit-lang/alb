@@ -69,7 +69,7 @@ executable alb
   Build-tools:
   Hs-Source-Dirs: src
 
-  ghc-options: -prof -fprof-auto -rtsopts
+  ghc-options:   -fprof-auto -rtsopts
   other-modules:   Analyzer
                  , Analyzer.Desugaring
                  , Analyzer.Fixity
@@ -126,55 +126,55 @@ executable alb
 
   default-language: Haskell2010
 
-executable ilab
+-- executable ilab
 
-  Main-is: Ilab.hs
+--   Main-is: Ilab.hs
 
-  Build-depends:    base >= 4 && < 6
-                  , parsec >= 3.1.1
-                  , mtl >= 2
-                  , strict >= 0.3
-                  , template-haskell >= 2.4
-                  , containers >= 0.3
-                  , filepath >= 1.1
-                  , directory >= 1.0
-                  , pretty >= 1.1
-                  , process >= 1.0
-                  , syb >= 0.1
-                  , transformers >= 0.2
-                  , indentation-core >= 0.0
-                  , indentation-parsec >= 0.0
+--   Build-depends:    base >= 4 && < 6
+--                   , parsec >= 3.1.1
+--                   , mtl >= 2
+--                   , strict >= 0.3
+--                   , template-haskell >= 2.4
+--                   , containers >= 0.3
+--                   , filepath >= 1.1
+--                   , directory >= 1.0
+--                   , pretty >= 1.1
+--                   , process >= 1.0
+--                   , syb >= 0.1
+--                   , transformers >= 0.2
+--                   , indentation-core >= 0.0
+--                   , indentation-parsec >= 0.0
 
-  Hs-Source-Dirs: src
+--   Hs-Source-Dirs: src
 
-  default-extensions:       DoAndIfThenElse
-                          , OverloadedStrings
+--   default-extensions:       DoAndIfThenElse
+--                           , OverloadedStrings
 
 
-  other-modules:    Analyzer.LabeledFields
-                  , Common
-                  , LC
-                  , Solver.Cycles
-                  , Solver.Main
-                  , Solver.Oracles
-                  , Solver.Parser
-                  , Solver.PP
-                  , Solver.REPL
-                  , Solver.Subst
-                  , Solver.Syntax
-                  , Solver.Tactics
-                  , Solver.Trace
-                  , Solver.Validation
-                  , Printer.Common
-                  , Printer.WadlerLeijen
-                  , Printer.XMPEG
-                  , Syntax.Common
-                  , Syntax.IMPEG
-                  , Syntax.IMPEG.KSubst
-                  , Syntax.MangleIds
-                  , Syntax.Surface
-                  , Syntax.Specialized
-                  , Syntax.XMPEG
-                  , Utils.BDD
+--   other-modules:    Analyzer.LabeledFields
+--                   , Common
+--                   , LC
+--                   , Solver.Cycles
+--                   , Solver.Main
+--                   , Solver.Oracles
+--                   , Solver.Parser
+--                   , Solver.PP
+--                   , Solver.REPL
+--                   , Solver.Subst
+--                   , Solver.Syntax
+--                   , Solver.Tactics
+--                   , Solver.Trace
+--                   , Solver.Validation
+--                   , Printer.Common
+--                   , Printer.WadlerLeijen
+--                   , Printer.XMPEG
+--                   , Syntax.Common
+--                   , Syntax.IMPEG
+--                   , Syntax.IMPEG.KSubst
+--                   , Syntax.MangleIds
+--                   , Syntax.Surface
+--                   , Syntax.Specialized
+--                   , Syntax.XMPEG
+--                   , Utils.BDD
 
-  default-language: Haskell2010
+--   default-language: Haskell2010

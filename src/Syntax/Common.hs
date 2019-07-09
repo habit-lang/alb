@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, TypeSynonymInstances, MultiParamTypeClasses, DeriveDataTypeable #-}
+{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, TypeSynonymInstances, MultiParamTypeClasses #-}
 module Syntax.Common (module Syntax.Common, SourcePos, newPos, fromString) where
 
 import Data.Char

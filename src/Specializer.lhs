@@ -992,13 +992,13 @@ this cause problems later in the pipeline?
 >     where (_, ts) = flattenType ty
 >           s       = new (zip params ts)
 
->           spec (name, kids, ps, ts)
+>           spec (name, _, kids, ps, ts)
 >             = do enames <- replicateM (length ps) (fresh "e")
 >                  ts'' <- solve (zip enames ps')
 >                                (mapM substitute ts')
 >                  case ts'' of
 >                    Nothing   -> return (Nothing, [])
->                    Just ts'' -> return (Just (name, [], [], ts''), concatMap requestedBy ts'')
+>                    Just ts'' -> return (Just (name, [], [], [], ts''), concatMap requestedBy ts'')
 >               where newTys = [TyVar v | v <- kids]
 >                     ps'    = [Pred className (map ((s #) . inst newTys) ts) f | Pred className ts f <- ps]
 >                     ts'    = map ((s #) . inst newTys) ts

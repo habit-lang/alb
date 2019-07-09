@@ -276,7 +276,7 @@ type TopDecls typaram = [TopDecl typaram]
 data TopDecl typaram
              = Datatype Id                             -- type name
                         [typaram]                      -- params
-                        [(Id, [KId], [Pred Type], [Type])] -- ctors
+                        [(Id, [KId], [KId], [Pred Type], [Type])] -- ctors
 
              | Bitdatatype Id                          -- type name
                            BDD.Pat                     -- BDD for full type

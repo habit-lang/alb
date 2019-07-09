@@ -107,7 +107,7 @@ checkTopDecl (Datatype (Kinded name k) params ps ctors _) =
        return ( X.Datatype name params' xctors
               , Map.fromList ctorEnv )
     where convertCtor (Ctor (At _ name) univs exis qs ts) =
-            return (name, univs, map (convert . dislocate) qs, map (convert . dislocate) ts)
+            return (name, univs, exis, map (convert . dislocate) qs, map (convert . dislocate) ts)
 
           augmentCtor ctr@(Ctor (At _ ctorName) univs exis qs ts) =
             do
