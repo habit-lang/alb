@@ -12,16 +12,16 @@ BINDIR = $(HOME)/.local/bin
 all: alb ilab tests-alb tests-ilab
 
 alb:
-	cabal new-build --user alb
+	cabal build --user alb
 
 ilab:
-	cabal new-build --user ilab
+	cabal build --user ilab
 
 install-alb: alb tests-alb
-	cabal new-install --user alb --symlink-bindir=$(BINDIR)
+	cabal install --user alb --symlink-bindir=$(BINDIR)
 
 install-ilab: ilab tests-ilab
-	cabal new-install --user ilab --symlink-bindir=$(BINDIR)
+	cabal install --user ilab --symlink-bindir=$(BINDIR)
 
 clean:
 	rm -fr $(OBJDIR) .cabal-sandbox dist-newstyle dist $(BINDIR)/alb $(BINDIR)/ilab alb ilab

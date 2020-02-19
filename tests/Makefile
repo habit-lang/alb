@@ -97,7 +97,7 @@ MILC=milc
 
 CLANG_EXE=/usr/bin/clang
 
-ALB_EXE=cabal new-run alb
+ALB_EXE=cabal run alb
 
 MIL_OPTS=--milc=$(MIL_DIR)/$(MILC) --include-mil $(MIL_DIR)/lib/basic.mil --llvm-main main
 
