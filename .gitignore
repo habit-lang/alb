@@ -1,9 +1,18 @@
-.*
-alb
+# Log files
+*.log
+*.err
+
+# Haskell specific directories
+dist/*
+dist-newstyle/*
 *.hi
 *.o
-*.bat
+
+# Build artifacts/executables
 obj/*
 *.exe
 *.out
-*.err
+*.bat
+
+# Misc dot files
+.*
