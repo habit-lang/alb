@@ -1,6 +1,3 @@
--- | Taken from indentation library by Michael D. Adams.
---   The library is not maintined anymore, so its easier to have a copy here.
-
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, FlexibleContexts, UndecidableInstances, TupleSections #-}
 {-# OPTIONS -Wall  #-}
 module Text.Parsec.Indentation (module Text.Parsec.Indentation, I.IndentationRel(..), Indentation, infIndentation) where

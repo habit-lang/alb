@@ -38,6 +38,8 @@ Build-type:          Simple
 -- a README.
 -- Extra-source-files:
 
+tested-with:         GHC == 8.8.4, GHC == 8.10.4, GHC == 9.0.1
+   
 -- Constraint on the version of Cabal needed to build this package.
 Cabal-version:       2.0
 
@@ -59,12 +61,12 @@ executable alb
                   , process >= 1.0
                   , syb >= 0.1
                   , transformers >= 0.2
---                  , indentation-core >= 0.0
---                  , indentation-parsec >= 0.0
+                  , indentation-core >= 0.0.0.3
+                  , indentation-parsec >= 0.0.0.3
 
   default-extensions:       DoAndIfThenElse
                          , OverloadedStrings
---  Build-tools:
+
   Hs-Source-Dirs: src
 
   other-modules:   Analyzer
@@ -75,7 +77,6 @@ executable alb
                  , Analyzer.LabeledFields
                  , Analyzer.Tuples
                  , Common
-                 , Fidget.Env
                  , LC
                  , Literate
                  , MILTools
@@ -120,11 +121,6 @@ executable alb
                  , Typechecker.TypeInference.Instances
                  , Typechecker.TypeInference.TopDecl
                  , Utils.BDD
-
-                 , Text.Parser.Indentation.Implementation
-                 , Text.Parsec.Indentation
-                 , Text.Parsec.Indentation.Char
-                 , Text.Parsec.Indentation.Token
                  
   default-language: Haskell2010
 
@@ -144,8 +140,8 @@ executable ilab
                   , process >= 1.0
                   , syb >= 0.1
                   , transformers >= 0.2
---                  , indentation-core >= 0.0
---                  , indentation-parsec >= 0.0
+                  , indentation-core >= 0.0.0.3
+                  , indentation-parsec >= 0.0.0.3
 
   Hs-Source-Dirs: src
 
@@ -153,10 +149,7 @@ executable ilab
                           , OverloadedStrings
 
 
-  other-modules:    Analyzer.LabeledFields
-                  , Common
-                  , LC
-                  , Solver.Cycles
+  other-modules:    Solver.Cycles
                   , Solver.Main
                   , Solver.Oracles
                   , Solver.Parser
@@ -169,14 +162,9 @@ executable ilab
                   , Solver.Validation
                   , Printer.Common
                   , Printer.WadlerLeijen
-                  , Printer.XMPEG
                   , Syntax.Common
                   , Syntax.IMPEG
                   , Syntax.IMPEG.KSubst
-                  , Syntax.MangleIds
                   , Syntax.Surface
-                  , Syntax.Specialized
-                  , Syntax.XMPEG
-                  , Utils.BDD
 
   default-language: Haskell2010
