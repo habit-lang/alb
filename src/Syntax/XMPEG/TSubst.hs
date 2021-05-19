@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, TypeSynonymInstances #-}
 module Syntax.XMPEG.TSubst where
 
-import Data.List
+import Data.List hiding (singleton)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes)

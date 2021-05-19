@@ -16,3 +16,6 @@ obj/*
 
 # Misc dot files
 .*
+
+# Cabal files
+cabal.project.local
