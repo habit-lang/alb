@@ -39,7 +39,7 @@ Build-type:          Simple
 -- Extra-source-files:
 
 -- Constraint on the version of Cabal needed to build this package.
-Cabal-version:       >= 2.0
+Cabal-version:       2.0
 
 
 executable alb
@@ -59,12 +59,12 @@ executable alb
                   , process >= 1.0
                   , syb >= 0.1
                   , transformers >= 0.2
-                  , indentation-core >= 0.0
-                  , indentation-parsec >= 0.0
+--                  , indentation-core >= 0.0
+--                  , indentation-parsec >= 0.0
 
   default-extensions:       DoAndIfThenElse
                          , OverloadedStrings
-  Build-tools:
+--  Build-tools:
   Hs-Source-Dirs: src
 
   other-modules:   Analyzer
@@ -121,6 +121,11 @@ executable alb
                  , Typechecker.TypeInference.TopDecl
                  , Utils.BDD
 
+                 , Text.Parser.Indentation.Implementation
+                 , Text.Parsec.Indentation
+                 , Text.Parsec.Indentation.Char
+                 , Text.Parsec.Indentation.Token
+                 
   default-language: Haskell2010
 
 executable ilab
@@ -139,8 +144,8 @@ executable ilab
                   , process >= 1.0
                   , syb >= 0.1
                   , transformers >= 0.2
-                  , indentation-core >= 0.0
-                  , indentation-parsec >= 0.0
+--                  , indentation-core >= 0.0
+--                  , indentation-parsec >= 0.0
 
   Hs-Source-Dirs: src
 
