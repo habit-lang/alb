@@ -309,7 +309,12 @@ INSTANCE_TYPEABLE_P2(Program,"Program")
 
 #endif
 
-instance (Typeable p, Data (p (Located (Type tyid))), Data tyid, Data typaram) =>
+instance (Typeable p, Data (p (Located (Type tyid))), Data tyid, Data typaram
+#if __GLASGOW_HASKELL__ >= 900
+         , Data (Scheme p tyid), Data (Signature p tyid), Data (Match p tyid)
+         , Data (Decls p tyid), Data (Primitive p tyid)
+#endif         
+         ) =>
          Data (TopDecl p tyid typaram) where
   gfoldl k z (Datatype x1 x2 x3 x4 x5) = z Datatype `k` x1 `k` x2 `k` x3 `k` x4 `k` x5
   gfoldl k z (Bitdatatype x1 x2 x3 x4) = z Bitdatatype `k` x1 `k` x2 `k` x3 `k` x4
@@ -322,7 +327,12 @@ instance (Typeable p, Data (p (Located (Type tyid))), Data tyid, Data typaram) =
   toConstr = undefined
   dataTypeOf = undefined
 
-instance (Typeable p, Data (p (Located (Type tyid))), Data tyid, Data typaram) =>
+instance (Typeable p, Data (p (Located (Type tyid))), Data tyid, Data typaram
+#if __GLASGOW_HASKELL__ >= 900
+         , Data (Scheme p tyid), Data (Primitive p tyid), Data (Signature p tyid)
+         , Data (Match p tyid), Data (Decls p tyid)
+#endif
+         ) =>
          Data (Program p tyid typaram) where
   gfoldl k z (Program x1 x2 x3) = z Program `k` x1 `k` x2 `k` x3
   gunfold k z _ = undefined

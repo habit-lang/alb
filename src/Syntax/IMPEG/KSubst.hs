@@ -2,7 +2,7 @@
 module Syntax.IMPEG.KSubst where
 
 import Control.Monad.State
-import Data.List
+import Data.List hiding (singleton)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
