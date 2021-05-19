@@ -1,6 +1,3 @@
--- | Taken from indentation library by Michael D. Adams.
---   The library is not maintined anymore, so its easier to have a copy here.
-
 {-# LANGUAGE FlexibleContexts, NoMonomorphismRestriction #-}
 {-# OPTIONS -Wall -fno-warn-unused-do-bind -fno-warn-name-shadowing #-}
 module Text.Parsec.Indentation.Token where

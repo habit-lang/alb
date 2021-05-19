@@ -3,8 +3,8 @@
 *.err
 
 # Haskell specific directories
-dist/*
-dist-newstyle/*
+dist/
+dist-newstyle/
 *.hi
 *.o
 
@@ -19,3 +19,8 @@ obj/*
 
 # Cabal files
 cabal.project.local
+cabal.project.local\~*
+./**/cabal.project.local
+
+# backup files
+./**/*.*\~
