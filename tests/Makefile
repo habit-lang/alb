@@ -97,7 +97,8 @@ MILC=milc
 
 CLANG_EXE=/usr/bin/clang
 
-ALB_EXE=cabal run alb
+# Workaround for cabal run not defaulting to exe component (see: https://github.com/haskell/cabal/issues/7403)
+ALB_EXE=cabal run alb:exe:alb
 
 MIL_OPTS=--milc=$(MIL_DIR)/$(MILC) --include-mil $(MIL_DIR)/lib/basic.mil --llvm-main main
 
