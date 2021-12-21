@@ -1,7 +1,7 @@
 requires prelude
 requires list
 
-id x = x
+-- id x = x
 compose f g x = f (g x)
 
 data (f :+: g) (e :: *) = Inl (f e) | Inr (g e)
@@ -35,8 +35,8 @@ else f :<: (g :+: h) if f :<: g, In f h fails
    where inj = compose Inl inj
 else f :<: (g :+: h) if f :<: h, In f g fails
    where inj = compose Inr inj
---else (f :+: g) :<: h if f :<: h, g :<: h
---   where inj = inj <?> inj
+else (f :+: g) :<: h if f :<: h, g :<: h
+   where inj = inj <?> inj
 else f :<: g fails
 
 --------------------------------------------------------------------------------
@@ -64,9 +64,8 @@ casesDown cs (In e) = In (fmap (casesDown cs) (cs e))
 --------------------------------------------------------------------------------
 -- Replacing cases is easy.
 
-(<<?) :: (f :-: g = h, h :<: f) => (g e -> r) -> (f e -> r) -> f e -> r
+(<<?) :: (f :-: g = h, h :<: f, h @ e) => (g e -> r) -> (f e -> r) -> f e -> r
 m <<? n = m ? (n `compose` inj)
-
 
 --------------------------------------------------------------------------------
 -- Example 1: tuples
@@ -109,6 +108,15 @@ data Const (e :: *) = Const Unsigned
 data Sum e = Sum e e
 data Product e = Product e e
 
+instance Functor Const
+    where fmap f (Const u) = Const u
+
+instance Functor Sum
+    where fmap f (Sum x y) = Sum (f x) (f y)
+
+instance Functor Product
+    where fmap f (Product x y) = Product (f x) (f y)
+
 type ExprOne = Fix (Const :+: Sum)
 type ExprTwo = Fix ((Const :+: Sum) :+: Product)
 type ExprThree = Fix (Const :+: (Sum :+: Product))
@@ -139,3 +147,15 @@ z       = evalTwo three
 
 main :: M (Unsigned, Unsigned, Unsigned)
 main = return (x, y, z)
+
+--------------------------------------------------------------------------------
+-- Example 3: expressions, more polymorphically
+
+injd (In e) = In (inj (fmap injd e))
+sum__ x y = In (inj (Sum (injd x) (injd y)))
+product__ x y = In (inj (Product (injd x) (injd y)))
+
+four :: ExprThree
+four = product__ two three
+
+w = evalTwo four
