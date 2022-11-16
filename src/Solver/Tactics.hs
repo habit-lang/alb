@@ -701,16 +701,15 @@ instance Functor Tactic
                                       (Exit r, st')     -> (Exit r, st'))
 
 instance Applicative Tactic
-    where pure = return
-          (<*>) = liftM2 ($)
+    where pure r = Tactic (\st -> (Progress r, st))
+          (<*>)  = liftM2 ($)
 
 instance Control.Applicative.Alternative Tactic
     where empty = mzero
           (<|>) = mplus
 
 instance Monad Tactic
-    where return r = Tactic (\st -> (Progress r, st))
-
+    where 
           t >>= f  = Tactic (\st -> case runTactic t st of
                                       (Progress r, st') -> runTactic (f r) st'
                                       (NoProgress, _)   -> (NoProgress, st)

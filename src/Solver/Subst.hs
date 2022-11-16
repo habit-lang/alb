@@ -46,12 +46,11 @@ class SubstitutionResult m => Substitution s m | s -> m
 newtype Identity t = Identity t deriving (Eq, Show, Functor)
 
 instance Applicative Identity
-    where pure = return
+    where pure = Identity
           (<*>) = liftM2 ($)
 
 instance Monad Identity
-    where return           = Identity
-          Identity x >>= f = f x
+    where Identity x >>= f = f x
 
 instance SubstitutionResult Identity
     where plain (Identity x) = x
@@ -85,12 +84,11 @@ instance Functor WithInts
     where fmap f (W x is) = W (f x) is
 
 instance Applicative WithInts
-    where pure = return
-          (<*>) = liftM2 ($)
+    where pure x = W x Set.empty
+          (<*>)  = liftM2 ($)
 
 instance Monad WithInts
-    where return x     = W x Set.empty
-          W x is >>= f = let W y is' = f x
+    where W x is >>= f = let W y is' = f x
                          in W y (Set.union is is')
 
 instance SubstitutionResult WithInts

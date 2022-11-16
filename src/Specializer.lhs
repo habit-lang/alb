@@ -213,11 +213,10 @@ The monad structure for M is as follows:
 >                                             return (rqts1, f x))
 
 > instance Applicative M
->     where pure = return
->           (<*>) = liftM2 ($)
+>     where pure x = M (\_ _ _ _ cs -> return (cs, x))
+>           (<*>)  = liftM2 ($)
 
 > instance Monad M where
->  return x = M (\_ _ _ _ cs -> return (cs, x))
 >  c >>= f  = M (\env senv tys dcs rqts -> do (rqts1, x) <- runM c env senv tys dcs rqts
 >                                             runM (f x) env senv tys dcs rqts1)
 >  -- TODO: does a stricter version of bind make any difference in practice?
