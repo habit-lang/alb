@@ -4,6 +4,7 @@ module Typechecker.TypeInference.Instances(deriveInstances) where
 
 import Common
 import Control.Monad.State
+import Control.Monad ((>=>), when)
 import Data.Graph
 import Data.List (intercalate, mapAccumL, partition)
 import Data.Maybe (isJust)

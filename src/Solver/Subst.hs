@@ -1,7 +1,9 @@
 {-# LANGUAGE DeriveFunctor, FlexibleInstances, FunctionalDependencies, GeneralizedNewtypeDeriving, TupleSections #-}
+
 module Solver.Subst where
 
 import Control.Monad.State
+import Control.Monad.Identity
 import qualified Data.IntSet as Set
 import Data.List
 import Data.Map (Map)
@@ -13,6 +15,7 @@ import Solver.PP
 import Solver.Syntax
 import Solver.Trace
 
+import GHC.Base (liftM2, liftM)
 ----------------------------------------------------------------------------------------------------
 -- Substitution types
 --
@@ -42,16 +45,6 @@ class SubstitutionResult m => Substitution s m | s -> m
 
 -- Untagged substitutions generate no additional information during substitution application, so we
 -- use the identity monad.
-
-newtype Identity t = Identity t deriving (Eq, Show, Functor)
-
-instance Applicative Identity
-    where pure = Identity
-          (<*>) = liftM2 ($)
-
-instance Monad Identity
-    where Identity x >>= f = f x
-
 instance SubstitutionResult Identity
     where plain (Identity x) = x
 

@@ -4,6 +4,7 @@ module Typechecker.KindInference (inferKinds, emptyKindInferenceState, KindEnv) 
 
 import Common
 import Control.Monad.State
+import Control.Monad (liftM2, liftM3, liftM, replicateM, zipWithM, zipWithM_, when)
 import Data.Graph (SCC, flattenSCC, stronglyConnComp)
 import Data.List ((\\), intercalate, nub)
 import Data.Map (Map)

@@ -22,6 +22,7 @@ import Data.Generics hiding (Fixity)
 import Data.List
 import Unsafe.Coerce (unsafeCoerce)
 import qualified Data.Map as Map
+import GHC.Base (ap)
 
 import Common
 import Printer.Common ((<+>), text)

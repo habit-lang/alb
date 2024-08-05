@@ -2,6 +2,7 @@
 module Parser.Lexer where
 
 import Control.Monad.Identity
+import Control.Monad
 import Data.Char
 import Data.List
 import Syntax.Common (Id, fromString)

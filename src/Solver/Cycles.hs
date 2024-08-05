@@ -7,6 +7,8 @@ import Solver.PP
 import Solver.Syntax
 import Solver.Trace
 
+import GHC.Base (liftM2)
+
 newtype M t = M { runM :: State [(Id, [Id])] t }
     deriving (Functor, Applicative, Monad, MonadState [(Id, [Id])])
 

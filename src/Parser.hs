@@ -2,6 +2,7 @@ module Parser (module Parser.Main, ParseM, chase, findFile) where
 
 import Common
 import Control.Monad.State
+import Control.Monad (when)
 import Data.List (intercalate, isSuffixOf)
 import Literate
 import Parser.Main

@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, OverloadedStrings, PatternGuards #-}
+
 module Solver.Tactics where
 
 import qualified Control.Applicative
@@ -709,7 +710,7 @@ instance Control.Applicative.Alternative Tactic
           (<|>) = mplus
 
 instance Monad Tactic
-    where 
+    where
           t >>= f  = Tactic (\st -> case runTactic t st of
                                       (Progress r, st') -> runTactic (f r) st'
                                       (NoProgress, _)   -> (NoProgress, st)

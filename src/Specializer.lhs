@@ -18,6 +18,7 @@ combination of ts and es that is required in a particular program.
 
 > import Common
 > import Control.Monad.State
+> import Control.Monad (liftM2, replicateM, when)
 > import Data.List(intersperse, intercalate, nub, partition)
 > import Data.Map (Map)
 > import qualified Data.Map as Map

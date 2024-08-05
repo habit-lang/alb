@@ -3,10 +3,11 @@ module Common where
 
 import Prelude hiding ((<$>))
 
+import Control.Monad (replicateM)
 import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.State
-import Control.Monad.Writer (WriterT(..), Writer(..), tell, censor, runWriterT, runWriter, Monoid(..))
+import Control.Monad.Writer (WriterT(..), Writer(..), tell, censor, runWriterT, runWriter)
 import Data.Maybe (fromMaybe)
 import Printer.Common
 import Syntax.Common
@@ -46,12 +47,12 @@ instance Functor SnocList
           fmap f (Snoc ts t) = Snoc (fmap f ts) (f t)
 
 instance Semigroup (SnocList t)
-    where (<>) = mappend
-    
+    where ts <> Lin         = ts
+          ts <> (Snoc us u) = Snoc (ts <> us) u
+
+
 instance Monoid (SnocList t)
     where mempty                 = Lin
-          mappend ts Lin         = ts
-          mappend ts (Snoc us u) = Snoc (mappend ts us) u
 
 toList            :: SnocList t -> [t]
 toList tsil = r tsil []

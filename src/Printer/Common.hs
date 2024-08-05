@@ -8,6 +8,7 @@ import Data.Char
 import Data.Map (Map)
 import qualified Data.Map as Map
 import GHC.Exts
+import GHC.Base (liftM2, liftM)
 import Printer.WadlerLeijen (SimpleDoc, displayS, displayIO)
 import qualified Printer.WadlerLeijen as WL
 import Syntax.Common

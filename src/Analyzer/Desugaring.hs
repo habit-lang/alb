@@ -10,6 +10,7 @@ module Analyzer.Desugaring (desugarProgram, DesugaringState) where
 
 import Control.Monad.Reader
 import Control.Monad.State
+import Control.Monad (when, liftM, liftM2, replicateM, foldM)
 import Data.Char (isUpper, isAlpha)
 import Data.Either (partitionEithers)
 import Data.Foldable (foldrM)

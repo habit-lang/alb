@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, PatternGuards, OverloadedStrings #-}
 module Solver.Main where
 
-import Control.Monad (liftM2, replicateM)
+import Control.Monad (liftM2, replicateM, guard, when, (>=>), msum)
 import Control.Monad.State
 import Data.Char (ord, chr)
 import Data.Either (partitionEithers)

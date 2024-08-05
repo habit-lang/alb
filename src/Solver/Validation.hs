@@ -2,6 +2,7 @@
 module Solver.Validation where
 
 import Control.Arrow (first)
+import Control.Monad (replicateM, liftM2, foldM)
 import Control.Monad.Except
 import Control.Monad.State
 import Control.Monad.Writer

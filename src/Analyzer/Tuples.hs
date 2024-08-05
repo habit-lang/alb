@@ -25,6 +25,7 @@ import Control.Monad.Writer
 import Control.Monad.State
 import Data.Generics
 import qualified Data.IntSet as Set
+import GHC.Base (ap)
 
 import Common
 import Syntax.Common
